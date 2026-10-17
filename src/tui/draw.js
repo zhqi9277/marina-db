@@ -8,15 +8,15 @@ export const C = {
   fg: (n, s) => `${E}38;5;${n}m${s}${E}0m`,
   bg: (n, s) => `${E}48;5;${n}m${s}${E}0m`,
   inv: (s) => `${E}7m${s}${E}0m`,
-  accent: (s) => `${E}38;5;45m${s}${E}0m`, // cyan
-  green: (s) => `${E}38;5;42m${s}${E}0m`,
-  yellow: (s) => `${E}38;5;220m${s}${E}0m`,
-  red: (s) => `${E}38;5;203m${s}${E}0m`,
-  magenta: (s) => `${E}38;5;213m${s}${E}0m`,
-  gray: (s) => `${E}38;5;244m${s}${E}0m`,
-  grayDark: (s) => `${E}38;5;238m${s}${E}0m`,
-  selBg: (s) => `${E}48;5;236m${s}${E}0m`,
-  border: (s) => `${E}38;5;240m${s}${E}0m`,
+  accent: (s) => `${E}38;5;173m${s}${E}0m`, // Claude orange (#d7875f)
+  green: (s) => `${E}38;5;108m${s}${E}0m`, // muted sage
+  yellow: (s) => `${E}38;5;179m${s}${E}0m`, // warm amber
+  red: (s) => `${E}38;5;167m${s}${E}0m`, // soft terracotta
+  magenta: (s) => `${E}38;5;175m${s}${E}0m`,
+  gray: (s) => `${E}38;5;245m${s}${E}0m`,
+  grayDark: (s) => `${E}38;5;240m${s}${E}0m`,
+  selBg: (s) => `${E}48;5;237m${s}${E}0m`,
+  border: (s) => `${E}38;5;239m${s}${E}0m`,
 };
 
 export function vlen(s) {

@@ -69,6 +69,9 @@ ENV
   MARINA_INDEX_TTL       version-index cache seconds (default 21600)
   MARINA_CATALOG_FILE    optional self-built artifact overlay (JSON)
   MARINA_CATALOG_URL     same, fetched over HTTP
+
+HOMEPAGE
+  https://gitee.com/zhqi9277/marina
 `;
 
 const VALUE_FLAGS = new Set(['port', 'file', 'version', 'lines', 'bin', 'major']);

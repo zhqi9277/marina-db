@@ -124,7 +124,7 @@ export class App {
       ? 'runtime/'
       : shortPath(HOME, Math.min(34, W - 34), HOME);
     const meta = `${this.engines.filter((e) => e.state !== 'absent').length} installed · ${homeLabel}`;
-    lines.push(titleBar(W, `${C.bold('marina')} ${C.gray(VERSION)}`, C.gray(meta)));
+    lines.push(titleBar(W, `${C.yellow('🍊')} ${C.bold('marina')} ${C.gray(VERSION)}`, C.gray(meta)));
 
     // column headers
     if (full) {
@@ -185,7 +185,7 @@ export class App {
               : '○';
       const plain = `${marker}${label}${ver} ${mark} ${port.padStart(5)}`;
       if (selected) {
-        left.push(C.bg(236, C.fg(255, fit(plain, leftW))));
+        left.push(C.selBg(C.fg(255, fit(plain, leftW))));
       } else if (!downloaded) {
         // not downloaded: dim name + hint + yellow down-arrow
         left.push(fit(`  ${C.gray(label)}${C.grayDark(ver)} ${C.yellow(mark)} ${C.gray(port.padStart(5))}`, leftW));
@@ -280,7 +280,7 @@ export class App {
       const text = ` ${selected ? '▸' : ' '} ${a.label}`;
       let cell;
       if (!a.enabled) cell = C.grayDark(text);
-      else if (selected) cell = C.bg(236, C.fg(255, fit(text, w - 2)));
+      else if (selected) cell = C.selBg(C.fg(255, fit(text, w - 2)));
       else cell = C.fg(250, text);
       lines.push(fit(cell, w));
     }
@@ -340,7 +340,7 @@ export class App {
       let cell;
       if (it.type === 'installed') {
         if (selected) {
-          cell = C.bg(236, C.fg(255, `${lead}◉ ${fit(it.version, 11)}${it.active ? ' active' : ''}`));
+          cell = C.selBg(C.fg(255, `${lead}◉ ${fit(it.version, 11)}${it.active ? ' active' : ''}`));
         } else {
           cell = lead + C.green('◉') + ' ' + C.fg(250, fit(it.version, 11)) + (it.active ? C.gray(' active') : '');
         }
@@ -348,7 +348,7 @@ export class App {
         const v = it.entry;
         const note = v.supported ? `${v.kind} · ${v.source}` : `n/a on ${OS_LABEL}`;
         if (selected) {
-          cell = C.bg(236, C.fg(255, `${lead}↓ ${fit(it.version, 11)} ${note}`));
+          cell = C.selBg(C.fg(255, `${lead}↓ ${fit(it.version, 11)} ${note}`));
         } else {
           cell = lead + C.yellow('↓') + ' ' + C.fg(250, fit(it.version, 11)) + ' ' + C.gray(note);
         }
@@ -474,6 +474,7 @@ export class App {
       ['y', 'print client command'],
       ['g', 'refresh now'],
       ['1…6', 'jump to database'],
+      ['gitee', 'gitee.com/zhqi9277/marina'],
       ['q', 'quit'],
     ];
     const lines = [];
@@ -518,7 +519,7 @@ export class App {
   }
 
   renderMessage() {
-    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    const frames = ['✻', '✶', '✳', '✢', '·'];
     if (this.busy) return `${C.accent(frames[this.spin])} ${C.fg(250, this.busy)}`;
     const m = this.message || {};
     const text = m.text || '';

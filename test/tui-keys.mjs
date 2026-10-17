@@ -90,11 +90,25 @@ test('sidebar distinguishes downloaded and not-downloaded databases', () => {
   const plain = screen.lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '')).join('\n');
   const redisLine = screen.lines.find((l) => l.includes('Redis'));
   const mariaLine = screen.lines.find((l) => l.includes('MariaDB'));
-  assert.match(redisLine, /\x1b\[38;5;45m/); // cyan = downloaded
-  assert.match(mariaLine, /\x1b\[38;5;220m/); // yellow arrow = not downloaded
+  assert.match(redisLine, /\x1b\[38;5;173m/); // orange = downloaded
+  assert.match(mariaLine, /\x1b\[38;5;179m/); // yellow arrow = not downloaded
   assert.match(plain, /MySQL\s+8\.4\.11/);
   assert.match(plain, /MariaDB\s+not inst\.\s+↓/);
   assert.doesNotMatch(plain, /MariaDB\s+not inst\.\s+↓\s+3307/); // no port for missing payload
+});
+
+test('title shows the orange logo and help shows the gitee address', () => {
+  const screen = fakeScreen(100, 30);
+  const app = new App(screen);
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
+  app.render();
+  let plain = screen.lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '')).join('\n');
+  assert.match(plain, /🍊 marina 0\.1\.0/);
+
+  app.mode = 'help';
+  app.render();
+  plain = screen.lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '')).join('\n');
+  assert.match(plain, /gitee\.com\/zhqi9277\/marina/);
 });
 
 test('detail pane shows account and password', () => {

@@ -1,6 +1,11 @@
 {
   "name": "marina-db",
   "version": "0.1.0",
+  "homepage": "https://gitee.com/zhqi9277/marina",
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitee.com/zhqi9277/marina.git"
+  },
   "description": "Marina \u2014 install, switch and run local database engines: one CLI, remote version index, isolated runtime",
   "type": "module",
   "bin": {

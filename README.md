@@ -1,4 +1,12 @@
-# Marina — 本地数据库的码头
+<p align="center">
+  <img src="assets/logo.png" alt="marina logo — 黄色橘子" width="112">
+</p>
+
+<h1 align="center">Marina — 本地数据库的码头</h1>
+
+<p align="center">
+  仓库：<a href="https://gitee.com/zhqi9277/marina">gitee.com/zhqi9277/marina</a>
+</p>
 
 > 每个数据库引擎占一个泊位：`up` 靠岸、`down` 离岸、`use` 换船（换版本）。
 > 码头有泊位号，数据库有端口号；船停在码头不等于永远不走 —— 和你本机的六个实例一样。
