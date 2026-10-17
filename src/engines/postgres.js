@@ -101,6 +101,31 @@ export default {
     const isready = findBin(ctx.root, ['pg_isready']);
     if (!isready) return null;
     const res = await spawnAsync(isready, ['-h', '127.0.0.1', '-p', String(ctx.port)]);
-    return res.code === 0;
+    if (res.code === 0) return true;
+    const out = `${res.stdout || ''}${res.stderr || ''}`;
+    // the probe tool itself is broken (e.g. moved install -> dyld error):
+    // report "unknown" so the lifecycle can fall back to a TCP probe instead
+    // of claiming the server is down
+    if (/dyld|Library not loaded|cannot execute|No such file/i.test(out)) return null;
+    return false;
+  },
+
+  cleanRuntime(ctx) {
+    const file = path.join(ctx.dataDir, 'postmaster.pid');
+    try {
+      const pid = parseInt(fs.readFileSync(file, 'utf8').split('\n')[0], 10);
+      let alive = false;
+      if (Number.isFinite(pid)) {
+        try {
+          process.kill(pid, 0);
+          alive = true;
+        } catch (e) {
+          alive = e.code === 'EPERM';
+        }
+      }
+      if (!alive) fs.rmSync(file, { force: true });
+    } catch {
+      /* no stale pid file */
+    }
   },
 };

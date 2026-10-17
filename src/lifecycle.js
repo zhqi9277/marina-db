@@ -70,6 +70,10 @@ function cleanRuntimeFiles(ctx) {
       } catch {}
     }
   }
+  // engine-specific stale runtime state (e.g. PostgreSQL's postmaster.pid)
+  try {
+    ctx.engine?.cleanRuntime?.(ctx);
+  } catch {}
 }
 
 export function tailLog(ctx, lines = 12) {
