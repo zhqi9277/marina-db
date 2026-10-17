@@ -206,11 +206,19 @@ export class App {
     }
 
     const ctx = e.ctx;
+    const acct = e.engine?.account?.(ctx);
     const rows = [
       ['state', badge(e.state)],
       ['port', C.fg(250, `127.0.0.1:${e.port}`)],
       ['pid', C.fg(250, e.pid ? String(e.pid) : '—')],
       ['active', e.row?.active ? C.accent('yes') : C.gray('no')],
+      ['account', acct?.user ? C.fg(250, acct.user) : C.gray('—')],
+      [
+        'password',
+        acct?.password
+          ? C.fg(250, String(acct.password))
+          : C.gray(acct?.mode === 'trust' ? '— (trust)' : '— (no auth)'),
+      ],
       ['versions', C.fg(250, e.installed.join(', '))],
       ['payload', C.gray(relTo(ctx.versionDir, pad - 10))],
       ['data', C.gray(relTo(ctx.dataDir, pad - 10))],

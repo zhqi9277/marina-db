@@ -78,6 +78,15 @@ processManagement:
     return null; // generic SIGTERM path: mongod shuts down cleanly on SIGTERM
   },
 
+  account() {
+    return {
+      user: null,
+      password: null,
+      mode: 'disabled',
+      note: 'no auth configured; binds 127.0.0.1',
+    };
+  },
+
   async probe(ctx) {
     const mongosh = findBin(ctx.root, ['mongosh']);
     if (!mongosh) return null;

@@ -161,7 +161,9 @@ async function collectRows() {
 // ---------------------------------------------------------------- commands --
 async function cmdLs(flags) {
   const rows = await collectRows();
-  if (flags.json) return jsonOut(rows.map(({ ctx, ...r }) => r));
+  if (flags.json) {
+    return jsonOut(rows.map(({ ctx, ...r }) => ({ ...r, auth: ctx.engine.account?.(ctx) || null })));
+  }
   if (!rows.length) {
     info('nothing installed yet');
     hint('try: marina remote mysql   then: marina install mysql@8.4');
@@ -369,13 +371,19 @@ async function cmdStatus(flags, args) {
     const activeVersion = state.getActive(engine.key);
     const activePick = versions.find((v) => v.version === activeVersion) || versions[versions.length - 1];
     const st = await versionStatus(engine, versions.find((v) => v.version === ctx.version), activePick);
-    if (flags.json) return jsonOut(st);
+    const acct = ctx.engine.account?.(ctx) || null;
+    if (flags.json) return jsonOut({ ...st, auth: acct });
     out(renderServices([{ ...st, label: engine.label }]));
     hint(`data ${ctx.dataDir}${ctx.confFile ? `   config ${ctx.confFile}` : ''}`);
+    if (acct) {
+      hint(`auth ${acct.user || '—'}${acct.password ? ` / ${acct.password}` : `   (${acct.mode})`}`);
+    }
     return;
   }
   const rows = await collectRows();
-  if (flags.json) return jsonOut(rows.map(({ ctx, ...r }) => r));
+  if (flags.json) {
+    return jsonOut(rows.map(({ ctx, ...r }) => ({ ...r, auth: ctx.engine.account?.(ctx) || null })));
+  }
   if (!rows.length) return info('nothing installed yet');
   out(renderServices(rows));
 }

@@ -69,6 +69,15 @@ export default {
     return null;
   },
 
+  account() {
+    return {
+      user: null,
+      password: null,
+      mode: 'disabled',
+      note: 'no auth; binds 127.0.0.1',
+    };
+  },
+
   async probe() {
     return null; // TCP is the only signal
   },

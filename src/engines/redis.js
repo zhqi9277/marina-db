@@ -76,6 +76,15 @@ appendonly no
     return { cmd: cli, args: ['-p', String(ctx.port), 'shutdown', 'save'] };
   },
 
+  account() {
+    return {
+      user: null,
+      password: null,
+      mode: 'disabled',
+      note: 'no requirepass; protected-mode, binds 127.0.0.1',
+    };
+  },
+
   async probe(ctx) {
     const cli = findBin(ctx.root, ['redis-cli']);
     if (!cli) return null;

@@ -165,6 +165,15 @@ no-auto-rehash
       if (res.code !== 0) throw new Error(`root password setup failed: ${res.stderr.trim()}`);
     },
 
+    account(ctx) {
+      return {
+        user: 'root',
+        password: ctx.password,
+        mode: 'password',
+        note: 'root@localhost, password set on first install',
+      };
+    },
+
     async probe(ctx) {
       // socket ping via client is the strongest signal, TCP is the fallback
       const admin = findBin(ctx.root, ['mysqladmin', 'mariadb-admin']);

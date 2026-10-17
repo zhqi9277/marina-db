@@ -88,6 +88,15 @@ export default {
     return { cmd: pgctl, args: ['-D', ctx.dataDir, '-m', 'fast', '-w', 'stop'] };
   },
 
+  account() {
+    return {
+      user: 'postgres',
+      password: null,
+      mode: 'trust',
+      note: 'initdb --auth-local=trust --auth-host=trust',
+    };
+  },
+
   async probe(ctx) {
     const isready = findBin(ctx.root, ['pg_isready']);
     if (!isready) return null;

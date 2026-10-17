@@ -249,7 +249,10 @@ export default {
 
 ## 十、注意
 
-- 默认只监听 `127.0.0.1`，root 密码默认 `root`，仅用于本机开发。
+- 默认只监听 `127.0.0.1`，仅用于本机开发。
+- 默认账号：MySQL / MariaDB `root` / `root`；PostgreSQL `postgres`（trust，无密码）；
+  MongoDB / Redis / Memcached 无认证。`marina status <db>` 与面板 DETAIL 会显示账号密码。
+  密码来源是 `state.json` 的 `settings.mysqlRootPassword`（首次安装时写入服务端）。
 - 不做开机自启；需要的话给 `~/Library/LaunchAgents/*.plist` 配
   `ProgramArguments = [node, <abs>/bin/marina.js, start, mysql@8.4]`（用户级，无需 root）。
 - 目录搬家后，生成的配置里仍是旧绝对路径：`marina reconfig --all` 重写配置和 `current` 软链；

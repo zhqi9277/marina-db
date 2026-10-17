@@ -18,7 +18,11 @@ function fakeEngine(key, label, state) {
     state,
     installed: ['8.4.11'],
     row: { version: '8.4.11', active: true },
-    engine: { key, primaryClient: 'mysql' },
+    engine: {
+      key,
+      primaryClient: 'mysql',
+      account: () => ({ user: 'root', password: 'root', mode: 'password' }),
+    },
     ctx: { versionDir: '/x', dataDir: '/y', confFile: '/z', logFile: '/l' },
   };
 }
@@ -62,6 +66,16 @@ test('enter on the dashboard skips disabled actions', async () => {
   assert.equal(app.actionSel, 2);
   await app.handle('esc:A');
   assert.equal(app.actionSel, 1);
+});
+
+test('detail pane shows account and password', () => {
+  const screen = fakeScreen(100, 30);
+  const app = new App(screen);
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
+  app.render();
+  const plain = screen.lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '')).join('\n');
+  assert.match(plain, /account\s+root/);
+  assert.match(plain, /password\s+root/);
 });
 
 test('d opens the doctor view and loads checks', async () => {
