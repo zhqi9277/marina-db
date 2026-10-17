@@ -6,7 +6,7 @@
     "type": "git",
     "url": "git+https://gitee.com/zhqi9277/marina.git"
   },
-  "description": "Marina \u2014 install, switch and run local database engines: one CLI, remote version index, isolated runtime",
+  "description": "Marina — install, switch and run local database engines: one CLI, remote version index, isolated runtime",
   "type": "module",
   "bin": {
     "marina": "bin/marina.js"
@@ -19,22 +19,29 @@
     "test": "node --test test/*.mjs"
   },
   "keywords": [
-    "database",
-    "mysql",
-    "mariadb",
-    "postgresql",
-    "mongodb",
-    "redis",
-    "memcached",
-    "version-manager",
     "cli",
+    "database",
+    "database-manager",
+    "devtools",
+    "local-dev",
+    "mariadb",
+    "memcached",
+    "mongodb",
+    "mysql",
+    "postgresql",
+    "redis",
     "tui",
-    "local-dev"
+    "version-manager"
   ],
   "license": "MIT",
   "files": [
     "bin",
     "src",
+    "assets",
     "README.md"
-  ]
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  }
 }

@@ -9,3 +9,6 @@ node_modules/
 
 # build artifacts
 dist/
+
+# npm publish cache
+.npm-cache/
