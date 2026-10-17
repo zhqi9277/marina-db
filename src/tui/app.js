@@ -8,7 +8,8 @@ import {
 } from './draw.js';
 import { collectEngines } from '../inventory.js';
 import { start, stop, restart } from '../lifecycle.js';
-import { install, use } from '../installer.js';
+import { install, use, renderConfig } from '../installer.js';
+import { syncCurrentSymlink } from '../registry.js';
 import { listVersions } from '../versions.js';
 import { runDoctor } from '../doctor.js';
 import { HOME, PROJECT_ROOT } from '../paths.js';
@@ -257,6 +258,7 @@ export class App {
       { id: 'startAll', label: 'Start all', enabled: this.installedRows().some((x) => x.state !== 'running' && x.state !== 'degraded') },
       { id: 'stopAll', label: 'Stop all', enabled: this.installedRows().some((x) => x.state === 'running' || x.state === 'degraded') },
       { id: 'doctor', label: 'Doctor', enabled: true },
+      { id: 'reconfig', label: 'Reconfig paths', enabled: installed },
       { id: 'logs', label: 'Show logs', enabled: installed },
       { id: 'versions', label: 'Versions / install', enabled: true },
       { id: 'config', label: 'Config path', enabled: installed },
@@ -695,6 +697,16 @@ export class App {
         return this.bulk('stop');
       case 'doctor':
         return this.openDoctor();
+      case 'reconfig': {
+        const r = renderConfig(e.ctx, { force: true });
+        syncCurrentSymlink(e.engine, e.major, e.version);
+        this.mode = 'detail';
+        this.message = {
+          kind: 'ok',
+          text: r.written ? `rewrote ${e.ctx.confFile}` : `no generated config for ${e.key}`,
+        };
+        return this.refresh();
+      }
       case 'logs':
         return this.openLogs();
       case 'versions':

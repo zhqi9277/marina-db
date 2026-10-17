@@ -256,6 +256,7 @@ export default {
   密码来源是 `state.json` 的 `settings.mysqlRootPassword`（首次安装时写入服务端）。
 - 不做开机自启；需要的话给 `~/Library/LaunchAgents/*.plist` 配
   `ProgramArguments = [node, <abs>/bin/marina.js, start, mysql@8.4]`（用户级，无需 root）。
-- 目录搬家后，生成的配置里仍是旧绝对路径：`marina reconfig --all` 重写配置和 `current` 软链；
+- 目录搬家后，生成的配置里仍是旧绝对路径：`marina reconfig --all` 重写配置和 `current` 软链。
+  启动时会先检查配置里的路径，发现指向别的 marina 根目录会**立即报错**并提示 reconfig，不再等 30 秒；
   源码编译出来的二进制把绝对 prefix 编进了 install_name（PostgreSQL 尤甚），搬家后需要重装。
 - 索引缓存位于 `runtime/cache/index/`，删除后下次 `marina remote` 会重新查询。

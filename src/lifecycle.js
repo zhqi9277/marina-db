@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { spawnAsync, findBin } from './archive.js';
 import { ensureDirs } from './paths.js';
+import { staleConfigReferences } from './configcheck.js';
 import { ok, warn, info, color } from './ui.js';
 import * as state from './state.js';
 
@@ -44,6 +45,12 @@ export async function healthy(ctx) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function bootReady(ctx) {
+  const pid = readPid(ctx);
+  if (!pid || !pidAlive(pid)) return false;
+  return tcpProbe(ctx.port);
+}
 
 async function waitFor(fn, timeoutMs, interval = 300) {
   const until = Date.now() + timeoutMs;
@@ -96,6 +103,17 @@ function serverCommand(ctx) {
 export async function start(ctx, { quiet = false } = {}) {
   ensureDirs();
   if (!ctx.root) throw new Error(`package payload for ${ctx.key}@${ctx.version} is missing (reinstall)`);
+
+  // fail fast instead of waiting 30s when the generated config still points at
+  // another marina root (the project directory was moved)
+  const stale = staleConfigReferences(ctx);
+  if (stale.length) {
+    throw new Error(
+      `${ctx.engine.key} config points to a different marina root — run: marina reconfig ${ctx.engine.key}@${ctx.major}\n` +
+        `  stale path: ${stale[0]}`,
+    );
+  }
+
   if (await healthy(ctx)) {
     if (!quiet) ok(`${ctx.engine.label} ${ctx.version} is already running on port ${ctx.port}`);
     return { already: true, pid: readPid(ctx) };
@@ -110,6 +128,7 @@ export async function start(ctx, { quiet = false } = {}) {
   cleanRuntimeFiles(ctx);
 
   const spec = serverCommand(ctx);
+  const startedAt = Date.now();
   if (!quiet) info(`starting ${ctx.engine.label} ${ctx.version} on port ${ctx.port}`);
   if (!spec.foreground) {
     // wrapper (e.g. pg_ctl -w) — it daemonizes; ignore stdio so the daemon does
@@ -124,7 +143,9 @@ export async function start(ctx, { quiet = false } = {}) {
     child.unref();
   }
 
-  const up = await waitFor(() => healthy(ctx), 30000);
+  // readiness = our own pid file is alive *and* the port accepts connections.
+  // Polling this is much cheaper than spawning a client probe every 300ms.
+  const up = await waitFor(() => bootReady(ctx), 30000, 200);
   if (!up) {
     const tail = tailLog(ctx);
     throw new Error(
@@ -133,8 +154,12 @@ export async function start(ctx, { quiet = false } = {}) {
     );
   }
   const newPid = readPid(ctx);
-  if (!quiet) ok(`${ctx.engine.label} ${ctx.version} up on port ${ctx.port}${newPid ? ` (pid ${newPid})` : ''}`);
-  return { started: true, pid: newPid };
+  if (!quiet) {
+    const secs = ((Date.now() - startedAt) / 1000).toFixed(1);
+    ok(`${ctx.engine.label} ${ctx.version} up on port ${ctx.port}${newPid ? ` (pid ${newPid})` : ''} in ${secs}s`);
+    if (!(await healthy(ctx))) warn(`${ctx.engine.label} accepts TCP but its probe still fails — check the client binary`);
+  }
+  return { started: true, pid: newPid, seconds: (Date.now() - startedAt) / 1000 };
 }
 
 export async function stop(ctx, { quiet = false } = {}) {

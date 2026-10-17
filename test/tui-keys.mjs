@@ -124,6 +124,7 @@ test('actions menu exposes start all / stop all / doctor', () => {
   assert.ok(ids.includes('startAll'));
   assert.ok(ids.includes('stopAll'));
   assert.ok(ids.includes('doctor'));
+  assert.ok(ids.includes('reconfig'));
   assert.equal(actions.find((a) => a.id === 'startAll').enabled, true); // redis is stopped
   assert.equal(actions.find((a) => a.id === 'stopAll').enabled, true); // mysql is running
 });
