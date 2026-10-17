@@ -168,14 +168,30 @@ export class App {
         continue;
       }
       const selected = i === this.sel;
-      const port = e.state === 'absent' ? '' : String(e.port);
+      const downloaded = e.state !== 'absent';
+      const port = downloaded ? String(e.port) : '';
       const marker = selected ? '▸ ' : '  ';
       const label = fit(e.label, 11);
-      const ver = fit(e.version || '—', 9);
-      const mark = e.state === 'running' ? '●' : e.state === 'degraded' ? '◐' : e.state === 'absent' ? '·' : '○';
-      const plain = `${marker}${label}${ver}${mark} ${port.padStart(5)}`;
-      if (selected) left.push(C.bg(236, C.fg(255, fit(plain, leftW))));
-      else left.push(fit(`  ${C.gray(label)}${C.fg(250, ver)}${dot(e.state)} ${C.gray(port.padStart(5))}`, leftW));
+      const ver = downloaded ? fit(e.version || '—', 9) : fit('not inst.', 9);
+      const mark = !downloaded
+        ? '↓'
+        : e.state === 'running'
+          ? '●'
+          : e.state === 'degraded'
+            ? '◐'
+            : e.state === 'inactive'
+              ? '◌'
+              : '○';
+      const plain = `${marker}${label}${ver} ${mark} ${port.padStart(5)}`;
+      if (selected) {
+        left.push(C.bg(236, C.fg(255, fit(plain, leftW))));
+      } else if (!downloaded) {
+        // not downloaded: dim name + hint + yellow down-arrow
+        left.push(fit(`  ${C.gray(label)}${C.grayDark(ver)} ${C.yellow(mark)} ${C.gray(port.padStart(5))}`, leftW));
+      } else {
+        // downloaded: accented name, normal version, coloured state dot
+        left.push(fit(`  ${C.accent(label)}${C.fg(250, ver)} ${dot(e.state)} ${C.gray(port.padStart(5))}`, leftW));
+      }
     }
 
     const right = this.mode === 'actions'
@@ -318,15 +334,24 @@ export class App {
     let i = start;
     for (const it of items.slice(start, start + viewH)) {
       const selected = i === this.versionSel;
-      let text;
+      const lead = ` ${selected ? '▸' : ' '} `;
+      let cell;
       if (it.type === 'installed') {
-        text = ` ${selected ? '▸' : ' '} ◉ ${fit(it.version, 11)}${it.active ? C.gray('active') : ''}`;
+        if (selected) {
+          cell = C.bg(236, C.fg(255, `${lead}◉ ${fit(it.version, 11)}${it.active ? ' active' : ''}`));
+        } else {
+          cell = lead + C.green('◉') + ' ' + C.fg(250, fit(it.version, 11)) + (it.active ? C.gray(' active') : '');
+        }
       } else {
         const v = it.entry;
         const note = v.supported ? `${v.kind} · ${v.source}` : `n/a on ${OS_LABEL}`;
-        text = ` ${selected ? '▸' : ' '} + ${fit(it.version, 11)}${C.gray(note)}`;
+        if (selected) {
+          cell = C.bg(236, C.fg(255, `${lead}↓ ${fit(it.version, 11)} ${note}`));
+        } else {
+          cell = lead + C.yellow('↓') + ' ' + C.fg(250, fit(it.version, 11)) + ' ' + C.gray(note);
+        }
       }
-      lines.push(fit(selected ? C.bg(236, C.fg(255, text)) : C.fg(250, text), w));
+      lines.push(fit(cell, w));
       i++;
     }
     while (lines.length < h - 1) lines.push(fit(' ', w));

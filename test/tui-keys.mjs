@@ -68,6 +68,35 @@ test('enter on the dashboard skips disabled actions', async () => {
   assert.equal(app.actionSel, 1);
 });
 
+test('sidebar distinguishes downloaded and not-downloaded databases', () => {
+  const screen = fakeScreen(100, 30);
+  const app = new App(screen);
+  const installed = fakeEngine('mysql', 'MySQL', 'running');
+  const absent = {
+    key: 'mariadb',
+    label: 'MariaDB',
+    version: null,
+    major: '11.4',
+    port: 3307,
+    state: 'absent',
+    installed: [],
+    row: null,
+    engine: { key: 'mariadb', primaryClient: 'mariadb' },
+    ctx: null,
+  };
+  const downloaded = fakeEngine('redis', 'Redis', 'stopped');
+  app.engines = [installed, downloaded, absent];
+  app.render();
+  const plain = screen.lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '')).join('\n');
+  const redisLine = screen.lines.find((l) => l.includes('Redis'));
+  const mariaLine = screen.lines.find((l) => l.includes('MariaDB'));
+  assert.match(redisLine, /\x1b\[38;5;45m/); // cyan = downloaded
+  assert.match(mariaLine, /\x1b\[38;5;220m/); // yellow arrow = not downloaded
+  assert.match(plain, /MySQL\s+8\.4\.11/);
+  assert.match(plain, /MariaDB\s+not inst\.\s+↓/);
+  assert.doesNotMatch(plain, /MariaDB\s+not inst\.\s+↓\s+3307/); // no port for missing payload
+});
+
 test('detail pane shows account and password', () => {
   const screen = fakeScreen(100, 30);
   const app = new App(screen);
@@ -118,7 +147,8 @@ test('doctor view renders every check with the right width', () => {
 });
 
 test('arrow keys move the version list selection', async () => {
-  const app = new App(fakeScreen());
+  const screen = fakeScreen();
+  const app = new App(screen);
   app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
   app.mode = 'versions';
   app.versionSel = 0;
@@ -128,6 +158,9 @@ test('arrow keys move the version list selection', async () => {
     versions: [{ version: '8.0.29', kind: 'binary', source: 'huawei', supported: true, urls: ['u'] }],
   };
   app.render(); // populates versionItems
+  const raw = screen.lines.join('\n');
+  assert.match(raw, /◉/); // installed version
+  assert.match(raw, /↓/); // downloadable version
 
   await app.handle('esc:B');
   assert.equal(app.versionSel, 1);
