@@ -417,12 +417,12 @@ export class App {
       this.render();
       return;
     }
-    if (key === 'esc: A' || key === 'k') {
+    if (key === 'esc:A' || key === 'k') {
       this.sel = (this.sel + this.engines.length - 1) % Math.max(1, this.engines.length);
       this.render();
       return;
     }
-    if (key === 'esc: B' || key === 'j') {
+    if (key === 'esc:B' || key === 'j') {
       this.sel = (this.sel + 1) % Math.max(1, this.engines.length);
       this.render();
       return;
@@ -433,9 +433,12 @@ export class App {
       this.render();
       return;
     }
-    if (key === 'enter' || key === 'esc: C') {
+    if (key === 'enter' || key === 'esc:C') {
+      const e = this.current();
+      const actions = e ? this.actionsFor(e) : [];
+      const firstEnabled = actions.findIndex((a) => a.enabled);
       this.mode = 'actions';
-      this.actionSel = 0;
+      this.actionSel = Math.max(0, firstEnabled);
       this.render();
       return;
     }
@@ -506,8 +509,8 @@ export class App {
       this.mode = 'detail';
       return this.render();
     }
-    if (key === 'esc: A' || key === 'k') this.logScroll = Math.min(this.logs.length, this.logScroll + 1);
-    else if (key === 'esc: B' || key === 'j') this.logScroll = Math.max(0, this.logScroll - 1);
+    if (key === 'esc:A' || key === 'k') this.logScroll = Math.min(this.logs.length, this.logScroll + 1);
+    else if (key === 'esc:B' || key === 'j') this.logScroll = Math.max(0, this.logScroll - 1);
     else if (key === 'esc:~:5') this.logScroll = Math.min(this.logs.length, this.logScroll + 10);
     else if (key === 'esc:~:6') this.logScroll = Math.max(0, this.logScroll - 10);
     else if (key === 'r') this.loadLogs();
@@ -522,11 +525,11 @@ export class App {
     const e = this.current();
     if (!e) return;
     const actions = this.actionsFor(e);
-    if (key === 'esc: A' || key === 'k') {
+    if (key === 'esc:A' || key === 'k') {
       this.actionSel = (this.actionSel + actions.length - 1) % actions.length;
       return this.render();
     }
-    if (key === 'esc: B' || key === 'j') {
+    if (key === 'esc:B' || key === 'j') {
       this.actionSel = (this.actionSel + 1) % actions.length;
       return this.render();
     }
@@ -570,11 +573,11 @@ export class App {
       return this.render();
     }
     const items = this.versionItems || [];
-    if (key === 'esc: A' || key === 'k') {
+    if (key === 'esc:A' || key === 'k') {
       this.versionSel = (this.versionSel + Math.max(1, items.length) - 1) % Math.max(1, items.length);
       return this.render();
     }
-    if (key === 'esc: B' || key === 'j') {
+    if (key === 'esc:B' || key === 'j') {
       this.versionSel = (this.versionSel + 1) % Math.max(1, items.length);
       return this.render();
     }
