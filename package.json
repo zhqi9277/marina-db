@@ -1,0 +1,35 @@
+{
+  "name": "marina-db",
+  "version": "0.1.0",
+  "description": "Marina \u2014 install, switch and run local database engines: one CLI, remote version index, isolated runtime",
+  "type": "module",
+  "bin": {
+    "marina": "bin/marina.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "marina": "node bin/marina.js",
+    "test": "node --test test/*.mjs"
+  },
+  "keywords": [
+    "database",
+    "mysql",
+    "mariadb",
+    "postgresql",
+    "mongodb",
+    "redis",
+    "memcached",
+    "version-manager",
+    "cli",
+    "tui",
+    "local-dev"
+  ],
+  "license": "MIT",
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ]
+}

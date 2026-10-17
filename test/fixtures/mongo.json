@@ -1,0 +1,11 @@
+{"versions":[
+ {"version":"7.0.45","production_release":true,"downloads":[
+  {"target":"macos","arch":"arm64","edition":"base","archive":{"url":"https://fastdl.test/osx/mongodb-macos-arm64-7.0.45.tgz","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},
+  {"target":"macos","arch":"arm64","edition":"enterprise","archive":{"url":"https://fastdl.test/osx/mongodb-macos-arm64-enterprise-7.0.45.tgz","sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}},
+  {"target":"ubuntu2204","arch":"aarch64","edition":"base","archive":{"url":"https://fastdl.test/linux/mongodb-linux-aarch64-ubuntu2204-7.0.45.tgz","sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}},
+  {"target":"windows","arch":"x86_64","edition":"base","archive":{"url":"https://fastdl.test/windows/mongodb-windows-x86_64-7.0.45.zip","sha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}}
+ ]},
+ {"version":"9.0.0-rc0","production_release":false,"release_candidate":true,"downloads":[
+  {"target":"macos","arch":"arm64","edition":"base","archive":{"url":"https://fastdl.test/osx/rc.tgz","sha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}}
+ ]}
+]}

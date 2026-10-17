@@ -1,0 +1,11 @@
+# installed engines, datadirs, caches — all machine-local state
+runtime/
+
+# deps
+node_modules/
+
+# os noise
+.DS_Store
+
+# build artifacts
+dist/

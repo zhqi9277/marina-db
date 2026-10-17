@@ -1,0 +1,82 @@
+name: build-engines
+
+# Builds prebuilt marina artifacts for the engines that upstream does not ship for
+# a given OS, then publishes them + manifest.json as a release.
+#
+#   engines-<tag>  →  release "engines"  with
+#     redis-7.4.11-darwin-arm64.tar.gz
+#     redis-7.4.11-linux-x86_64.tar.gz
+#     …
+#     manifest.json
+#
+# Consumers: MARINA_CATALOG_URL=<release>/manifest.json marina install redis@7
+on:
+  workflow_dispatch:
+  push:
+    tags: ['engines-*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14,      engine: redis,     version: 7.4.11 }
+          - { os: ubuntu-22.04,  engine: redis,     version: 7.4.11 }
+          - { os: macos-14,      engine: memcached, version: 1.6.45 }
+          - { os: ubuntu-22.04,  engine: memcached, version: 1.6.45 }
+          - { os: macos-14,      engine: postgres,  version: 17.11 }
+          - { os: ubuntu-22.04,  engine: postgres,  version: 17.11 }
+          - { os: ubuntu-22.04,  engine: mariadb,   version: 11.4.13 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: deps (linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libssl-dev libevent-dev zlib1g-dev
+
+      - name: deps (macos)
+        if: runner.os == 'macOS'
+        run: brew install libevent cmake
+
+      - name: build
+        shell: bash
+        run: bash scripts/build-engine.sh ${{ matrix.engine }} ${{ matrix.version }} dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.engine }}-${{ matrix.version }}-${{ runner.os }}-${{ runner.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: manifest
+        env:
+          MARINA_RELEASE_BASE: https://github.com/${{ github.repository }}/releases/download/engines
+        run: node scripts/make-manifest.mjs dist > dist/manifest.json
+
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view engines >/dev/null 2>&1 || gh release create engines --title "prebuilt engines" --notes "marina artifacts"
+          gh release upload engines dist/* --clobber
