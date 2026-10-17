@@ -154,6 +154,18 @@ test('actions menu exposes port / user / password', () => {
   for (const id of ['port', 'user', 'password']) assert.ok(ids.includes(id));
 });
 
+test('spinner never renders undefined', () => {
+  const screen = fakeScreen(100, 30);
+  const app = new App(screen);
+  app.busy = 'stopping mysql 8.4.11…';
+  for (let i = 0; i < 12; i++) {
+    app.spin = i;
+    app.render();
+    const plain = screen.lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '')).join('\n');
+    assert.doesNotMatch(plain, /undefined/);
+  }
+});
+
 test('detail pane shows account and password', () => {
   const screen = fakeScreen(100, 30);
   const app = new App(screen);

@@ -18,6 +18,7 @@ import { OS_LABEL } from '../platform.js';
 import { setQuiet } from '../ui.js';
 
 const VERSION = '0.1.0';
+const SPIN_FRAMES = ['✻', '✶', '✳', '✢', '·'];
 
 function titleBar(W, left, right) {
   const inner = W - 2;
@@ -91,7 +92,7 @@ export class App {
   startSpin() {
     this.stopSpin();
     this.spinTimer = setInterval(() => {
-      this.spin = (this.spin + 1) % 10;
+      this.spin = (this.spin + 1) % SPIN_FRAMES.length;
       this.render();
     }, 90);
   }
@@ -600,8 +601,7 @@ export class App {
   }
 
   renderMessage() {
-    const frames = ['✻', '✶', '✳', '✢', '·'];
-    if (this.busy) return `${C.accent(frames[this.spin])} ${C.fg(250, this.busy)}`;
+    if (this.busy) return `${C.accent(SPIN_FRAMES[this.spin % SPIN_FRAMES.length])} ${C.fg(250, this.busy)}`;
     const m = this.message || {};
     const text = m.text || '';
     if (m.kind === 'ok') return `${C.green('✓')} ${C.fg(250, text)}`;

@@ -172,17 +172,27 @@ export async function stop(ctx, { quiet = false } = {}) {
   }
 
   if (!quiet) info(`stopping ${ctx.engine.label} ${ctx.version}`);
-  let spec = null;
-  try {
-    spec = ctx.engine.stopCommand?.(ctx) || null;
-  } catch {
-    spec = null;
-  }
-  if (spec) {
-    await spawnAsync(spec.cmd, spec.args, { cwd: ctx.root });
+
+  // after a directory move the generated config points at the old root: talking
+  // to that socket/port is pointless, go straight to the pid
+  const stale = staleConfigReferences(ctx);
+  if (stale.length && !quiet) {
+    warn(`${ctx.engine.key} config points to ${stale[0]} — run: marina reconfig ${ctx.engine.key}@${ctx.major}`);
   }
 
-  let stopped = await waitFor(async () => !(await healthy(ctx)), 15000);
+  let spec = null;
+  if (!stale.length) {
+    try {
+      spec = ctx.engine.stopCommand?.(ctx) || null;
+    } catch {
+      spec = null;
+    }
+    if (spec) {
+      await spawnAsync(spec.cmd, spec.args, { cwd: ctx.root });
+    }
+  }
+
+  let stopped = stale.length ? false : await waitFor(async () => !(await healthy(ctx)), 15000);
   if (!stopped && pidAlive(pid)) {
     try { process.kill(pid, 'SIGTERM'); } catch {}
     stopped = await waitFor(async () => !(await healthy(ctx)) && !pidAlive(pid), 15000);
