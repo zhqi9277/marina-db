@@ -4,7 +4,7 @@ import path from 'node:path';
 import { dirs } from './paths.js';
 
 const FILE = path.join(dirs.root, 'state.json');
-const DEFAULTS = { version: 1, active: {}, ports: {}, settings: { mysqlRootPassword: 'root', accounts: {} } };
+const DEFAULTS = { version: 1, active: {}, ports: {}, settings: { mysqlRootPassword: 'root', accounts: {}, autostart: [] } };
 
 export const ACCOUNT_DEFAULTS = {
   mysql: { user: 'root', password: null },
@@ -59,6 +59,16 @@ export function setAccount(key, patch) {
   const next = { ...resolveAccount(s.settings, key), ...patch };
   s.settings.accounts = { ...(s.settings.accounts || {}), [key]: next };
   if (key === 'mysql') s.settings.mysqlRootPassword = next.password;
+  return save(s);
+}
+
+export function autostartList() {
+  return load().settings.autostart || [];
+}
+
+export function setAutostart(ids) {
+  const s = load();
+  s.settings.autostart = [...new Set(ids)].sort();
   return save(s);
 }
 

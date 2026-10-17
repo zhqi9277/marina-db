@@ -54,6 +54,7 @@ Marina 是一个零依赖的本地数据库管理器：**装版本、切版本�
   支持 `--all`、面板里的全部开启/关闭。
 - **全屏面板**：TTY 下直接 `marina`，左右两栏，键盘驱动；Claude 风格暖橙配色。
 - **凭据可改**：每个库的端口、账号、密码都能在面板里改；MySQL 系会同步 `ALTER USER`。
+- **登录自启**：`a` / `A` 或 `marina autostart`，macOS LaunchAgent、Linux systemd --user。
 - **本地隔离**：只监听 `127.0.0.1`，socket、pid、日志、数据全在 `runtime/` 下，删除即清理。
 - **可迁移**：搬家后 `marina reconfig --all` 重写绝对路径；配置指向旧目录时启动会秒级报错。
 
@@ -386,6 +387,7 @@ TTY 下 `marina` 进入面板；非 TTY 打印帮助，避免 CI 卡住。状态
 | `c` | 打印配置路径 |
 | `y` | 打印客户端命令 |
 | `d` | doctor 自检视图（`g` 重跑） |
+| `a` / `A` | 当前库 / 全部库：切换登录自启 |
 | `g` | 刷新 |
 | `1…6` | 跳到某个数据库 |
 | `?` | 键位帮助 |
@@ -545,6 +547,27 @@ marina rm redis@7.2.5            # 只删这个版本的 payload，保留 datadi
 marina rm redis@7 --purge        # 连 datadir 一起删（不可恢复）
 ```
 
+### 登录自启
+
+macOS 使用用户级 LaunchAgent，Linux 使用 `systemd --user`，不需要 root：
+
+```bash
+marina autostart                 # 查看每个库的 on/off
+marina autostart mysql redis     # 登录时启动这两个
+marina autostart --all           # 全部已安装库
+marina autostart --off mysql     # 关闭某个
+marina autostart --off --all     # 全部关闭
+```
+
+- macOS 单元：`~/Library/LaunchAgents/com.marina.autostart.plist`
+- Linux 单元：`~/.config/systemd/user/marina-autostart.service`
+- 单元实际执行：`<node> <marina.js> start --autostart`，由 marina 读取
+  `state.json → settings.autostart` 决定启动哪些库。
+- 面板里：DETAIL 显示 `autostart on/off`，按 `a` 切换当前库，按 `A` 切换全部。
+- 日志：`runtime/logs/autostart.log`。
+- macOS 是**用户登录后**触发，不是开机即启；Linux 若要开机即使用户未登录，需要
+  `loginctl enable-linger $USER`。
+
 ### 目录搬家
 
 生成配置里是绝对路径，搬家后需要：
@@ -659,7 +682,8 @@ export default {
 - **校验和**：MySQL 只有官方 `.md5`（当前未消费）；Redis/Memcached 上游无 sha256。
 - **PostgreSQL 列表包含全部历史版本**（数百个），建议 `--major 17` 过滤。
 - **Windows / Linux 未真机验证**。
-- **不做开机自启**；需要自己配 launchd/systemd。
+- **自启是“登录时”**：macOS 用 LaunchAgent（用户登录后触发），Linux 用 `systemd --user`；
+  Windows 未实现（可用任务计划程序）。
 - **不做认证管理**：MongoDB 的 `--auth`、PostgreSQL 的 pg_hba 不自动改。
 
 ---

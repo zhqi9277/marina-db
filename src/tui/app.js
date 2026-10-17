@@ -13,6 +13,7 @@ import { syncCurrentSymlink } from '../registry.js';
 import { listVersions } from '../versions.js';
 import { runDoctor } from '../doctor.js';
 import { changePort, changeAccount } from '../settings.js';
+import { isEnabled, enable, disable, enableAll, disableAll } from '../autostart.js';
 import { HOME, PROJECT_ROOT } from '../paths.js';
 import { OS_LABEL } from '../platform.js';
 import { setQuiet } from '../ui.js';
@@ -238,6 +239,7 @@ export class App {
       ['port', C.fg(250, `127.0.0.1:${e.port}`)],
       ['pid', C.fg(250, e.pid ? String(e.pid) : '—')],
       ['active', e.row?.active ? C.accent('yes') : C.gray('no')],
+      ['autostart', isEnabled(ctx) ? C.accent('on') : C.gray('off')],
       ['account', acct?.user ? C.fg(250, acct.user) : C.gray('—')],
       [
         'password',
@@ -251,7 +253,7 @@ export class App {
       ['config', C.gray(ctx.confFile ? relTo(ctx.confFile, pad - 10) : '—')],
       ['log', C.gray(relTo(ctx.logFile, pad - 10))],
     ];
-    for (const [k, v] of rows) lines.push(` ${kv(k, v, 9)}`);
+    for (const [k, v] of rows) lines.push(` ${kv(k, v, 10)}`);
     lines.push('');
     lines.push(` ${C.gray('client')} ${C.accent(`marina exec ${e.key}@${e.major}`)}`);
     return lines.slice(0, h).map((l) => fit(l, w));
@@ -549,6 +551,7 @@ export class App {
       ['S / X', 'start all / stop all'],
       ['d', 'doctor: environment self-check'],
       ['actions', 'port / user / password, then enter'],
+      ['a / A', 'autostart: this / all'],
       ['v', 'versions: activate installed, install new major'],
       ['l', 'logs (↑↓ scroll, pgup/pgdn, esc back)'],
       ['c', 'print config path'],
@@ -595,7 +598,7 @@ export class App {
     if (this.mode === 'prompt') return keysBar([['enter', 'apply'], ['esc', 'cancel']], w);
     if (this.mode === 'help') return keysBar([['esc', 'back'], ['q', 'quit']], w);
     return keysBar(
-      [['↑↓', 'move'], ['enter', 'actions'], ['s/x/r', 'start/stop/restart'], ['S/X', 'all'], ['v', 'versions'], ['l', 'logs'], ['d', 'doctor'], ['?', 'keys'], ['q', 'quit']],
+      [['↑↓', 'move'], ['enter', 'actions'], ['s/x/r', 'start/stop/restart'], ['S/X', 'all'], ['a/A', 'autostart'], ['v', 'versions'], ['l', 'logs'], ['d', 'doctor'], ['?', 'keys'], ['q', 'quit']],
       w,
     );
   }
@@ -667,6 +670,8 @@ export class App {
       this.render();
       return;
     }
+    if (key === 'a') return this.toggleAutostart();
+    if (key === 'A') return this.toggleAutostartAll();
     if (key === 'S') return this.bulk('start');
     if (key === 'X') return this.bulk('stop');
     if (key === 'd') return this.openDoctor();
@@ -711,6 +716,46 @@ export class App {
       else if (action === 'stop') await stop(ctx, { quiet: true });
       else await restart(ctx, { quiet: true });
     });
+  }
+
+  async toggleAutostart() {
+    const e = this.current();
+    if (!e || e.state === 'absent' || !e.ctx) {
+      this.message = { kind: 'err', text: 'nothing installed for this database' };
+      return this.render();
+    }
+    try {
+      const on = isEnabled(e.ctx);
+      const r = on ? disable([e.ctx]) : enable([e.ctx]);
+      this.message = {
+        kind: (r.warnings && r.warnings.length) ? 'err' : 'ok',
+        text: (r.warnings && r.warnings[0]) || `autostart ${on ? 'off' : 'on'} for ${e.key}@${e.major}`,
+      };
+      await this.refresh();
+    } catch (err) {
+      this.message = { kind: 'err', text: String(err.message || err).split('\n')[0] };
+      this.render();
+    }
+  }
+
+  async toggleAutostartAll() {
+    const rows = this.installedRows();
+    if (!rows.length) {
+      this.message = { kind: 'info', text: 'nothing installed' };
+      return this.render();
+    }
+    try {
+      const allOn = rows.every((x) => isEnabled(x.ctx));
+      const r = allOn ? disableAll() : enableAll(rows.map((x) => x.ctx));
+      this.message = {
+        kind: (r.warnings && r.warnings.length) ? 'err' : 'ok',
+        text: (r.warnings && r.warnings[0]) || `autostart all ${allOn ? 'off' : 'on'} (${r.ids.length})`,
+      };
+      await this.refresh();
+    } catch (err) {
+      this.message = { kind: 'err', text: String(err.message || err).split('\n')[0] };
+      this.render();
+    }
   }
 
   async openLogs() {

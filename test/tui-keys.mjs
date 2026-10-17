@@ -166,6 +166,15 @@ test('spinner never renders undefined', () => {
   }
 });
 
+test('detail pane shows autostart state', () => {
+  const screen = fakeScreen(100, 30);
+  const app = new App(screen);
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
+  app.render();
+  const plain = screen.lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '')).join('\n');
+  assert.match(plain, /autostart\s+(on|off)/);
+});
+
 test('detail pane shows account and password', () => {
   const screen = fakeScreen(100, 30);
   const app = new App(screen);

@@ -9,6 +9,7 @@ import { listVersions } from './versions.js';
 import { installShims, resolveBin, shellenv } from './shims.js';
 import { readProject } from './project.js';
 import { changePort, changeAccount } from './settings.js';
+import * as autostart from './autostart.js';
 import { findBin } from './archive.js';
 import { OS_LABEL } from './platform.js';
 import { runDoctor } from './doctor.js';
@@ -46,6 +47,7 @@ SERVICE
   marina logs <db[@ver]> [--lines 60]
   marina config <db[@ver]>        config file path
   marina port <db[@ver]> [N]      read/change the port (rewrites config, restarts)
+  marina autostart [db...]        start at login (--all / --off)
   marina auth <db[@ver]> [u] [p]  show/store the connection account + password
 
 TOOLS
@@ -346,7 +348,21 @@ async function cmdCurrent(flags) {
 
 async function lifecycleMany(flags, action, args) {
   let targets = [];
-  if (flags.all) {
+  if (flags.autostart) {
+    targets = autostart.autostartList()
+      .map((id) => {
+        try {
+          return resolveRef(id.replace(':', '@')).ctx;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+    if (!targets.length) {
+      warn('no autostart entries — marina autostart mysql@8.4');
+      return;
+    }
+  } else if (flags.all) {
     targets = engineList
       .map((e) => activeCtx(e))
       .filter(Boolean);
@@ -389,6 +405,53 @@ async function lifecycleMany(flags, action, args) {
   if (failures.length) {
     throw new Error(`${failures.length} of ${targets.length} ${action} target(s) failed`);
   }
+}
+
+async function cmdAutostart(flags, args) {
+  const info = autostart.status();
+  if (!info.supported) throw new Error('autostart is only implemented for macOS and Linux');
+
+  const refs = args.slice();
+  let off = !!(flags.off || flags.disable);
+  if (refs[0] === 'off' || refs[0] === 'disable') {
+    off = true;
+    refs.shift();
+  } else if (refs[0] === 'on' || refs[0] === 'enable') {
+    refs.shift();
+  }
+
+  const all = flags.all || (!refs.length && (off || flags.on));
+  if (all || refs.length) {
+    const ctxs = refs.length
+      ? refs.map((ref) => resolveRef(ref).ctx)
+      : engineList.map((e) => activeCtx(e)).filter(Boolean);
+    if (!ctxs.length) return warn('nothing installed');
+
+    const before = autostart.autostartList();
+    const result = off
+      ? (flags.all ? autostart.disableAll() : autostart.disable(ctxs))
+      : (flags.all ? autostart.enableAll(ctxs) : autostart.enable(ctxs));
+
+    if (flags.json) return jsonOut(result);
+    const shown = off ? before : result.ids;
+    ok(`${off ? 'disabled' : 'enabled'} autostart: ${shown.length ? shown.join(', ') : '(none)'}`);
+    hint(`${result.manager} · ${result.file}`);
+    for (const w of result.warnings) warn(w);
+    return;
+  }
+
+  const rows = engineList
+    .map((e) => {
+      const ctx = activeCtx(e);
+      if (!ctx) return null;
+      const id = `${ctx.key}:${ctx.major}`;
+      return [e.label, `${ctx.key}@${ctx.major}`, info.ids.includes(id) ? 'on' : 'off'];
+    })
+    .filter(Boolean);
+
+  if (flags.json) return jsonOut(info);
+  out(table(['DATABASE', 'REF', 'AUTOSTART'], rows));
+  hint(`${info.manager} · ${info.file}${info.installed ? '' : ' (not installed yet)'}`);
 }
 
 async function cmdStatus(flags, args) {
@@ -623,6 +686,8 @@ export async function main(argv) {
     case 'log': return cmdLogs(flags, args);
     case 'config': return cmdConfig(flags, args);
     case 'port': return cmdPort(flags, args);
+    case 'autostart':
+    case 'boot': return cmdAutostart(flags, args);
     case 'auth': return cmdAuth(flags, args);
     case 'reconfig':
       return cmdReconfig(flags, args);
