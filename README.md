@@ -75,10 +75,45 @@ Linux / Windows **尚未在真机上做端到端安装验证**。
 
 ---
 
-## 三、快速开始
+## 三、把 marina 变成命令
+
+项目本身不会自动进 PATH，所以直接敲 `marina` 会 `command not found`（zsh 也不会搜索当前目录）。
+任选一种方式装上；A 一次装好，之后在本目录或任何目录都能直接用。
+
+**A. 安装到 `~/.local/bin`（推荐，无需 sudo）**
 
 ```bash
-node bin/marina.js --help          # 或 npm link 后直接用 marina
+bash scripts/install-cli.sh
+exec zsh                  # 或 source ~/.zshrc
+marina --version
+```
+
+脚本会生成 `~/.local/bin/marina`，它直接运行当前 checkout（改代码立即生效）；
+仓库移动后重跑一次即可。想装到别处：`MARINA_BIN_DIR=/usr/local/bin bash scripts/install-cli.sh`。
+
+**B. npm link**
+
+```bash
+npm link                  # 用 nvm 的话同样不需要 sudo
+marina --version
+```
+
+**C. 只在当前 shell 临时生效**
+
+```bash
+export PATH="$PWD/bin:$PATH"
+marina --version
+```
+
+`bin/marina` 是仓库自带的 shell 入口（会转交给 `node bin/marina.js`）；
+不改 PATH 时也可以直接 `./bin/marina ...`。
+
+---
+
+## 四、快速开始
+
+```bash
+marina --help
 
 marina remote                      # 6 个引擎各有多少版本、最新几个、索引来源
 marina remote mysql                # MySQL 的完整版本表（远程拉取）
@@ -98,7 +133,7 @@ marina                             # TTY: 全屏面板（v = 版本表，可装/
 
 ---
 
-## 四、命令
+## 五、命令
 
 | 命令 | 说明 |
 |---|---|
@@ -140,7 +175,7 @@ mysql -uroot -proot -e "select 1"   # 自动走当前激活版本的客户端 + 
 
 ---
 
-## 五、安装流程
+## 六、安装流程
 
 ```
 remote index ──▶ cache/<db>/<ver>/*.tar.gz ──sha256──▶ engines/<db>/<major>/<ver>/
@@ -161,7 +196,7 @@ remote index ──▶ cache/<db>/<ver>/*.tar.gz ──sha256──▶ engines/<
 
 ---
 
-## 六、各引擎的差异（驱动实现要点）
+## 七、各引擎的差异（驱动实现要点）
 
 | 引擎 | 初始化 | 启动 | 停止 | 探活 |
 |---|---|---|---|---|
@@ -177,7 +212,7 @@ remote index ──▶ cache/<db>/<ver>/*.tar.gz ──sha256──▶ engines/<
 
 ---
 
-## 七、代码结构（版本索引相关）
+## 八、代码结构（版本索引相关）
 
 | 文件 | 职责 |
 |---|---|
@@ -190,7 +225,7 @@ remote index ──▶ cache/<db>/<ver>/*.tar.gz ──sha256──▶ engines/<
 
 ---
 
-## 八、加一个新引擎
+## 九、加一个新引擎
 
 1. 写 `src/engines/xxx.js`：
 
@@ -212,7 +247,7 @@ export default {
 
 ---
 
-## 九、注意
+## 十、注意
 
 - 默认只监听 `127.0.0.1`，root 密码默认 `root`，仅用于本机开发。
 - 不做开机自启；需要的话给 `~/Library/LaunchAgents/*.plist` 配

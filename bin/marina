@@ -1,0 +1,14 @@
+#!/bin/sh
+# Project-local entry point: ./bin/marina, or `marina` once this directory is on PATH.
+# Resolves symlinks so a launcher such as ~/.local/bin/marina also works.
+SELF=$0
+while [ -L "$SELF" ]; do
+  DIR=$(CDPATH= cd -- "$(dirname -- "$SELF")" && pwd)
+  SELF=$(readlink "$SELF")
+  case $SELF in
+    /*) ;;
+    *) SELF=$DIR/$SELF ;;
+  esac
+done
+DIR=$(CDPATH= cd -- "$(dirname -- "$SELF")" && pwd)
+exec node "$DIR/marina.js" "$@"
