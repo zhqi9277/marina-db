@@ -111,6 +111,49 @@ test('title shows the orange logo and help shows the gitee address', () => {
   assert.match(plain, /gitee\.com\/zhqi9277\/marina/);
 });
 
+test('port / user / password prompts edit and submit', async () => {
+  const screen = fakeScreen(100, 30);
+  const app = new App(screen);
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
+  app.refresh = async () => {};
+  let submitted = null;
+  app.openPrompt({
+    title: 'MySQL port',
+    label: 'port',
+    value: '3306',
+    onSubmit: async (v) => { submitted = v; return `port ${v} saved`; },
+  });
+  assert.equal(app.mode, 'prompt');
+
+  await app.handle('ctrl-u');
+  await app.handle('3');
+  await app.handle('3');
+  await app.handle('0');
+  await app.handle('7');
+  await app.handle('enter');
+
+  assert.equal(submitted, '3307');
+  assert.equal(app.mode, 'detail');
+  assert.match(app.message.text, /3307/);
+});
+
+test('prompt esc cancels without submitting', async () => {
+  const app = new App(fakeScreen());
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
+  let called = false;
+  app.openPrompt({ title: 'x', label: 'x', value: '', onSubmit: async () => { called = true; } });
+  await app.handle('esc');
+  assert.equal(called, false);
+  assert.equal(app.mode, 'detail');
+});
+
+test('actions menu exposes port / user / password', () => {
+  const app = new App(fakeScreen());
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
+  const ids = app.actionsFor(app.engines[0]).map((a) => a.id);
+  for (const id of ['port', 'user', 'password']) assert.ok(ids.includes(id));
+});
+
 test('detail pane shows account and password', () => {
   const screen = fakeScreen(100, 30);
   const app = new App(screen);

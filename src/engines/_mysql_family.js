@@ -36,9 +36,13 @@ export function makeMysqlFamily(opts) {
     primaryClient: clientNames[0],
 
     clientArgs(ctx) {
-      return IS_WIN
+      const args = IS_WIN
         ? [`--defaults-file=${ctx.confFile}`, '--protocol=TCP', '-h', '127.0.0.1', '-P', String(ctx.port)]
         : [`--defaults-file=${ctx.confFile}`];
+      const acct = ctx.account || { user: 'root', password: ctx.password };
+      if (acct.user) args.push(`-u${acct.user}`);
+      if (acct.password) args.push(`-p${acct.password}`);
+      return args;
     },
 
     bin(ctx, names = serverNames) {
@@ -142,17 +146,27 @@ no-auto-rehash
       const target = IS_WIN
         ? ['--protocol=TCP', '-h', '127.0.0.1', '-P', String(ctx.port)]
         : [`--socket=${ctx.sockFile}`];
+      const acct = ctx.account || { user: 'root', password: ctx.password };
       return {
         cmd: admin,
-        args: [...target, '-uroot', `-p${ctx.password}`, '--connect-timeout=2', 'shutdown'],
+        args: [...target, `-u${acct.user || 'root'}`, ...(acct.password ? [`-p${acct.password}`] : []), '--connect-timeout=2', 'shutdown'],
       };
     },
 
     async postInit(ctx) {
       const client = findBin(ctx.root, ['mysql', 'mariadb']);
       if (!client) return;
+      const acct = ctx.account || { user: 'root', password: ctx.password };
+      const user = String(acct.user || 'root').replace(/'/g, "''");
+      const pw = String(acct.password ?? '').replace(/'/g, "''");
       const sql = [
-        `ALTER USER 'root'@'localhost' IDENTIFIED BY '${ctx.password}';`,
+        `ALTER USER 'root'@'localhost' IDENTIFIED BY '${pw}';`,
+        ...(user === 'root'
+          ? []
+          : [
+              `CREATE USER IF NOT EXISTS '${user}'@'localhost' IDENTIFIED BY '${pw}';`,
+              `GRANT ALL PRIVILEGES ON *.* TO '${user}'@'localhost' WITH GRANT OPTION;`,
+            ]),
         `DELETE FROM mysql.user WHERE User='';`,
         `DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost','127.0.0.1','::1');`,
         `DROP DATABASE IF EXISTS test;`,
@@ -166,11 +180,12 @@ no-auto-rehash
     },
 
     account(ctx) {
+      const acct = ctx.account || { user: 'root', password: ctx.password };
       return {
-        user: 'root',
-        password: ctx.password,
+        user: acct.user || 'root',
+        password: acct.password ?? '',
         mode: 'password',
-        note: 'root@localhost, password set on first install',
+        note: `${acct.user || 'root'}@localhost, password set on first install`,
       };
     },
 
@@ -181,7 +196,8 @@ no-auto-rehash
         const target = IS_WIN
           ? ['--protocol=TCP', '-h', '127.0.0.1', '-P', String(ctx.port)]
           : [`--socket=${ctx.sockFile}`];
-        const res = await spawnAsync(admin, [...target, '-uroot', `-p${ctx.password}`, '--connect-timeout=2', 'ping']);
+        const acct = ctx.account || { user: 'root', password: ctx.password };
+        const res = await spawnAsync(admin, [...target, `-u${acct.user || 'root'}`, ...(acct.password ? [`-p${acct.password}`] : []), '--connect-timeout=2', 'ping']);
         if (res.code === 0) return true;
       }
       return null; // let the generic TCP probe decide

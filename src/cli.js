@@ -8,6 +8,7 @@ import { install, remove, use, renderConfig } from './installer.js';
 import { listVersions } from './versions.js';
 import { installShims, resolveBin, shellenv } from './shims.js';
 import { readProject } from './project.js';
+import { changePort, changeAccount } from './settings.js';
 import { findBin } from './archive.js';
 import { OS_LABEL } from './platform.js';
 import { runDoctor } from './doctor.js';
@@ -44,7 +45,8 @@ SERVICE
   marina status [db[@ver]]        state, port, pid
   marina logs <db[@ver]> [--lines 60]
   marina config <db[@ver]>        config file path
-  marina port <db[@ver]> [N]      read or change the port
+  marina port <db[@ver]> [N]      read/change the port (rewrites config, restarts)
+  marina auth <db[@ver]> [u] [p]  show/store the connection account + password
 
 TOOLS
   marina exec <db[@ver]> -- -e "select 1"    run the client of that version
@@ -74,7 +76,7 @@ HOMEPAGE
   https://gitee.com/zhqi9277/marina
 `;
 
-const VALUE_FLAGS = new Set(['port', 'file', 'version', 'lines', 'bin', 'major']);
+const VALUE_FLAGS = new Set(['port', 'file', 'version', 'lines', 'bin', 'major', 'user', 'password']);
 
 function splitArgv(argv) {
   const idx = argv.indexOf('--');
@@ -409,18 +411,39 @@ async function cmdConfig(flags, args) {
 
 async function cmdPort(flags, args) {
   const ref = requireRef(args, flags);
-  const { engine, tag } = { engine: getEngine(ref.split('@')[0]), tag: ref.split('@')[1] || null };
-  const pick = pickVersion(engine, tag);
-  const major = pick?.major || tag || engine.defaultMajor;
-  if (args[1] || (flags.port && flags.port !== true)) {
-    const value = Number(args[1] || flags.port);
-    if (!Number.isInteger(value) || value <= 0 || value > 65535) throw new Error('port must be 1..65535');
-    state.setPort(engine.key, major, value);
-    ok(`port ${engine.key}@${major} -> ${value}`);
-    hint(`apply with: marina reconfig ${engine.key}@${major} && marina restart ${engine.key}@${major}`);
+  const { engine, ctx } = resolveRef(ref);
+  if (args[1] !== undefined || (flags.port && flags.port !== true)) {
+    const result = await changePort(ctx, Number(args[1] ?? flags.port));
+    if (flags.json) return jsonOut(result);
+    if (result.same) return info(`port ${ctx.key}@${ctx.major} already ${result.port}`);
+    ok(`port ${ctx.key}@${ctx.major} -> ${result.port}${result.restarted ? ' (restarted)' : ''}`);
+    if (!result.restarted) hint(`start with: marina start ${ctx.key}@${ctx.major}`);
     return;
   }
-  out(String(state.portOf(engine.key, major, engine.defaultPort)));
+  out(String(state.portOf(engine.key, ctx.major, engine.defaultPort)));
+}
+
+async function cmdAuth(flags, args) {
+  const ref = requireRef(args, flags);
+  const { ctx } = resolveRef(ref);
+  const patch = {};
+  if (args[1] !== undefined || flags.user !== undefined) patch.user = args[1] ?? flags.user;
+  if (args[2] !== undefined || flags.password !== undefined) patch.password = args[2] ?? flags.password;
+
+  if (Object.keys(patch).length) {
+    const result = await changeAccount(ctx, patch);
+    if (flags.json) return jsonOut(result);
+    const a = result.account;
+    ok(`saved ${ctx.key} account ${a.user || '—'}${a.password ? ` / ${a.password}` : '  (no password)'}`);
+    for (const n of result.notes) warn(n);
+    return;
+  }
+
+  const a = ctx.engine.account?.(ctx) || { ...state.accountOf(ctx.key), mode: 'unknown' };
+  if (flags.json) return jsonOut({ key: ctx.key, ...a });
+  out(table(['DATABASE', 'ACCOUNT', 'PASSWORD', 'MODE'], [[
+    `${ctx.key}@${ctx.major}`, a.user || '—', a.password || '—', a.mode || '—',
+  ]]));
 }
 
 async function cmdReconfig(flags, args) {
@@ -564,6 +587,7 @@ export async function main(argv) {
     case 'log': return cmdLogs(flags, args);
     case 'config': return cmdConfig(flags, args);
     case 'port': return cmdPort(flags, args);
+    case 'auth': return cmdAuth(flags, args);
     case 'reconfig':
       return cmdReconfig(flags, args);
     case 'rm':

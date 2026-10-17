@@ -86,13 +86,16 @@ export function buildCtx(engine, { major, version, port }) {
   const root = discoverRoot(versionDir(engine.key, major, version), engine.markers);
   const p = port ?? state.portOf(engine.key, major, engine.defaultPort);
   const confName = CONF_NAMES[engine.key];
+  const account = state.accountOf(engine.key);
   return {
     engine,
     key: engine.key,
     major,
     version,
     port: Number(p),
-    password: state.setting('mysqlRootPassword', 'root'),
+    account,
+    user: account.user,
+    password: account.password ?? '',
     manifestName: engine.manifestName,
     root,
     versionDir: versionDir(engine.key, major, version),

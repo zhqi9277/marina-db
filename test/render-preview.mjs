@@ -26,6 +26,9 @@ if (mode !== 'detail') {
     };
   }
   if (mode === 'logs') app.loadLogs();
+  if (mode === 'prompt') {
+    app.prompt = { title: 'MySQL port', label: 'port', value: '3306' };
+  }
   if (mode === 'doctor') {
     app.doctor = [
       { name: 'platform', value: 'macOS arm64', ok: true },

@@ -58,7 +58,10 @@ processManagement:
   },
 
   clientArgs(ctx) {
-    return ['--host', '127.0.0.1', '--port', String(ctx.port)];
+    const args = ['--host', '127.0.0.1', '--port', String(ctx.port)];
+    const acct = ctx.account;
+    if (acct?.user) args.push('--username', acct.user, '--password', acct.password || '', '--authenticationDatabase', 'admin');
+    return args;
   },
 
   startArgs(ctx) {
@@ -78,22 +81,23 @@ processManagement:
     return null; // generic SIGTERM path: mongod shuts down cleanly on SIGTERM
   },
 
-  account() {
+  account(ctx) {
+    const acct = ctx.account || {};
     return {
-      user: null,
-      password: null,
-      mode: 'disabled',
-      note: 'no auth configured; binds 127.0.0.1',
+      user: acct.user ?? null,
+      password: acct.password ?? null,
+      mode: acct.user ? 'stored' : 'disabled',
+      note: 'stored only; marina does not enable mongod --auth',
     };
   },
 
   async probe(ctx) {
     const mongosh = findBin(ctx.root, ['mongosh']);
     if (!mongosh) return null;
-    const res = await spawnAsync(mongosh, [
-      '--quiet', '--host', '127.0.0.1', '--port', String(ctx.port),
-      '--eval', 'db.runCommand({ping:1}).ok',
-    ]);
+    const args = ['--quiet', '--host', '127.0.0.1', '--port', String(ctx.port)];
+    if (ctx.account?.user) args.push('--username', ctx.account.user, '--password', ctx.account.password || '', '--authenticationDatabase', 'admin');
+    args.push('--eval', 'db.runCommand({ping:1}).ok');
+    const res = await spawnAsync(mongosh, args);
     return res.code === 0 && /1/.test(res.stdout);
   },
 };

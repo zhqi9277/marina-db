@@ -4,7 +4,27 @@ import path from 'node:path';
 import { dirs } from './paths.js';
 
 const FILE = path.join(dirs.root, 'state.json');
-const DEFAULTS = { version: 1, active: {}, ports: {}, settings: { mysqlRootPassword: 'root' } };
+const DEFAULTS = { version: 1, active: {}, ports: {}, settings: { mysqlRootPassword: 'root', accounts: {} } };
+
+export const ACCOUNT_DEFAULTS = {
+  mysql: { user: 'root', password: null },
+  mariadb: { user: 'root', password: null },
+  postgres: { user: 'postgres', password: null },
+  mongodb: { user: null, password: null },
+  redis: { user: null, password: null },
+  memcached: { user: null, password: null },
+};
+
+/** pure resolver, also used by tests */
+export function resolveAccount(settings = {}, key) {
+  const base = ACCOUNT_DEFAULTS[key] || { user: null, password: null };
+  const saved = settings.accounts?.[key] || {};
+  let password = saved.password !== undefined ? saved.password : base.password;
+  if (password === null && (key === 'mysql' || key === 'mariadb')) {
+    password = settings.mysqlRootPassword ?? 'root';
+  }
+  return { user: saved.user !== undefined ? saved.user : base.user, password };
+}
 
 export function load() {
   try {
@@ -27,6 +47,18 @@ export function setActive(key, version) {
   const s = load();
   if (version) s.active[key] = version;
   else delete s.active[key];
+  return save(s);
+}
+
+export function accountOf(key) {
+  return resolveAccount(load().settings, key);
+}
+
+export function setAccount(key, patch) {
+  const s = load();
+  const next = { ...resolveAccount(s.settings, key), ...patch };
+  s.settings.accounts = { ...(s.settings.accounts || {}), [key]: next };
+  if (key === 'mysql') s.settings.mysqlRootPassword = next.password;
   return save(s);
 }
 

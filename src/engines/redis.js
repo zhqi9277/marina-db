@@ -63,7 +63,8 @@ appendonly no
   },
 
   clientArgs(ctx) {
-    return ['-p', String(ctx.port)];
+    const pass = ctx.account?.password;
+    return pass ? ['-p', String(ctx.port), '-a', pass, '--no-auth-warning'] : ['-p', String(ctx.port)];
   },
 
   startArgs(ctx) {
@@ -73,22 +74,28 @@ appendonly no
   stopCommand(ctx) {
     const cli = findBin(ctx.root, ['redis-cli']);
     if (!cli) return null;
-    return { cmd: cli, args: ['-p', String(ctx.port), 'shutdown', 'save'] };
+    const pass = ctx.account?.password;
+    return {
+      cmd: cli,
+      args: [...(pass ? ['-a', pass, '--no-auth-warning'] : []), '-p', String(ctx.port), 'shutdown', 'save'],
+    };
   },
 
-  account() {
+  account(ctx) {
+    const pass = ctx.account?.password;
     return {
       user: null,
-      password: null,
-      mode: 'disabled',
-      note: 'no requirepass; protected-mode, binds 127.0.0.1',
+      password: pass ?? null,
+      mode: pass ? 'password' : 'disabled',
+      note: pass ? 'requirepass, applied on restart' : 'no requirepass; protected-mode, binds 127.0.0.1',
     };
   },
 
   async probe(ctx) {
     const cli = findBin(ctx.root, ['redis-cli']);
     if (!cli) return null;
-    const res = await spawnAsync(cli, ['-p', String(ctx.port), 'ping']);
+    const pass = ctx.account?.password;
+    const res = await spawnAsync(cli, [...(pass ? ['-a', pass, '--no-auth-warning'] : []), '-p', String(ctx.port), 'ping']);
     if (res.code === 0 && /PONG/i.test(res.stdout)) return true;
     return false;
   },

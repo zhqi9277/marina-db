@@ -60,7 +60,7 @@ export default {
   },
 
   clientArgs(ctx) {
-    return ['-h', '127.0.0.1', '-p', String(ctx.port), '-U', 'postgres'];
+    return ['-h', '127.0.0.1', '-p', String(ctx.port), '-U', ctx.account?.user || 'postgres'];
   },
 
   startCommand(ctx) {
@@ -88,12 +88,12 @@ export default {
     return { cmd: pgctl, args: ['-D', ctx.dataDir, '-m', 'fast', '-w', 'stop'] };
   },
 
-  account() {
+  account(ctx) {
     return {
-      user: 'postgres',
-      password: null,
+      user: ctx.account?.user || 'postgres',
+      password: ctx.account?.password ?? null,
       mode: 'trust',
-      note: 'initdb --auth-local=trust --auth-host=trust',
+      note: 'password stored, but pg_hba is trust: not enforced',
     };
   },
 

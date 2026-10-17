@@ -69,12 +69,12 @@ export default {
     return null;
   },
 
-  account() {
+  account(ctx) {
     return {
-      user: null,
-      password: null,
+      user: ctx.account?.user ?? null,
+      password: ctx.account?.password ?? null,
       mode: 'disabled',
-      note: 'no auth; binds 127.0.0.1',
+      note: 'stored only; memcached has no authentication',
     };
   },
 

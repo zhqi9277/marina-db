@@ -12,6 +12,7 @@ import { install, use, renderConfig } from '../installer.js';
 import { syncCurrentSymlink } from '../registry.js';
 import { listVersions } from '../versions.js';
 import { runDoctor } from '../doctor.js';
+import { changePort, changeAccount } from '../settings.js';
 import { HOME, PROJECT_ROOT } from '../paths.js';
 import { OS_LABEL } from '../platform.js';
 import { setQuiet } from '../ui.js';
@@ -45,6 +46,7 @@ export class App {
     this.logScroll = 0;
     this.doctor = null;
     this.doctorScroll = 0;
+    this.prompt = null;
     this.doctorAt = 0;
     this.remote = null; // { majors: [...] } | null
     this.renderQueued = false;
@@ -117,7 +119,7 @@ export class App {
     const leftW = Math.max(26, Math.min(38, Math.floor(innerW * 0.4)));
     const rightW = innerW - leftW - 1;
     const bodyH = H - 7;
-    const full = this.mode === 'logs' || this.mode === 'help' || this.mode === 'doctor';
+    const full = this.mode === 'logs' || this.mode === 'help' || this.mode === 'doctor' || this.mode === 'prompt';
 
     const lines = [];
     const homeLabel = HOME === path.join(PROJECT_ROOT, 'runtime')
@@ -128,7 +130,13 @@ export class App {
 
     // column headers
     if (full) {
-      const title = this.mode === 'logs' ? `LOGS ${this.headerLabel()}` : this.mode === 'doctor' ? 'DOCTOR' : 'KEYS';
+      const title = this.mode === 'logs'
+        ? `LOGS ${this.headerLabel()}`
+        : this.mode === 'doctor'
+          ? 'DOCTOR'
+          : this.mode === 'prompt'
+            ? (this.prompt?.title || 'SETTINGS').toUpperCase()
+            : 'KEYS';
       lines.push(fullRow(W, ` ${C.gray(title)}`));
       lines.push(rule(innerW, { left: '├', fill: '─', right: '┤' }));
     } else {
@@ -259,6 +267,9 @@ export class App {
       { id: 'stopAll', label: 'Stop all', enabled: this.installedRows().some((x) => x.state === 'running' || x.state === 'degraded') },
       { id: 'doctor', label: 'Doctor', enabled: true },
       { id: 'reconfig', label: 'Reconfig paths', enabled: installed },
+      { id: 'port', label: 'Change port', enabled: installed },
+      { id: 'user', label: 'Set user', enabled: installed },
+      { id: 'password', label: 'Set password', enabled: installed },
       { id: 'logs', label: 'Show logs', enabled: installed },
       { id: 'versions', label: 'Versions / install', enabled: true },
       { id: 'config', label: 'Config path', enabled: installed },
@@ -363,6 +374,7 @@ export class App {
 
   renderFull(w, h) {
     if (this.mode === 'help') return this.renderHelp(w, h);
+    if (this.mode === 'prompt') return this.renderPrompt(w, h);
     if (this.mode === 'doctor') return this.renderDoctor(w, h);
     return this.renderLogs(w, h);
   }
@@ -412,6 +424,7 @@ export class App {
     this.mode = 'doctor';
     this.doctor = null;
     this.doctorScroll = 0;
+    this.prompt = null;
     this.render();
     return this.loadDoctor();
   }
@@ -426,6 +439,72 @@ export class App {
       this.doctor = [{ name: 'doctor', value: String(e.message || e).split('\n')[0], ok: false }];
     }
     this.render();
+  }
+
+  openPrompt(spec) {
+    this.mode = 'prompt';
+    this.prompt = spec;
+    this.render();
+  }
+
+  renderPrompt(w, h) {
+    const p = this.prompt || {};
+    const lines = [];
+    lines.push(fit(` ${C.gray(p.label || 'value')}`, w));
+    lines.push(fit(' ', w));
+    const shown = p.secret
+      ? '•'.repeat(Math.min(64, String(p.value || '').length))
+      : String(p.value || '');
+    const value = shown
+      ? C.fg(250, shown)
+      : C.gray(p.secret ? '(empty = no password)' : '(empty)');
+    lines.push(fit(` ${C.accent('>')} ${value}${C.accent('▏')}`, w));
+    lines.push(fit(' ', w));
+    lines.push(fit(` ${C.gray(p.secret ? 'enter apply (empty clears) · esc cancel' : 'enter apply · esc cancel')}`, w));
+    while (lines.length < h) lines.push(fit(' ', w));
+    return lines.slice(0, h);
+  }
+
+  async handlePrompt(key) {
+    if (key === 'esc') {
+      this.mode = 'detail';
+      this.prompt = null;
+      return this.render();
+    }
+    if (key === 'backspace') {
+      this.prompt.value = String(this.prompt.value || '').slice(0, -1);
+      return this.render();
+    }
+    if (key === 'ctrl-u') {
+      this.prompt.value = '';
+      return this.render();
+    }
+    if (key === 'enter') {
+      const spec = this.prompt;
+      const value = String(spec.value || '');
+      this.busy = `${spec.label || 'value'}…`;
+      setQuiet(true);
+      this.startSpin();
+      this.render();
+      try {
+        const text = await spec.onSubmit(value);
+        this.message = { kind: 'ok', text };
+      } catch (e) {
+        this.message = { kind: 'err', text: String(e.message || e).split('\n')[0] };
+      } finally {
+        setQuiet(false);
+        this.busy = null;
+        this.stopSpin();
+        this.mode = 'detail';
+        this.prompt = null;
+        await this.refresh();
+      }
+      return;
+    }
+    if (key.length === 1 && key >= ' ' && key <= '~') {
+      this.prompt.value = String(this.prompt.value || '') + key;
+      return this.render();
+    }
   }
 
   renderDoctor(w, h) {
@@ -468,6 +547,7 @@ export class App {
       ['s / x / r', 'start / stop / restart'],
       ['S / X', 'start all / stop all'],
       ['d', 'doctor: environment self-check'],
+      ['actions', 'port / user / password, then enter'],
       ['v', 'versions: activate installed, install new major'],
       ['l', 'logs (↑↓ scroll, pgup/pgdn, esc back)'],
       ['c', 'print config path'],
@@ -511,6 +591,7 @@ export class App {
     if (this.mode === 'versions') return keysBar([['↑↓', 'choose'], ['enter', 'select'], ['esc', 'back'], ['q', 'quit']], w);
     if (this.mode === 'logs') return keysBar([['↑↓', 'scroll'], ['r', 'reload'], ['esc', 'back'], ['q', 'quit']], w);
     if (this.mode === 'doctor') return keysBar([['↑↓', 'scroll'], ['g', 'rerun'], ['esc', 'back'], ['q', 'quit']], w);
+    if (this.mode === 'prompt') return keysBar([['enter', 'apply'], ['esc', 'cancel']], w);
     if (this.mode === 'help') return keysBar([['esc', 'back'], ['q', 'quit']], w);
     return keysBar(
       [['↑↓', 'move'], ['enter', 'actions'], ['s/x/r', 'start/stop/restart'], ['S/X', 'all'], ['v', 'versions'], ['l', 'logs'], ['d', 'doctor'], ['?', 'keys'], ['q', 'quit']],
@@ -545,6 +626,7 @@ export class App {
       return;
     }
 
+    if (this.mode === 'prompt') return this.handlePrompt(key);
     if (this.mode === 'doctor') return this.handleDoctor(key);
     if (this.mode === 'logs') return this.handleLogs(key);
     if (this.mode === 'actions') return this.handleActions(key);
@@ -698,6 +780,37 @@ export class App {
         return this.bulk('stop');
       case 'doctor':
         return this.openDoctor();
+      case 'port':
+        return this.openPrompt({
+          title: `${e.label} port`,
+          label: 'port',
+          value: String(e.port),
+          onSubmit: async (v) => {
+            const r = await changePort(e.ctx, v);
+            return `port ${r.port}${r.restarted ? ' · restarted' : ' · start to apply'}`;
+          },
+        });
+      case 'user':
+        return this.openPrompt({
+          title: `${e.label} account`,
+          label: 'user',
+          value: e.ctx?.account?.user || '',
+          onSubmit: async (v) => {
+            const r = await changeAccount(e.ctx, { user: v });
+            return `user saved${r.applied.length ? ' · applied' : ''}${r.notes.length ? ` · ${r.notes[0]}` : ''}`;
+          },
+        });
+      case 'password':
+        return this.openPrompt({
+          title: `${e.label} password`,
+          label: 'password',
+          value: '',
+          secret: true,
+          onSubmit: async (v) => {
+            const r = await changeAccount(e.ctx, { password: v });
+            return `password saved${r.applied.length ? ' · applied' : ''}${r.notes.length ? ` · ${r.notes[0]}` : ''}`;
+          },
+        });
       case 'reconfig': {
         const r = renderConfig(e.ctx, { force: true });
         syncCurrentSymlink(e.engine, e.major, e.version);

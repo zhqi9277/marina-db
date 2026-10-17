@@ -137,7 +137,7 @@ marina                             # TTY: 全屏面板（v = 版本表，可装/
 ```
 
 `marina` 不带参数时：TTY 进全屏面板，非 TTY（管道/CI）打印帮助，不会卡住。
-面板按键：`↑↓/jk` 选择 · `enter` 操作菜单（含 Start all / Stop all / Doctor）· `s/x/r` 启停/重启 · `S/X` 全部开启/全部关闭 · `d` doctor 自检 · `v` 版本（列表来自同一个远程索引，enter 安装/激活）· `l` 日志 · `c` 配置路径 · `y` 客户端命令 · `g` 刷新 · `?` 键位 · `q` 退出；状态每 2.5s 自动刷新。
+面板按键：`↑↓/jk` 选择 · `enter` 操作菜单（含 Start all / Stop all / Doctor / Change port / Set user / Set password）· `s/x/r` 启停/重启 · `S/X` 全部开启/全部关闭 · `d` doctor 自检 · `v` 版本（列表来自同一个远程索引，enter 安装/激活）· `l` 日志 · `c` 配置路径 · `y` 客户端命令 · `g` 刷新 · `?` 键位 · `q` 退出；状态每 2.5s 自动刷新。
 列表颜色：已下载的库名是青色，未下载的显示灰色 + `not inst.` + 黄色 `↓`；版本列表里 `◉` 绿色=已安装，`↓` 黄色=可下载。
 
 ---
@@ -155,7 +155,8 @@ marina                             # TTY: 全屏面板（v = 版本表，可装/
 | `marina start / stop / restart [db[@ver]]` | `--all` 操作全部 |
 | `marina logs <db[@ver]> [--lines N]` | 日志尾部 |
 | `marina config <db[@ver]>` | 配置路径 |
-| `marina port <db[@ver]> [N]` | 读/改端口（改完用 `reconfig` + `restart` 生效） |
+| `marina port <db[@ver]> [N]` | 读/改端口（自动重写配置；运行中会重启） |
+| `marina auth <db[@ver]> [user] [password]` | 查看/修改账号密码；支持时同步服务端 |
 | `marina reconfig [db[@ver]\|--all]` | 重写配置与 `current` 软链（迁移目录/改端口后用） |
 | `marina rm <db[@ver]> [--purge]` | 卸载；`--purge` 连 datadir 一起删 |
 | `marina exec <db[@ver]> -- <args>` | 用该版本客户端执行（自动带上 socket/port） |
@@ -259,6 +260,10 @@ export default {
 ## 十、注意
 
 - 默认只监听 `127.0.0.1`，仅用于本机开发。
+- 端口/账号/密码可在面板 ACTIONS 里修改：`Change port`、`Set user`、`Set password`；
+  等价命令是 `marina port`、`marina auth`。端口会重写配置并在运行中自动重启。
+  凭据修改会同步服务端（MySQL/MariaDB 执行 `ALTER USER`，Redis 写 `requirepass` 后重启，
+  PostgreSQL 执行 `ALTER ROLE` 但 pg_hba 仍是 trust，MongoDB/Memcached 只保存在 marina）。
 - 默认账号：MySQL / MariaDB `root` / `root`；PostgreSQL `postgres`（trust，无密码）；
   MongoDB / Redis / Memcached 无认证。`marina status <db>` 与面板 DETAIL 会显示账号密码。
   密码来源是 `state.json` 的 `settings.mysqlRootPassword`（首次安装时写入服务端）。
