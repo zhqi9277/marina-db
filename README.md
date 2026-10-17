@@ -98,6 +98,7 @@ marina remote mysql           # 某个引擎的完整版本表
 marina install mysql@8.4      # 指定 major 或完整版本
 marina install redis          # 不写版本 → TTY 里从列表选
 marina start mysql@8.4
+marina start mysql redis          # 一次启动多个
 marina exec mysql@8.4 -- -e "select version()"
 marina ls
 ```
@@ -317,7 +318,7 @@ export PATH="$PWD/bin:$PATH"
 | `marina start <db>[@ver]` | 启动；`--all` / `marina up --all` 全部 |
 | `marina stop <db>[@ver]` | 停止；`--all` 全部 |
 | `marina restart <db>[@ver]` | 重启 |
-| `marina status [db]` | 状态、端口、pid；`--json` 含 `auth` |
+| `marina status [db...]` | 一个或多个；`--json` 含 `auth` |
 | `marina logs <db> --lines 200` | 日志尾部 |
 | `marina config <db>` | 配置路径 |
 | `marina doctor` | 环境自检；`--json` 输出检查项 |

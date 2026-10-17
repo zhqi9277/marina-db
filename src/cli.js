@@ -40,9 +40,9 @@ INSTALL / SWITCH
   marina ls                       installed versions and their state
 
 SERVICE
-  marina start|stop|restart <db[@ver]>      (aliases: up / down)
+  marina start|stop|restart <db[@ver]>...   one or more refs (aliases: up / down)
   marina up --all                  every installed database
-  marina status [db[@ver]]        state, port, pid
+  marina status [db[@ver]]...     state, port, pid (one or more)
   marina logs <db[@ver]> [--lines 60]
   marina config <db[@ver]>        config file path
   marina port <db[@ver]> [N]      read/change the port (rewrites config, restarts)
@@ -351,25 +351,61 @@ async function lifecycleMany(flags, action, args) {
       .map((e) => activeCtx(e))
       .filter(Boolean);
   } else {
-    const ref = requireRef(args, flags);
-    targets = [resolveRef(ref).ctx];
+    // accept one or more refs: marina start mysql redis@7 postgres
+    const refs = args.length ? args : [requireRef(args, flags)];
+    const seen = new Set();
+    targets = refs.map((ref) => resolveRef(ref).ctx).filter((ctx) => {
+      const id = `${ctx.key}:${ctx.major}`;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
   }
   if (!targets.length) {
     warn('nothing installed — marina install mysql@8.4');
     return;
   }
+
   const results = [];
+  const failures = [];
   for (const ctx of targets) {
-    const r = await (action === 'start' ? start(ctx) : action === 'stop' ? stop(ctx) : restart(ctx));
-    const st = await status(ctx);
-    results.push({ ...st, label: ctx.engine.label });
+    try {
+      await (action === 'start' ? start(ctx) : action === 'stop' ? stop(ctx) : restart(ctx));
+      const st = await status(ctx);
+      results.push({ ...st, label: ctx.engine.label });
+    } catch (e) {
+      failures.push({ key: ctx.key, major: ctx.major, error: String(e.message || e).split('\n')[0] });
+      if (!flags.json) fail(`${ctx.key}@${ctx.major}: ${String(e.message || e).split('\n')[0]}`);
+    }
   }
-  if (flags.json) return jsonOut(results);
-  out('');
-  out(renderServices(results.map((r) => ({ ...r, active: true }))));
+
+  if (flags.json) {
+    return jsonOut(failures.length ? { results, failures } : results);
+  }
+  if (results.length) {
+    out('');
+    out(renderServices(results.map((r) => ({ ...r, active: true }))));
+  }
+  if (failures.length) {
+    throw new Error(`${failures.length} of ${targets.length} ${action} target(s) failed`);
+  }
 }
 
 async function cmdStatus(flags, args) {
+  if (args.length > 1) {
+    const rows = [];
+    for (const ref of args) {
+      const { engine, ctx } = resolveRef(ref);
+      const versions = installedVersions(engine);
+      const activeVersion = state.getActive(engine.key);
+      const activePick = versions.find((v) => v.version === activeVersion) || versions[versions.length - 1];
+      const st = await versionStatus(engine, versions.find((v) => v.version === ctx.version), activePick);
+      rows.push({ ...st, label: engine.label, auth: ctx.engine.account?.(ctx) || null });
+    }
+    if (flags.json) return jsonOut(rows);
+    out(renderServices(rows));
+    return;
+  }
   if (args[0]) {
     const { engine, ctx } = resolveRef(args[0]);
     const versions = installedVersions(engine);
