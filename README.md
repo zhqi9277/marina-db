@@ -58,7 +58,7 @@ Marina 是一个零依赖的本地数据库管理器：**装版本、切版本�
 - **本地隔离**：只监听 `127.0.0.1`，socket、pid、日志、数据全在 `runtime/` 下，删除即清理。
 - **可迁移**：搬家后 `marina reconfig --all` 重写绝对路径；配置指向旧目录时启动会秒级报错。
 
-Marina **不做**的事：开机自启（需要自己配 launchd/systemd）、远程管理、集群/复制、GUI。
+Marina **不做**的事：开机自启（只做登录自启，见第 13 节）、远程管理、集群/复制、GUI。
 
 ---
 
@@ -146,6 +146,7 @@ runtime/
   cache/index/<engine>.<os>.<arch>.json  远程版本索引缓存
   shims/<bin>                       PATH shims
   state.json                        激活版本、端口、设置
+  state.lock                        写入 state.json 时的目录锁（退出即删）
 ```
 
 `state.json` 的大致结构：
@@ -169,6 +170,9 @@ runtime/
 - `ports`：按 `engine:major` 存端口，同一 major 的多个小版本共用一个端口。
 - `settings.accounts`：按引擎存账号密码；`mysqlRootPassword` 是旧字段，保留兼容。
 - 删除 `state.json` 不会删数据，但会丢失激活版本、端口和凭据设置。
+- 写入用 `runtime/state.lock` 目录锁 + 临时文件 rename 原子替换：两个 marina 进程同时改端口/自启不会互相覆盖；
+  进程崩溃遗留的锁按 pid 与锁龄自动回收。
+- `state.json` 以 `0600` 权限保存（密码明文，见第 17 节）。
 
 ---
 
@@ -186,7 +190,7 @@ runtime/
 install: HEAD 校验 → 下载 → 校验和 → 解压/编译
 ```
 
-**仓库里没有任何硬编码版本号或下载 URL。** 索引来源按优先级尝试，失败自动降级到下一个。
+**仓库里没有硬编码的版本清单或逐版本下载地址。** 索引来源按优先级尝试，失败自动降级到下一个。
 
 实测覆盖（2026-10）：
 
@@ -196,7 +200,7 @@ install: HEAD 校验 → 下载 → 校验和 → 解压/编译
 | Redis | 华为云 → `download.redis.io/releases/` | 目录列表 | 无 | 源码编译 |
 | MariaDB | 阿里云 → 腾讯云 → 华为云 | 目录列表 | `sha256sums.txt` | macOS 无官方二进制 |
 | Memcached | 华为云 → `memcached.org/files/` | 目录列表 | 无 | 源码构建未自动化 |
-| MySQL | 阿里云 / 华为云目录（≤ 8.0.x）→ GitHub `mysql-server` tag feed（8.4/9.x） | 目录 + tag feed | 官方 `.md5` | 8.4+ 文件走 `cdn.mysql.com` |
+| MySQL | 阿里云 / 华为云目录（≤ 8.0.x）→ GitHub `mysql-server` tag feed（8.4/9.x） | 目录 + tag feed | 官方 `.md5`（当前未消费） | 8.4+ 文件走 `cdn.mysql.com` |
 | MongoDB | `downloads.mongodb.org/full.json` → `fastdl.mongodb.org` | JSON 索引 | JSON 内 `sha256` | 国内镜像无二进制 |
 
 必须知道的几个约束：
@@ -208,8 +212,8 @@ install: HEAD 校验 → 下载 → 校验和 → 解压/编译
 - **镜像顺序可调**：`MARINA_MIRROR=huawei,aliyun marina remote`。
 - **索引 TTL**：默认 21600 秒，`MARINA_INDEX_TTL` 可改；`--refresh` 强制重查。
 - **平台过滤**：当前平台没有产物的版本会标 `n/a`，`install` 会给出原因；不会静默装错包。
-- **校验和**：有就校验（PG/MySQL(md5)/MariaDB/MongoDB）；Redis/Memcached 上游没有官方 sha256，
-  只校验下载完整性（大小/解压成功）。
+- **校验和**：有 sha256 就校验（PG / MariaDB / MongoDB）；MySQL 只有官方 `.md5`（当前未消费），
+  Redis/Memcached 上游没有官方 sha256，只校验下载完整性（大小/解压成功）。
 
 ### 自建产物 overlay
 
@@ -294,7 +298,7 @@ export PATH="$PWD/bin:$PATH"
 | `marina remote` | 六个引擎的版本摘要（数量、最新几个、索引来源） |
 | `marina remote <db>` | 单个引擎的完整版本表 |
 | `marina remote <db> --major 8.0` | 只看某个 major |
-| `marina remote --installed` | 只列已安装 |
+| `marina remote <db> --installed` | 只列已安装 |
 | `marina remote --json` | 机器可读输出 |
 | `marina remote --refresh` | 强制重查索引 |
 | `marina install <db>[@ver]` | 下载/编译、初始化、写配置；默认切换 active |
@@ -362,7 +366,7 @@ export PATH="$PWD/bin:$PATH"
 | 变量 | 默认 | 作用 |
 |---|---|---|
 | `MARINA_HOME` | 仓库 `runtime/`（可写时）或 `~/.marina` | 运行时根目录 |
-| `MARINA_MIRROR` | `aliyun,tencent,huawei` | 索引/下载源顺序 |
+| `MARINA_MIRROR` | 各引擎自带顺序（见第 4 节） | 索引/下载源顺序 |
 | `MARINA_INDEX_TTL` | `21600` | 索引缓存秒数 |
 | `MARINA_CATALOG_FILE` | — | 自建产物 overlay（本地 JSON） |
 | `MARINA_CATALOG_URL` | — | 自建产物 overlay（HTTP） |
@@ -495,6 +499,8 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
 - **配置不覆盖**：`etc/` 下已有文件默认保留，方便你改参数；`--force` / `reconfig` 才重写。
 - **离线安装**：`--file` 直接给本地包，仍然走解压/初始化/配置流程。
 - **overlay**：`MARINA_CATALOG_FILE/URL` 命中时优先于远程索引。
+- **payload 自愈**：版本目录残缺（找不到 marker）时自动删除重解压；解压、重命名或源码编译失败会清理本次半成品，
+  不会残留成“已安装”；`--force` 强制重新解包。
 - **源码 vs 二进制**：PostgreSQL/Redis 本机编译；MySQL/MongoDB 解包官方二进制；
   MariaDB/Memcached 在 macOS 上只列版本，安装会明确拒绝（没有可用的自动化构建）。
 
@@ -625,8 +631,14 @@ npm run marina -- remote   # 不装全局时直接跑
 测试覆盖：
 
 - 远程索引解析（镜像 HTML、MySQL tag feed、MongoDB JSON）
-- 版本排序、major 深度、平台过滤、overlay 优先级
-- 配置路径过期检测、启动快速失败
+- 版本排序、major 深度、平台过滤、overlay 归一化
+- 配置路径过期检测（INI / YAML / redis.conf 三种指令）、启动快速失败
+- 状态文件损坏归一化与 0600 权限、端口校验、下载完整性、Redis `requirepass`
+- pid 归属校验与 stop 终止确认（含搬家后的旧进程、pid 复用防误杀）
+- `state.json` 跨进程锁（3 进程并发自增不丢更新）、死锁/超时锁回收
+- payload 复用 / 残缺自愈 / 解压与编译失败清理、`stopCommand` 失败告警
+- Windows/systemd 纯函数加固：`current` 目录过滤、Expand-Archive 参数、systemd `%`/`$` 转义、非空目录替换
+- settings / doctor / shims / registry / platform / configcheck / ui 的隔离 `MARINA_HOME` 行为
 - TUI 按键、箭头导航、doctor、账号密码显示、端口/账号/密码输入
 - 各引擎 `account()` 契约
 
@@ -691,10 +703,10 @@ export default {
 ## 17. 安全说明
 
 - 所有服务默认只绑定 `127.0.0.1`，不要直接暴露到公网。
-- 账号密码以明文存于 `runtime/state.json`，并会显示在 TUI/`marina auth`/`marina status` 中；
+- 账号密码以明文存于 `runtime/state.json`（文件按 `0600` 写入），并会显示在 TUI/`marina auth`/`marina status` 中；
   这些是**本机开发凭据**，不要复用生产密码。
 - MySQL 客户端参数里的 `-p<password>` 会出现在进程列表里（与官方客户端行为一致）。
-- 下载包会尽量做 sha256/md5 校验；没有官方校验和的引擎只能保证传输/解压完整。
+- 下载包会尽量做 sha256 校验；没有官方校验和的引擎只能保证传输/解压完整。
 - 安装脚本/编译在本机以当前用户权限执行，不调用 sudo。
 
 ---

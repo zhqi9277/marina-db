@@ -55,7 +55,10 @@ export function libInspector() {
 /** symlink a directory; falls back to a copy when the OS refuses (Windows) */
 export function linkDir(target, link) {
   try {
-    fs.rmSync(link, { force: true });
+    // recursive: an older real directory (e.g. a previous Windows copy
+    // fallback) must be removed entirely, otherwise cpSync would nest the new
+    // payload inside it instead of replacing it.
+    fs.rmSync(link, { recursive: true, force: true });
   } catch {}
   try {
     fs.symlinkSync(path.resolve(target), link, IS_WIN ? 'junction' : 'dir');

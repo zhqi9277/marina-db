@@ -40,9 +40,11 @@ export function resolveBin(bin) {
   for (const engine of engineList) {
     if (!engine.clientBins.includes(bin)) continue;
     const ctx = activeCtx(engine);
-    if (!ctx || !ctx.root) return null;
+    // this engine is not installed/active — another engine may still provide
+    // the same client (mariadb ships mysql, for example)
+    if (!ctx || !ctx.root) continue;
     const found = findBin(ctx.root, [bin]);
-    return found ? { engine, ctx, path: found } : null;
+    if (found) return { engine, ctx, path: found };
   }
   return null;
 }

@@ -842,7 +842,8 @@ export class App {
           value: e.ctx?.account?.user || '',
           onSubmit: async (v) => {
             const r = await changeAccount(e.ctx, { user: v });
-            return `user saved${r.applied.length ? ' · applied' : ''}${r.notes.length ? ` · ${r.notes[0]}` : ''}`;
+            const verb = r.applied.length || !r.notes.some((n) => /NOT changed/.test(n)) ? 'saved' : 'NOT changed';
+            return `user ${verb}${r.applied.length ? ' · applied' : ''}${r.notes.length ? ` · ${r.notes[0]}` : ''}`;
           },
         });
       case 'password':
@@ -853,7 +854,8 @@ export class App {
           secret: true,
           onSubmit: async (v) => {
             const r = await changeAccount(e.ctx, { password: v });
-            return `password saved${r.applied.length ? ' · applied' : ''}${r.notes.length ? ` · ${r.notes[0]}` : ''}`;
+            const verb = r.applied.length || !r.notes.some((n) => /NOT changed/.test(n)) ? 'saved' : 'NOT changed';
+            return `password ${verb}${r.applied.length ? ' · applied' : ''}${r.notes.length ? ` · ${r.notes[0]}` : ''}`;
           },
         });
       case 'reconfig': {

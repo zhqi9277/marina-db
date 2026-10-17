@@ -29,6 +29,13 @@ function versionFromFilename(file) {
   return m ? m[1] : null;
 }
 
+/** `--port` must fail before any download so a typo cannot write a bad config. */
+function validatePort(value) {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('port must be 1..65535');
+  return port;
+}
+
 /**
  * Turn "<db>[@version]" into a concrete download plan.
  *
@@ -96,11 +103,15 @@ export async function resolveTarget(ref, { file = null, version = null } = {}) {
   };
 }
 
-async function fetchPackage(target) {
+export async function fetchPackage(target) {
   if (target.file) {
     mkdirp(cacheDir(target.engine.key, target.version));
     const dest = path.join(cacheDir(target.engine.key, target.version), path.basename(target.file));
-    if (!fs.existsSync(dest)) fs.copyFileSync(target.file, dest);
+    // always refresh the cache: the same file name can be replaced by the user,
+    // and reusing the previous copy would install a stale payload silently
+    // (a --file pointing inside the cache is already in place — copying it onto
+    // itself would fail)
+    if (path.resolve(target.file) !== path.resolve(dest)) fs.copyFileSync(target.file, dest);
     const sha = await sha256File(dest);
     return { tarball: dest, sha256: sha };
   }
@@ -156,6 +167,63 @@ async function buildSource(root, build, engine) {
   }
 }
 
+/**
+ * Extract a verified tarball into engines/<key>/<major>/<version>.
+ *
+ * `target.tarball` must already be downloaded. A complete payload is reused
+ * unless `force` is set; an incomplete one is removed and re-extracted. A dest
+ * created (or healed) here is removed again when extraction/rename/build fails,
+ * so a later install never mistakes a half-built payload for a usable one.
+ */
+export async function materializePayload(target, engine, { force = false } = {}) {
+  const tarball = target.tarball || target.file;
+  if (!tarball) throw new Error('materializePayload: target.tarball is required');
+  const { major, version } = target;
+  const markers = engine.markers || [];
+  ensureVersionDirs(engine, major);
+  const dest = versionDir(engine.key, major, version);
+
+  if (fs.existsSync(dest)) {
+    if (!force && discoverRoot(dest, markers)) {
+      info(`${engine.label} ${version} is already installed — reusing payload (use --force to re-extract)`);
+      return { dest, reused: true };
+    }
+    if (!force) warn(`${engine.label} ${version} payload is incomplete — re-extracting`);
+    fs.rmSync(dest, { recursive: true, force: true });
+  }
+
+  const stage = path.join(engineDir(engine.key, major), `.stage-${crypto.randomBytes(4).toString('hex')}`);
+  fs.rmSync(stage, { recursive: true, force: true });
+  // only a dest renamed into place by this call may be removed on failure: a
+  // concurrent install can win the rename, and its payload must survive
+  let created = false;
+  try {
+    await extractTar(tarball, stage);
+    if (target.kind === 'source') {
+      const top = singleTopDir(stage);
+      fs.renameSync(top || stage, dest);
+      created = true;
+      await buildSource(dest, target.build, engine);
+    } else {
+      const root = discoverRoot(stage, markers);
+      if (!root) {
+        throw new Error(
+          `unrecognized payload layout under ${stage}\n` +
+          `  expected one of: ${markers.join(', ')}`,
+        );
+      }
+      fs.renameSync(root, dest);
+      created = true;
+    }
+  } catch (e) {
+    if (created) fs.rmSync(dest, { recursive: true, force: true });
+    throw e;
+  } finally {
+    fs.rmSync(stage, { recursive: true, force: true });
+  }
+  return { dest, reused: false };
+}
+
 export function renderConfig(ctx, { force = false } = {}) {
   const text = ctx.engine.renderConfig?.(ctx);
   if (!text) return { skipped: true };
@@ -166,6 +234,8 @@ export function renderConfig(ctx, { force = false } = {}) {
 }
 
 export async function install(ref, opts = {}) {
+  // validate before resolving the target (and before any network / extraction)
+  const port = opts.port === undefined || opts.port === null ? null : validatePort(opts.port);
   ensureDirs();
   const target = await resolveTarget(ref, opts);
   const { engine, major, version } = target;
@@ -177,43 +247,9 @@ export async function install(ref, opts = {}) {
   if (target.stale) warn('version index is a stale cache (network refresh failed)');
 
   const { tarball, sha256 } = await fetchPackage(target);
+  await materializePayload({ ...target, tarball }, engine, { force: opts.force });
 
-  ensureVersionDirs(engine, major);
-  const dest = versionDir(engine.key, major, version);
-  if (fs.existsSync(dest)) {
-    if (!opts.force) {
-      info(`${engine.label} ${version} is already installed — reusing payload (use --force to re-extract)`);
-    } else {
-      fs.rmSync(dest, { recursive: true, force: true });
-    }
-  }
-
-  if (!fs.existsSync(dest)) {
-    const stage = path.join(engineDir(engine.key, major), `.stage-${crypto.randomBytes(4).toString('hex')}`);
-    fs.rmSync(stage, { recursive: true, force: true });
-    try {
-      await extractTar(tarball, stage);
-      if (target.kind === 'source') {
-        const top = singleTopDir(stage);
-        if (top) fs.renameSync(top, dest);
-        else fs.renameSync(stage, dest);
-        await buildSource(dest, target.build, engine);
-      } else {
-        const root = discoverRoot(stage, engine.markers);
-        if (!root) {
-          throw new Error(
-            `unrecognized payload layout under ${stage}\n` +
-            `  expected one of: ${engine.markers.join(', ')}`,
-          );
-        }
-        fs.renameSync(root, dest);
-      }
-    } finally {
-      fs.rmSync(stage, { recursive: true, force: true });
-    }
-  }
-
-  if (opts.port) state.setPort(engine.key, major, opts.port);
+  if (port !== null) state.setPort(engine.key, major, port);
   const ctx = buildCtx(engine, { major, version });
   if (!ctx.root) throw new Error(`payload for ${engine.label} ${version} is incomplete`);
 

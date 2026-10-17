@@ -32,12 +32,21 @@ export function unitTarget() {
   return null;
 }
 
-function xmlEscape(value) {
+export function xmlEscape(value) {
   return String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * systemd expands `%` specifiers and `$` variables inside ExecStart, so a
+ * literal path must double them (`%%`, `$$`). Only the ExecStart command line
+ * uses this; unit metadata such as Description is unchanged.
+ */
+export function systemdEscape(value) {
+  return String(value).replace(/%/g, '%%').replace(/\$/g, '$$$$');
 }
 
 export function renderUnit(ids, target = unitTarget()) {
@@ -70,7 +79,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart="${NODE}" "${CLI}" start --autostart
+ExecStart="${systemdEscape(NODE)}" "${systemdEscape(CLI)}" start --autostart
 RemainAfterExit=yes
 
 [Install]
@@ -87,7 +96,13 @@ function run(cmd, args) {
 function unload(target) {
   if (!fs.existsSync(target.file)) return [];
   if (target.manager === 'launchd') {
-    return [run('launchctl', ['bootout', `gui/${process.getuid()}`, target.file])];
+    // `bootout` is the modern verb, but it does not exist on older macOS: fall
+    // back to `unload -w`, otherwise disabling autostart leaves the job loaded
+    // and it comes back at the next login
+    const res = run('launchctl', ['bootout', `gui/${process.getuid()}`, target.file]);
+    if (res.ok || res.skipped) return [res];
+    const fallback = run('launchctl', ['unload', '-w', target.file]);
+    return fallback.ok || fallback.skipped ? [fallback] : [res, fallback];
   }
   return [run('systemctl', ['--user', 'disable', '--now', UNIT_NAME])];
 }
@@ -118,11 +133,14 @@ export function sync() {
 
   const ids = state.autostartList();
   if (!ids.length) {
-    unload(target);
+    const results = unload(target);
     try {
       fs.rmSync(target.file, { force: true });
     } catch {}
-    return { manager: target.manager, file: target.file, ids, enabled: false, warnings: [] };
+    const warnings = results
+      .filter((r) => r && !r.ok && !r.skipped)
+      .map((r) => r.stderr || 'service manager returned an error');
+    return { manager: target.manager, file: target.file, ids, enabled: false, warnings };
   }
 
   ensureDirs();

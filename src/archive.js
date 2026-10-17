@@ -19,6 +19,22 @@ export function spawnAsync(cmd, args, opts = {}) {
   });
 }
 
+/**
+ * PowerShell Expand-Archive arguments for the Windows fallback.
+ * Single-quoted PowerShell strings are literal, so only `'` needs doubling;
+ * `-ErrorAction Stop` is required because Expand-Archive reports bad archives
+ * as non-terminating errors that would otherwise exit 0.
+ */
+export function expandArchiveArgs(tarball, destDir) {
+  const quote = (value) => `'${String(value).replace(/'/g, "''")}'`;
+  return [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    `Expand-Archive -LiteralPath ${quote(tarball)} -DestinationPath ${quote(destDir)} -Force -ErrorAction Stop`,
+  ];
+}
+
 export async function extractTar(tarball, destDir) {
   mkdirp(destDir);
   info(`extracting ${path.basename(tarball)}`);
@@ -26,12 +42,7 @@ export async function extractTar(tarball, destDir) {
   let res = await spawnAsync('tar', [flag, tarball, '-C', destDir]);
   // Windows without bsdtar: fall back to PowerShell for zip payloads
   if (res.code !== 0 && IS_WIN && tarball.endsWith('.zip')) {
-    const q = (v) => v.replace(/'/g, "''");
-    res = await spawnAsync('powershell', [
-      '-NoProfile',
-      '-Command',
-      `Expand-Archive -LiteralPath '${q(tarball)}' -DestinationPath '${q(destDir)}' -Force`,
-    ]);
+    res = await spawnAsync('powershell', expandArchiveArgs(tarball, destDir));
   }
   if (res.code !== 0) throw new Error(`tar failed (${res.code}): ${res.stderr.trim()}`);
   stripJunk(destDir);

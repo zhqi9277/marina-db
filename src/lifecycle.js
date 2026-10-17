@@ -2,7 +2,7 @@
 import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { spawnAsync, findBin } from './archive.js';
 import { ensureDirs } from './paths.js';
 import { staleConfigReferences } from './configcheck.js';
@@ -31,6 +31,110 @@ export function pidAlive(pid) {
   } catch (e) {
     return e.code === 'EPERM';
   }
+}
+
+function realpathOf(target) {
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Identity of a live process: command line and/or cwd, or null when it cannot
+ * be inspected. Linux is served by /proc; elsewhere `ps` is tried first and
+ * `lsof` is the fallback (some sandboxes forbid exec'ing ps).
+ */
+export function processDetails(pid) {
+  if (process.platform === 'win32' || !pidAlive(pid)) return null;
+  try {
+    const argv = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').filter(Boolean);
+    let cwd = null;
+    try {
+      cwd = fs.realpathSync(fs.readlinkSync(`/proc/${pid}/cwd`));
+    } catch {}
+    if (argv.length || cwd) return { command: argv.join(' '), cwd };
+  } catch {}
+  try {
+    const res = spawnSync('ps', ['-p', String(pid), '-o', 'command='], { encoding: 'utf8', timeout: 2000 });
+    if (!res.error && res.status === 0) {
+      const command = (res.stdout || '').trim();
+      if (command) return { command, cwd: null };
+    }
+  } catch {}
+  try {
+    const res = spawnSync('lsof', ['-p', String(pid), '-a', '-d', 'cwd', '-Fn'], { encoding: 'utf8', timeout: 3000 });
+    if (!res.error && res.status === 0) {
+      const line = (res.stdout || '').split('\n').find((row) => row.startsWith('n'));
+      if (line) return { command: null, cwd: line.slice(1) };
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * Root-independent marina layout markers. A moved project keeps the same
+ * engines/<key>/<major>/<version> · data/<key>/<major> · etc/... · run/... shape
+ * under the old root, so these let us recognise (and stop) pre-move processes.
+ */
+function marinaLayout(ctx) {
+  const sep = path.sep;
+  const key = ctx.engine?.key || ctx.key;
+  const major = ctx.major === undefined || ctx.major === null ? '' : String(ctx.major);
+  if (!key || !major) return { needles: [], suffixes: [] };
+  const data = `${sep}data${sep}${key}${sep}${major}`;
+  return {
+    needles: [
+      `${sep}engines${sep}${key}${sep}`,
+      `${data}${sep}`,
+      `${sep}etc${sep}${key}${sep}${major}${sep}`,
+      `${sep}run${sep}${key}-${major}.pid`,
+    ],
+    // a process may sit exactly on the datadir (redis chdir's into it)
+    suffixes: [data],
+  };
+}
+
+/** Match one process identity record (command line and/or cwd) against ctx. */
+function matchesInstall(details, ctx) {
+  const texts = [details.command, details.cwd].filter(Boolean);
+  if (!texts.length) return true; // nothing to judge by -> keep the old trust
+  const roots = [ctx.root, ctx.dataDir, ctx.confFile, ctx.logFile, ctx.pidFile]
+    .filter(Boolean)
+    .flatMap((root) => {
+      const resolved = path.resolve(root);
+      const real = realpathOf(root);
+      return real && real !== resolved ? [resolved, real] : [resolved];
+    });
+  if (roots.some((root) => texts.some((text) => text.includes(root)))) return true;
+  if (details.cwd && roots.some((root) => details.cwd === root || details.cwd.startsWith(root + path.sep))) return true;
+
+  const { needles, suffixes } = marinaLayout(ctx);
+  return texts.some(
+    (text) =>
+      needles.some((needle) => text.includes(needle)) ||
+      suffixes.some((suffix) => text === suffix || text.endsWith(suffix)),
+  );
+}
+
+/**
+ * Does `pid` really belong to this install? A pid file can outlive its process
+ * (or be reused by an unrelated one), and blindly signalling it would take down
+ * a process marina never started. Besides the live paths we also accept the
+ * marina layout anywhere (moved installs), while system binaries such as
+ * /usr/local/bin/mysqld never match `engines/<key>/`.
+ *
+ * `details` is injectable so tests can simulate an identity without exec'ing ps.
+ */
+export function pidOwnedBy(pid, ctx, details = processDetails(pid)) {
+  if (!Number.isFinite(pid) || !pidAlive(pid)) return false;
+  // Windows has no portable command-line lookup; keep trusting the pid file there.
+  if (process.platform === 'win32') return true;
+  // if the process cannot be inspected, keep the old pid-file trust instead of
+  // leaving a service running that the user asked to stop
+  if (!details) return true;
+  return matchesInstall(details, ctx);
 }
 
 export async function healthy(ctx) {
@@ -100,7 +204,7 @@ function serverCommand(ctx) {
   return { cmd: bin, args: ctx.engine.startArgs(ctx), foreground: true };
 }
 
-export async function start(ctx, { quiet = false } = {}) {
+export async function start(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
   ensureDirs();
   if (!ctx.root) throw new Error(`package payload for ${ctx.key}@${ctx.version} is missing (reinstall)`);
 
@@ -121,14 +225,21 @@ export async function start(ctx, { quiet = false } = {}) {
 
   const pid = readPid(ctx);
   if (pidAlive(pid)) {
-    if (!quiet) warn(`stale ${ctx.engine.label} pid ${pid} is alive but not answering — terminating it`);
-    try { process.kill(pid, 'SIGKILL'); } catch {}
-    await sleep(700);
+    if (pidOwnedBy(pid, ctx)) {
+      if (!quiet) warn(`stale ${ctx.engine.label} pid ${pid} is alive but not answering — terminating it`);
+      try { process.kill(pid, 'SIGKILL'); } catch {}
+      if (!(await waitFor(() => !pidAlive(pid), 5000))) {
+        throw new Error(`${ctx.engine.label} pid ${pid} did not exit after SIGKILL — stop it manually: kill -9 ${pid}`);
+      }
+    } else if (!quiet) {
+      warn(`pid ${pid} in ${ctx.pidFile} belongs to another process (pid reuse) — removing the stale pid file without signalling it`);
+    }
   }
   cleanRuntimeFiles(ctx);
 
   const spec = serverCommand(ctx);
   const startedAt = Date.now();
+  let spawnedPid = null;
   if (!quiet) info(`starting ${ctx.engine.label} ${ctx.version} on port ${ctx.port}`);
   if (!spec.foreground) {
     // wrapper (e.g. pg_ctl -w) — it daemonizes; ignore stdio so the daemon does
@@ -140,16 +251,33 @@ export async function start(ctx, { quiet = false } = {}) {
     });
   } else {
     const child = spawn(spec.cmd, spec.args, { cwd: ctx.root, detached: true, stdio: 'ignore' });
+    // wait for the exec result: an unhandled 'error' event would crash the CLI,
+    // and a missing/broken binary must fail now instead of after the timeout
+    const spawnError = await new Promise((resolve) => {
+      child.once('spawn', () => resolve(null));
+      child.once('error', resolve);
+    });
     child.unref();
+    if (spawnError) throw new Error(`failed to start ${ctx.engine.label}: ${spawnError.message}`);
+    spawnedPid = child.pid;
   }
 
   // readiness = our own pid file is alive *and* the port accepts connections.
   // Polling this is much cheaper than spawning a client probe every 300ms.
-  const up = await waitFor(() => bootReady(ctx), 30000, 200);
+  const up = await waitFor(() => bootReady(ctx), timeoutMs, 200);
   if (!up) {
+    // do not leak the process we just started: a server that never becomes
+    // ready keeps holding the port/datadir, and the retry would fail
+    for (const candidate of new Set([readPid(ctx), spawnedPid])) {
+      if (pidAlive(candidate) && pidOwnedBy(candidate, ctx)) {
+        try { process.kill(candidate, 'SIGKILL'); } catch {}
+        await waitFor(() => !pidAlive(candidate), 3000);
+      }
+    }
     const tail = tailLog(ctx);
+    cleanRuntimeFiles(ctx);
     throw new Error(
-      `${ctx.engine.label} did not become ready within 30s\n` +
+      `${ctx.engine.label} did not become ready within ${Math.round(timeoutMs / 1000)}s\n` +
       (tail ? `--- last log lines (${ctx.logFile}) ---\n${tail}` : `(no log at ${ctx.logFile})`),
     );
   }
@@ -188,19 +316,45 @@ export async function stop(ctx, { quiet = false } = {}) {
       spec = null;
     }
     if (spec) {
-      await spawnAsync(spec.cmd, spec.args, { cwd: ctx.root });
+      let res = null;
+      try {
+        res = await spawnAsync(spec.cmd, spec.args, { cwd: ctx.root });
+      } catch (e) {
+        // a missing/broken shutdown helper must not take the pid fallback down
+        if (!quiet) warn(`graceful stop command failed: ${path.basename(spec.cmd)} could not run: ${String(e.message).split('\n')[0]}`);
+      }
+      // a failed shutdown helper should not stay silent; the pid fallback below
+      // still gets a chance to stop the server
+      if (res && res.code !== 0 && !quiet) {
+        const first = (res.stderr || '').trim().split('\n')[0];
+        warn(`graceful stop command failed: ${path.basename(spec.cmd)} exited ${res.code}${first ? `: ${first}` : ''}`);
+      }
     }
   }
 
   let stopped = stale.length ? false : await waitFor(async () => !(await healthy(ctx)), 15000);
-  if (!stopped && pidAlive(pid)) {
-    try { process.kill(pid, 'SIGTERM'); } catch {}
-    stopped = await waitFor(async () => !(await healthy(ctx)) && !pidAlive(pid), 15000);
-  }
-  if (!stopped && pidAlive(pid)) {
-    if (!quiet) warn('graceful stop timed out — sending SIGKILL');
-    try { process.kill(pid, 'SIGKILL'); } catch {}
-    await waitFor(() => !pidAlive(pid), 5000);
+
+  // The probe can be broken and the pid file can outlive its server: a live
+  // process recorded in our pid file must still actually be terminated, and its
+  // death must be confirmed — otherwise stop() reports success for a server that
+  // is still holding the port/datadir.
+  if (pidAlive(pid)) {
+    if (!pidOwnedBy(pid, ctx)) {
+      if (!quiet) warn(`pid ${pid} belongs to another process (pid reuse) — removing the stale pid file without signalling it`);
+    } else {
+      try { process.kill(pid, 'SIGTERM'); } catch {}
+      stopped = await waitFor(() => !pidAlive(pid), 15000);
+      if (!stopped) {
+        if (!quiet) warn('graceful stop timed out — sending SIGKILL');
+        try { process.kill(pid, 'SIGKILL'); } catch {}
+        stopped = await waitFor(() => !pidAlive(pid), 5000);
+      }
+      if (!stopped) {
+        throw new Error(`${ctx.engine.label} ${ctx.version} is still running as pid ${pid} — stop it manually: kill -9 ${pid}`);
+      }
+    }
+  } else {
+    stopped = true; // no live pid left to signal
   }
   cleanRuntimeFiles(ctx);
   if (!quiet) ok(`${ctx.engine.label} ${ctx.version} stopped`);

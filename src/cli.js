@@ -53,7 +53,7 @@ SERVICE
 TOOLS
   marina exec <db[@ver]> -- -e "select 1"    run the client of that version
   marina which mysql                          resolve a client binary
-  marina shims                                install ~/.marina/shims/*
+  marina shims                                install shims into the runtime dir
   marina shellenv                             eval "$(marina shellenv)"
   marina reconfig [<db[@ver]>|--all]  rewrite generated config + current symlink
   marina rm <db[@ver]> [--purge]
@@ -68,8 +68,8 @@ FLAGS
   --port N --file path --version v --lines N
 
 ENV
-  MARINA_HOME            install root (default ~/.marina)
-  MARINA_MIRROR          index/download order, e.g. huawei,aliyun (default: aliyun,tencent,huawei)
+  MARINA_HOME            install root (default <repo>/runtime, ~/.marina if read-only)
+  MARINA_MIRROR          index/download source order, e.g. huawei,aliyun (default: per engine)
   MARINA_INDEX_TTL       version-index cache seconds (default 21600)
   MARINA_CATALOG_FILE    optional self-built artifact overlay (JSON)
   MARINA_CATALOG_URL     same, fetched over HTTP
