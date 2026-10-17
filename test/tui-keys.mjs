@@ -64,6 +64,45 @@ test('enter on the dashboard skips disabled actions', async () => {
   assert.equal(app.actionSel, 1);
 });
 
+test('d opens the doctor view and loads checks', async () => {
+  const app = new App(fakeScreen());
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
+  await app.handle('d');
+  assert.equal(app.mode, 'doctor');
+  assert.ok(Array.isArray(app.doctor));
+  assert.ok(app.doctor.length >= 6);
+});
+
+test('actions menu exposes start all / stop all / doctor', () => {
+  const app = new App(fakeScreen());
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running'), fakeEngine('redis', 'Redis', 'stopped')];
+  const actions = app.actionsFor(app.engines[0]);
+  const ids = actions.map((a) => a.id);
+  assert.ok(ids.includes('startAll'));
+  assert.ok(ids.includes('stopAll'));
+  assert.ok(ids.includes('doctor'));
+  assert.equal(actions.find((a) => a.id === 'startAll').enabled, true); // redis is stopped
+  assert.equal(actions.find((a) => a.id === 'stopAll').enabled, true); // mysql is running
+});
+
+test('doctor view renders every check with the right width', () => {
+  const screen = fakeScreen(100, 30);
+  const app = new App(screen);
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
+  app.mode = 'doctor';
+  app.doctor = [
+    { name: 'platform', value: 'macOS arm64', ok: true },
+    { name: 'libs', value: 'all engine dylibs resolve (6 checked)', ok: true },
+    { name: 'ports', value: 'mysql port 3306', ok: false },
+  ];
+  app.render();
+  const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
+  assert.equal(screen.lines.length, 30);
+  for (const line of screen.lines) assert.equal(strip(line).length, 100);
+  assert.ok(screen.lines.some((l) => strip(l).includes('platform')));
+  assert.ok(screen.lines.some((l) => strip(l).includes('fail')));
+});
+
 test('arrow keys move the version list selection', async () => {
   const app = new App(fakeScreen());
   app.engines = [fakeEngine('mysql', 'MySQL', 'running')];

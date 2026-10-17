@@ -10,6 +10,7 @@ import { collectEngines } from '../inventory.js';
 import { start, stop, restart } from '../lifecycle.js';
 import { install, use } from '../installer.js';
 import { listVersions } from '../versions.js';
+import { runDoctor } from '../doctor.js';
 import { HOME, PROJECT_ROOT } from '../paths.js';
 import { OS_LABEL } from '../platform.js';
 import { setQuiet } from '../ui.js';
@@ -41,6 +42,9 @@ export class App {
     this.spin = 0;
     this.logs = [];
     this.logScroll = 0;
+    this.doctor = null;
+    this.doctorScroll = 0;
+    this.doctorAt = 0;
     this.remote = null; // { majors: [...] } | null
     this.renderQueued = false;
     this.done = false;
@@ -112,7 +116,7 @@ export class App {
     const leftW = Math.max(26, Math.min(38, Math.floor(innerW * 0.4)));
     const rightW = innerW - leftW - 1;
     const bodyH = H - 7;
-    const full = this.mode === 'logs' || this.mode === 'help';
+    const full = this.mode === 'logs' || this.mode === 'help' || this.mode === 'doctor';
 
     const lines = [];
     const homeLabel = HOME === path.join(PROJECT_ROOT, 'runtime')
@@ -123,7 +127,7 @@ export class App {
 
     // column headers
     if (full) {
-      const title = this.mode === 'logs' ? `LOGS ${this.headerLabel()}` : 'KEYS';
+      const title = this.mode === 'logs' ? `LOGS ${this.headerLabel()}` : this.mode === 'doctor' ? 'DOCTOR' : 'KEYS';
       lines.push(fullRow(W, ` ${C.gray(title)}`));
       lines.push(rule(innerW, { left: '├', fill: '─', right: '┤' }));
     } else {
@@ -132,7 +136,7 @@ export class App {
     }
 
     const body = full ? this.renderFull(innerW, bodyH) : this.renderSplit(leftW, rightW, bodyH);
-    for (const line of body) lines.push(line);
+    for (const line of body) lines.push(full ? `${C.border('│')}${line}${C.border('│')}` : line);
 
     lines.push(full ? rule(innerW, { left: '├', fill: '─', right: '┤' }) : rule(innerW, { left: '├', mid: '┴', right: '┤', at: leftW }));
     lines.push(fullRow(W, ` ${this.renderKeys(innerW - 2)}`));
@@ -226,6 +230,9 @@ export class App {
       { id: 'start', label: 'Start', enabled: installed && !running },
       { id: 'stop', label: 'Stop', enabled: installed && running },
       { id: 'restart', label: 'Restart', enabled: installed },
+      { id: 'startAll', label: 'Start all', enabled: this.installedRows().some((x) => x.state !== 'running' && x.state !== 'degraded') },
+      { id: 'stopAll', label: 'Stop all', enabled: this.installedRows().some((x) => x.state === 'running' || x.state === 'degraded') },
+      { id: 'doctor', label: 'Doctor', enabled: true },
       { id: 'logs', label: 'Show logs', enabled: installed },
       { id: 'versions', label: 'Versions / install', enabled: true },
       { id: 'config', label: 'Config path', enabled: installed },
@@ -321,7 +328,102 @@ export class App {
 
   renderFull(w, h) {
     if (this.mode === 'help') return this.renderHelp(w, h);
+    if (this.mode === 'doctor') return this.renderDoctor(w, h);
     return this.renderLogs(w, h);
+  }
+
+  installedRows() {
+    return this.engines.filter((e) => e.state !== 'absent' && e.ctx);
+  }
+
+  async bulk(action) {
+    const targets = this.installedRows();
+    if (!targets.length) {
+      this.message = { kind: 'info', text: 'nothing installed' };
+      return this.render();
+    }
+    const verb = action === 'start' ? 'starting' : 'stopping';
+    this.busy = `${verb} all (${targets.length})…`;
+    this.message = { kind: 'info', text: this.busy };
+    setQuiet(true);
+    this.startSpin();
+    this.render();
+    const failed = [];
+    let done = 0;
+    try {
+      for (const e of targets) {
+        try {
+          if (action === 'start') await start(e.ctx, { quiet: true });
+          else await stop(e.ctx, { quiet: true });
+          done++;
+        } catch (err) {
+          failed.push(`${e.label}: ${err.message.split('\n')[0]}`);
+        }
+        this.message = { kind: 'info', text: `${verb} ${done}/${targets.length}…` };
+        this.render();
+      }
+    } finally {
+      setQuiet(false);
+      this.busy = null;
+      this.stopSpin();
+      this.message = failed.length
+        ? { kind: 'err', text: `${failed.length} failed — ${failed[0]}` }
+        : { kind: 'ok', text: `${verb} all done (${done})` };
+      await this.refresh();
+    }
+  }
+
+  async openDoctor() {
+    this.mode = 'doctor';
+    this.doctor = null;
+    this.doctorScroll = 0;
+    this.render();
+    return this.loadDoctor();
+  }
+
+  async loadDoctor() {
+    this.doctor = null;
+    this.render();
+    try {
+      this.doctor = await runDoctor();
+      this.doctorAt = Date.now();
+    } catch (e) {
+      this.doctor = [{ name: 'doctor', value: String(e.message || e).split('\n')[0], ok: false }];
+    }
+    this.render();
+  }
+
+  renderDoctor(w, h) {
+    const lines = [];
+    if (!this.doctor) {
+      lines.push(` ${C.gray('running self-check…')}`);
+      while (lines.length < h) lines.push(' '.repeat(w));
+      return lines.slice(0, h).map((l) => fit(l, w));
+    }
+    const bad = this.doctor.filter((c) => !c.ok).length;
+    const when = this.doctorAt ? new Date(this.doctorAt).toLocaleTimeString() : '';
+    lines.push(fit(` ${C.gray(`${this.doctor.length} checks · ${bad} failed${when ? ` · ${when}` : ''}`)}`, w));
+    const viewH = Math.max(1, h - 2);
+    const start = Math.max(0, Math.min(this.doctorScroll, Math.max(0, this.doctor.length - viewH)));
+    for (const c of this.doctor.slice(start, start + viewH)) {
+      const mark = c.ok ? C.green('ok  ') : C.red('fail');
+      lines.push(fit(` ${mark} ${C.fg(250, fit(c.name, 11))} ${C.gray(c.value)}`, w));
+    }
+    while (lines.length < h - 1) lines.push(fit(' ', w));
+    lines.push(fit(` ${C.gray('↑↓ scroll · g rerun · esc back')}`, w));
+    return lines.slice(0, h);
+  }
+
+  async handleDoctor(key) {
+    if (key === 'esc' || key === 'q' || key === 'backspace') {
+      this.mode = 'detail';
+      return this.render();
+    }
+    const max = Math.max(0, (this.doctor?.length || 1) - 1);
+    if (key === 'esc:A' || key === 'k') this.doctorScroll = Math.min(max, Math.max(0, this.doctorScroll - 1));
+    else if (key === 'esc:B' || key === 'j') this.doctorScroll = Math.min(max, this.doctorScroll + 1);
+    else if (key === 'g') return this.loadDoctor();
+    return this.render();
   }
 
   renderHelp(w, h) {
@@ -329,6 +431,8 @@ export class App {
       ['↑ ↓ / j k', 'move selection'],
       ['enter', 'actions for the selected database'],
       ['s / x / r', 'start / stop / restart'],
+      ['S / X', 'start all / stop all'],
+      ['d', 'doctor: environment self-check'],
       ['v', 'versions: activate installed, install new major'],
       ['l', 'logs (↑↓ scroll, pgup/pgdn, esc back)'],
       ['c', 'print config path'],
@@ -344,6 +448,7 @@ export class App {
     }
     lines.push('');
     lines.push(` ${C.gray('marina is local only: no root, no launchd, everything lives under')} ${C.accent(shortPath(HOME, 40, HOME))}`);
+    while (lines.length < h) lines.push(' '.repeat(w));
     return lines.slice(0, h).map((l) => fit(l, w));
   }
 
@@ -369,9 +474,10 @@ export class App {
     if (this.mode === 'actions') return keysBar([['↑↓', 'choose'], ['enter', 'run'], ['esc', 'back'], ['q', 'quit']], w);
     if (this.mode === 'versions') return keysBar([['↑↓', 'choose'], ['enter', 'select'], ['esc', 'back'], ['q', 'quit']], w);
     if (this.mode === 'logs') return keysBar([['↑↓', 'scroll'], ['r', 'reload'], ['esc', 'back'], ['q', 'quit']], w);
+    if (this.mode === 'doctor') return keysBar([['↑↓', 'scroll'], ['g', 'rerun'], ['esc', 'back'], ['q', 'quit']], w);
     if (this.mode === 'help') return keysBar([['esc', 'back'], ['q', 'quit']], w);
     return keysBar(
-      [['↑↓', 'move'], ['enter', 'actions'], ['s', 'start'], ['x', 'stop'], ['r', 'restart'], ['v', 'versions'], ['l', 'logs'], ['?', 'keys'], ['q', 'quit']],
+      [['↑↓', 'move'], ['enter', 'actions'], ['s/x/r', 'start/stop/restart'], ['S/X', 'all'], ['v', 'versions'], ['l', 'logs'], ['d', 'doctor'], ['?', 'keys'], ['q', 'quit']],
       w,
     );
   }
@@ -403,6 +509,7 @@ export class App {
       return;
     }
 
+    if (this.mode === 'doctor') return this.handleDoctor(key);
     if (this.mode === 'logs') return this.handleLogs(key);
     if (this.mode === 'actions') return this.handleActions(key);
     if (this.mode === 'versions') return this.handleVersions(key);
@@ -442,6 +549,9 @@ export class App {
       this.render();
       return;
     }
+    if (key === 'S') return this.bulk('start');
+    if (key === 'X') return this.bulk('stop');
+    if (key === 'd') return this.openDoctor();
     if (key === 's') return this.quick('start');
     if (key === 'x') return this.quick('stop');
     if (key === 'r') return this.quick('restart');
@@ -546,6 +656,12 @@ export class App {
       case 'stop':
       case 'restart':
         return this.quick(action.id);
+      case 'startAll':
+        return this.bulk('start');
+      case 'stopAll':
+        return this.bulk('stop');
+      case 'doctor':
+        return this.openDoctor();
       case 'logs':
         return this.openLogs();
       case 'versions':

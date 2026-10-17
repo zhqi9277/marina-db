@@ -1,16 +1,16 @@
 // marina CLI: argument parsing, commands, rendering.
 import fs from 'node:fs';
-import { spawn, spawnSync } from 'node:child_process';
-import { dirs, ensureDirs } from './paths.js';
+import { spawn } from 'node:child_process';
+import { dirs } from './paths.js';
 import { engineList, getEngine, installedVersions, buildCtx, activeCtx, resolveRef, pickVersion, syncCurrentSymlink } from './registry.js';
-import { status, start, stop, restart, stateBadge, tcpProbe } from './lifecycle.js';
+import { status, start, stop, restart, stateBadge } from './lifecycle.js';
 import { install, remove, use, renderConfig } from './installer.js';
-import { listVersions, indexCacheInfo } from './versions.js';
+import { listVersions } from './versions.js';
 import { installShims, resolveBin, shellenv } from './shims.js';
 import { readProject } from './project.js';
 import { findBin } from './archive.js';
-import { depsOf } from './libcheck.js';
-import { OS_LABEL, IS_WIN } from './platform.js';
+import { OS_LABEL } from './platform.js';
+import { runDoctor } from './doctor.js';
 import * as state from './state.js';
 import {
   out, info, ok, warn, fail, hint, table, jsonOut, color, isInteractive, select,
@@ -506,66 +506,10 @@ function cmdShellenv() {
 }
 
 async function cmdDoctor(flags) {
-  const checks = [];
-  const nodeMajor = Number(process.versions.node.split('.')[0]);
-  checks.push(['platform', `${OS_LABEL} ${process.arch}`, true]);
-  checks.push(['node', process.versions.node, nodeMajor >= 18]);
-  const tar = spawnSync('tar', ['--version'], { encoding: 'utf8' });
-  checks.push(['tar', (tar.stdout || tar.stderr || '').split('\n')[0] || 'missing', tar.status === 0]);
-  let writable = true;
-  try {
-    ensureDirs();
-    fs.accessSync(dirs.root, fs.constants.W_OK);
-  } catch {
-    writable = false;
-  }
-  checks.push(['MARINA_HOME', dirs.root, writable]);
-
-  const idx = indexCacheInfo();
-  checks.push([
-    'index',
-    idx.files
-      ? `${idx.engines.length} engines cached${idx.newest ? ` · last refresh ${new Date(idx.newest).toLocaleString()}` : ''}`
-      : 'not fetched yet — run: marina remote --refresh',
-    idx.files > 0,
-  ]);
-
-  // packaged binaries may link against libraries shipped by the package source;
-  // warn early instead of failing with a cryptic dyld error later
-  const missingLibs = [];
-  let inspected = 0;
-  for (const engine of engineList) {
-    const ctx = activeCtx(engine);
-    if (!ctx || !ctx.root) continue;
-    const bin = findBin(ctx.root, engine.serverBin || []);
-    if (!bin) continue;
-    const deps = depsOf(bin);
-    if (deps.skipped) continue;
-    inspected++;
-    for (const dep of deps.missing) missingLibs.push(`${engine.key}: ${dep}`);
-  }
-  const libsNote = IS_WIN
-    ? 'skipped on Windows (no otool/ldd)'
-    : missingLibs.length
-      ? missingLibs.join(', ')
-      : `all engine dylibs resolve (${inspected} checked)`;
-  checks.push(['libs', libsNote, IS_WIN || missingLibs.length === 0]);
-
-  const conflicts = [];
-  for (const engine of engineList) {
-    const ctx = activeCtx(engine);
-    if (!ctx) continue;
-    if (await tcpProbe(ctx.port)) {
-      const st = await status(ctx);
-      if (st.state === 'port-busy') conflicts.push(`${engine.key} port ${ctx.port}`);
-    }
-  }
-  checks.push(['ports', conflicts.length ? conflicts.join(', ') : 'no foreign listeners', conflicts.length === 0]);
-
-  if (flags.json) return jsonOut(checks.map(([name, value, okFlag]) => ({ name, value, ok: okFlag })));
-  out(table(['CHECK', 'VALUE', ''], checks.map(([n, v, good]) => [n, v, good ? color.green('ok') : color.red('fail')])));
+  const checks = await runDoctor();
+  if (flags.json) return jsonOut(checks);
+  out(table(['CHECK', 'VALUE', ''], checks.map((c) => [c.name, c.value, c.ok ? color.green('ok') : color.red('fail')])));
 }
-
 async function cmdMenu() {
   if (!isInteractive()) throw new Error('the dashboard needs an interactive terminal — use a command instead (marina --help)');
   const { runTui } = await import('./tui/app.js');

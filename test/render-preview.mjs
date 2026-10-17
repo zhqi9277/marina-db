@@ -26,6 +26,14 @@ if (mode !== 'detail') {
     };
   }
   if (mode === 'logs') app.loadLogs();
+  if (mode === 'doctor') {
+    app.doctor = [
+      { name: 'platform', value: 'macOS arm64', ok: true },
+      { name: 'index', value: '6 engines cached', ok: true },
+      { name: 'ports', value: 'no foreign listeners', ok: true },
+    ];
+    app.doctorAt = Date.now();
+  }
 }
 app.render();
 
