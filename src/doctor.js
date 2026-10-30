@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirs, ensureDirs } from './paths.js';
-import { OS_LABEL, IS_WIN } from './platform.js';
+import { OS_LABEL, host } from './platform.js';
 import { engineList, activeCtx } from './registry.js';
 import { status, tcpProbe } from './lifecycle.js';
 import { findBin } from './archive.js';
@@ -55,12 +55,12 @@ export async function runDoctor() {
   }
   checks.push({
     name: 'libs',
-    value: IS_WIN
-      ? 'skipped on Windows (no otool/ldd)'
-      : missingLibs.length
+    value: host.libInspector()
+      ? missingLibs.length
         ? missingLibs.join(', ')
-        : `all engine dylibs resolve (${inspected} checked)`,
-    ok: IS_WIN || missingLibs.length === 0,
+        : `all engine dylibs resolve (${inspected} checked)`
+      : 'skipped on Windows (no otool/ldd)',
+    ok: !host.libInspector() || missingLibs.length === 0,
   });
 
   const conflicts = [];

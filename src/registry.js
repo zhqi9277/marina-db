@@ -2,7 +2,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { dirs, engineDir, versionDir, currentDir, etcDir, dataDir, logDir, runFile, mkdirp } from './paths.js';
-import { listDirs, discoverRoot } from './archive.js';
+import { discoverRoot } from './archive.js';
 import { linkDir } from './platform.js';
 import * as state from './state.js';
 import mysql from './engines/mysql.js';
@@ -38,11 +38,26 @@ const CONF_NAMES = {
   memcached: 'memcached.conf',
 };
 
+/**
+ * Real version directories only. `current` is a link on POSIX but becomes a
+ * real directory when linkDir falls back to cpSync on Windows, and staging
+ * dirs are dot-prefixed; neither may be mistaken for an installed version.
+ */
+function versionDirs(dir) {
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name !== 'current' && !e.name.startsWith('.'))
+      .map((e) => e.name);
+  } catch {
+    return [];
+  }
+}
+
 export function installedVersions(engine) {
   const base = path.join(dirs.engines, engine.key);
   const rows = [];
-  for (const major of listDirs(base)) {
-    for (const version of listDirs(path.join(base, major))) {
+  for (const major of versionDirs(base)) {
+    for (const version of versionDirs(path.join(base, major))) {
       rows.push({ major, version, dir: path.join(base, major, version) });
     }
   }

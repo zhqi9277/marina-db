@@ -3,7 +3,7 @@ import { buildCtx } from './registry.js';
 import { renderConfig } from './installer.js';
 import { status, start, stop, tcpProbe } from './lifecycle.js';
 import { spawnAsync, findBin } from './archive.js';
-import { IS_WIN } from './platform.js';
+import { host } from './host/index.js';
 import * as state from './state.js';
 
 export function validatePort(value) {
@@ -43,9 +43,9 @@ function sqlEscape(value) {
 async function mysqlAlter(ctx, oldAccount, nextAccount) {
   const client = findBin(ctx.root, ['mysql', 'mariadb']);
   if (!client) throw new Error('mysql client not found in this package');
-  const target = IS_WIN
-    ? ['--protocol=TCP', '-h', '127.0.0.1', '-P', String(ctx.port)]
-    : [`--socket=${ctx.sockFile}`];
+  const target = host.capabilities.unixSocket
+    ? [`--socket=${ctx.sockFile}`]
+    : ['--protocol=TCP', '-h', '127.0.0.1', '-P', String(ctx.port)];
   const auth = [`-u${oldAccount.user || 'root'}`];
   if (oldAccount.password) auth.push(`-p${oldAccount.password}`);
 
@@ -88,47 +88,75 @@ export async function changeAccount(ctx, patch) {
   const notes = [];
   const st = await status(ctx).catch(() => ({ state: 'unknown' }));
   const running = isRunning(st.state);
+  const changesCreds = patch.password !== undefined || patch.user !== undefined;
+  const isMysql = ctx.key === 'mysql' || ctx.key === 'mariadb';
 
   // server-side changes need a live server; storing a password that the server
-  // does not know would break probes and `marina stop`
-  if (!running && (ctx.key === 'mysql' || ctx.key === 'mariadb') && (patch.password !== undefined || patch.user !== undefined)) {
-    throw new Error(`${ctx.key} is stopped — start it first, then change the account/password`);
+  // does not know would break probes and `marina stop`. A process marina did not
+  // start must never receive the credential change either.
+  if (!running && isMysql && changesCreds) {
+    throw new Error(
+      st.state === 'port-busy'
+        ? `${ctx.key} is not running under marina — port ${ctx.port} is held by another process; start ${ctx.key} with marina first`
+        : `${ctx.key} is stopped — start it first, then change the account/password`,
+    );
   }
   if (!running && ctx.key === 'postgres' && patch.password !== undefined) {
-    throw new Error('postgres is stopped — start it first, then change the password');
+    throw new Error(
+      st.state === 'port-busy'
+        ? `postgres is not running under marina — port ${ctx.port} is held by another process; start postgres with marina first`
+        : 'postgres is stopped — start it first, then change the password',
+    );
   }
 
-  state.setAccount(ctx.key, nextAccount);
-
-  if (running && (ctx.key === 'mysql' || ctx.key === 'mariadb')) {
+  if (running && isMysql) {
+    // ALTER first: persisting a password the server rejected would make every
+    // following probe/stop use the wrong credentials
     try {
       await mysqlAlter(ctx, oldAccount, nextAccount);
-      applied.push('server');
     } catch (e) {
       notes.push(`server password NOT changed: ${String(e.message).split('\n')[0]}`);
+      return { account: oldAccount, applied, notes };
     }
+    state.setAccount(ctx.key, nextAccount);
+    applied.push('server');
   } else if (running && ctx.key === 'postgres' && patch.password !== undefined) {
     try {
       await postgresAlter(ctx, oldAccount, nextAccount.password);
-      applied.push('server');
-      notes.push('pg_hba is trust, so the password is stored but not enforced');
     } catch (e) {
       notes.push(`server password NOT changed: ${String(e.message).split('\n')[0]}`);
+      return { account: oldAccount, applied, notes };
     }
-  } else if (ctx.key === 'redis' && (patch.password !== undefined || patch.user !== undefined)) {
+    state.setAccount(ctx.key, nextAccount);
+    applied.push('server');
+    notes.push('pg_hba is trust, so the password is stored but not enforced');
+  } else if (ctx.key === 'redis' && changesCreds) {
+    state.setAccount(ctx.key, nextAccount);
     const next = buildCtx(ctx.engine, { major: ctx.major, version: ctx.version });
-    renderConfig(next, { force: true });
-    if (running) {
-      await stop(ctx, { quiet: true });
-      await start(next, { quiet: true });
-      applied.push('restart');
-    } else {
-      notes.push('applies on next start (requirepass written to redis.conf)');
+    try {
+      renderConfig(next, { force: true });
+      if (running) {
+        await stop(ctx, { quiet: true });
+        await start(next, { quiet: true });
+        applied.push('restart');
+      } else {
+        notes.push('applies on next start (requirepass written to redis.conf)');
+      }
+    } catch (e) {
+      // keep state.json and redis.conf on the same (old) password before failing
+      state.setAccount(ctx.key, oldAccount);
+      try {
+        renderConfig(buildCtx(ctx.engine, { major: ctx.major, version: ctx.version }), { force: true });
+      } catch {}
+      throw e;
     }
-  } else if (ctx.key === 'mongodb' || ctx.key === 'memcached') {
-    notes.push('stored only; this engine has no marina-managed auth');
-  } else if (!running) {
-    notes.push('stored only; applies on next start');
+  } else {
+    state.setAccount(ctx.key, nextAccount);
+    if (ctx.key === 'mongodb' || ctx.key === 'memcached') {
+      notes.push('stored only; this engine has no marina-managed auth');
+    } else if (!running) {
+      notes.push('stored only; applies on next start');
+    }
   }
 
   return { account: nextAccount, applied, notes };

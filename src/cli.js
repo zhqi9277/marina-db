@@ -9,6 +9,7 @@ import { listVersions } from './versions.js';
 import { installShims, resolveBin, shellenv } from './shims.js';
 import { readProject } from './project.js';
 import { changePort, changeAccount } from './settings.js';
+import * as autostart from './autostart.js';
 import { findBin } from './archive.js';
 import { OS_LABEL } from './platform.js';
 import { runDoctor } from './doctor.js';
@@ -40,18 +41,19 @@ INSTALL / SWITCH
   marina ls                       installed versions and their state
 
 SERVICE
-  marina start|stop|restart <db[@ver]>      (aliases: up / down)
+  marina start|stop|restart <db[@ver]>...   one or more refs (aliases: up / down)
   marina up --all                  every installed database
-  marina status [db[@ver]]        state, port, pid
+  marina status [db[@ver]]...     state, port, pid (one or more)
   marina logs <db[@ver]> [--lines 60]
   marina config <db[@ver]>        config file path
   marina port <db[@ver]> [N]      read/change the port (rewrites config, restarts)
+  marina autostart [db...]        start at login (--all / --off)
   marina auth <db[@ver]> [u] [p]  show/store the connection account + password
 
 TOOLS
   marina exec <db[@ver]> -- -e "select 1"    run the client of that version
   marina which mysql                          resolve a client binary
-  marina shims                                install ~/.marina/shims/*
+  marina shims                                install shims into the runtime dir
   marina shellenv                             eval "$(marina shellenv)"
   marina reconfig [<db[@ver]>|--all]  rewrite generated config + current symlink
   marina rm <db[@ver]> [--purge]
@@ -66,8 +68,8 @@ FLAGS
   --port N --file path --version v --lines N
 
 ENV
-  MARINA_HOME            install root (default ~/.marina)
-  MARINA_MIRROR          index/download order, e.g. huawei,aliyun (default: aliyun,tencent,huawei)
+  MARINA_HOME            install root (default <repo>/runtime, ~/.marina if read-only)
+  MARINA_MIRROR          index/download source order, e.g. huawei,aliyun (default: per engine)
   MARINA_INDEX_TTL       version-index cache seconds (default 21600)
   MARINA_CATALOG_FILE    optional self-built artifact overlay (JSON)
   MARINA_CATALOG_URL     same, fetched over HTTP
@@ -141,7 +143,7 @@ async function versionStatus(engine, v, activePick) {
       version: v.version,
       active: false,
       pid: null,
-      state: activeStat.state === 'running' ? 'inactive' : activeStat.state,
+      state: activeStat.state === 'running' || activeStat.state === 'degraded' ? 'inactive' : activeStat.state,
     };
   }
   const st = await status(buildCtx(engine, v));
@@ -346,30 +348,127 @@ async function cmdCurrent(flags) {
 
 async function lifecycleMany(flags, action, args) {
   let targets = [];
-  if (flags.all) {
+  if (flags.autostart) {
+    targets = autostart.autostartList()
+      .map((id) => {
+        try {
+          return resolveRef(id.replace(':', '@')).ctx;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+    if (!targets.length) {
+      warn('no autostart entries — marina autostart mysql@8.4');
+      return;
+    }
+  } else if (flags.all) {
     targets = engineList
       .map((e) => activeCtx(e))
       .filter(Boolean);
   } else {
-    const ref = requireRef(args, flags);
-    targets = [resolveRef(ref).ctx];
+    // accept one or more refs: marina start mysql redis@7 postgres
+    const refs = args.length ? args : [requireRef(args, flags)];
+    const seen = new Set();
+    targets = refs.map((ref) => resolveRef(ref).ctx).filter((ctx) => {
+      const id = `${ctx.key}:${ctx.major}`;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
   }
   if (!targets.length) {
     warn('nothing installed — marina install mysql@8.4');
     return;
   }
+
   const results = [];
+  const failures = [];
   for (const ctx of targets) {
-    const r = await (action === 'start' ? start(ctx) : action === 'stop' ? stop(ctx) : restart(ctx));
-    const st = await status(ctx);
-    results.push({ ...st, label: ctx.engine.label });
+    try {
+      await (action === 'start' ? start(ctx) : action === 'stop' ? stop(ctx) : restart(ctx));
+      const st = await status(ctx);
+      results.push({ ...st, label: ctx.engine.label });
+    } catch (e) {
+      failures.push({ key: ctx.key, major: ctx.major, error: String(e.message || e).split('\n')[0] });
+      if (!flags.json) fail(`${ctx.key}@${ctx.major}: ${String(e.message || e).split('\n')[0]}`);
+    }
   }
-  if (flags.json) return jsonOut(results);
-  out('');
-  out(renderServices(results.map((r) => ({ ...r, active: true }))));
+
+  if (flags.json) {
+    return jsonOut(failures.length ? { results, failures } : results);
+  }
+  if (results.length) {
+    out('');
+    out(renderServices(results.map((r) => ({ ...r, active: true }))));
+  }
+  if (failures.length) {
+    throw new Error(`${failures.length} of ${targets.length} ${action} target(s) failed`);
+  }
+}
+
+async function cmdAutostart(flags, args) {
+  const info = autostart.status();
+  if (!info.supported) throw new Error('autostart is not available on this host');
+
+  const refs = args.slice();
+  let off = !!(flags.off || flags.disable);
+  if (refs[0] === 'off' || refs[0] === 'disable') {
+    off = true;
+    refs.shift();
+  } else if (refs[0] === 'on' || refs[0] === 'enable') {
+    refs.shift();
+  }
+
+  const all = flags.all || (!refs.length && (off || flags.on));
+  if (all || refs.length) {
+    const ctxs = refs.length
+      ? refs.map((ref) => resolveRef(ref).ctx)
+      : engineList.map((e) => activeCtx(e)).filter(Boolean);
+    if (!ctxs.length) return warn('nothing installed');
+
+    const before = autostart.autostartList();
+    const result = off
+      ? (flags.all ? autostart.disableAll() : autostart.disable(ctxs))
+      : (flags.all ? autostart.enableAll(ctxs) : autostart.enable(ctxs));
+
+    if (flags.json) return jsonOut(result);
+    const shown = off ? before : result.ids;
+    ok(`${off ? 'disabled' : 'enabled'} autostart: ${shown.length ? shown.join(', ') : '(none)'}`);
+    hint(`${result.manager} · ${result.file}`);
+    for (const w of result.warnings) warn(w);
+    return;
+  }
+
+  const rows = engineList
+    .map((e) => {
+      const ctx = activeCtx(e);
+      if (!ctx) return null;
+      const id = `${ctx.key}:${ctx.major}`;
+      return [e.label, `${ctx.key}@${ctx.major}`, info.ids.includes(id) ? 'on' : 'off'];
+    })
+    .filter(Boolean);
+
+  if (flags.json) return jsonOut(info);
+  out(table(['DATABASE', 'REF', 'AUTOSTART'], rows));
+  hint(`${info.manager} · ${info.file}${info.installed ? '' : ' (not installed yet)'}`);
 }
 
 async function cmdStatus(flags, args) {
+  if (args.length > 1) {
+    const rows = [];
+    for (const ref of args) {
+      const { engine, ctx } = resolveRef(ref);
+      const versions = installedVersions(engine);
+      const activeVersion = state.getActive(engine.key);
+      const activePick = versions.find((v) => v.version === activeVersion) || versions[versions.length - 1];
+      const st = await versionStatus(engine, versions.find((v) => v.version === ctx.version), activePick);
+      rows.push({ ...st, label: engine.label, auth: ctx.engine.account?.(ctx) || null });
+    }
+    if (flags.json) return jsonOut(rows);
+    out(renderServices(rows));
+    return;
+  }
   if (args[0]) {
     const { engine, ctx } = resolveRef(args[0]);
     const versions = installedVersions(engine);
@@ -587,6 +686,8 @@ export async function main(argv) {
     case 'log': return cmdLogs(flags, args);
     case 'config': return cmdConfig(flags, args);
     case 'port': return cmdPort(flags, args);
+    case 'autostart':
+    case 'boot': return cmdAutostart(flags, args);
     case 'auth': return cmdAuth(flags, args);
     case 'reconfig':
       return cmdReconfig(flags, args);

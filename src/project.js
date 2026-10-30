@@ -17,10 +17,16 @@ export function findProjectFile(start = process.cwd()) {
 
 export function readProject(file = findProjectFile()) {
   if (!file) return null;
+  let raw;
   try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-    return { file, pins: raw };
+    raw = JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (e) {
     throw new Error(`${file}: ${e.message}`);
   }
+  // `.marinarc` is an object of pins; null/array/string would make the callers
+  // (Object.entries) crash with a confusing TypeError
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`${file}: expected a JSON object of pins`);
+  }
+  return { file, pins: raw };
 }

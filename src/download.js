@@ -99,8 +99,8 @@ export async function downloadFile(url, dest, { sha256, label = path.basename(de
       const res = await request(url, { headers });
       const resumed = res.statusCode === 206 && start > 0;
       if (!resumed) start = 0;
-      const bytes = Number(res.headers['content-length'] || 0);
-      const totalBytes = total || bytes;
+      const bytes = Number(res.headers['content-length'] || 0) || 0;
+      const totalBytes = total || (resumed ? start + bytes : bytes);
       const bar = progress(label, totalBytes);
       const stream = fs.createWriteStream(part, { flags: resumed ? 'a' : 'w' });
       let received = start;
@@ -111,6 +111,13 @@ export async function downloadFile(url, dest, { sha256, label = path.basename(de
       }
       await new Promise((resolve, reject) => stream.end((e) => (e ? reject(e) : resolve())));
       bar.done();
+
+      // upstreams without an official sha256 are verified by size (README), so a
+      // silently truncated transfer must not be renamed into the cache
+      if (totalBytes && received !== totalBytes) {
+        fs.rmSync(part, { force: true });
+        throw new Error(`incomplete download for ${label}: received ${received} of ${totalBytes} bytes`);
+      }
 
       if (sha256) {
         const got = await sha256File(part);

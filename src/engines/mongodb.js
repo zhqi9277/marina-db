@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { spawnAsync, findBin } from '../archive.js';
 import { mkdirp } from '../paths.js';
-import { IS_WIN } from '../platform.js';
+import { host } from '../host/index.js';
 
 export default {
   key: 'mongodb',
@@ -46,8 +46,7 @@ systemLog:
   path: ${ctx.logFile}
   logAppend: true
 processManagement:
-  fork: true
-  pidFilePath: ${ctx.pidFile}
+${host.capabilities.fork ? '  fork: true\n' : ''}  pidFilePath: ${ctx.pidFile}
 `;
   },
 
@@ -73,7 +72,7 @@ processManagement:
       '--logappend',
       '--pidfilepath', ctx.pidFile,
     ];
-    if (!IS_WIN) args.push('--fork'); // Windows has no fork; marina detaches instead
+    if (host.capabilities.fork) args.push('--fork');
     return args;
   },
 
