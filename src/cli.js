@@ -143,7 +143,7 @@ async function versionStatus(engine, v, activePick) {
       version: v.version,
       active: false,
       pid: null,
-      state: activeStat.state === 'running' ? 'inactive' : activeStat.state,
+      state: activeStat.state === 'running' || activeStat.state === 'degraded' ? 'inactive' : activeStat.state,
     };
   }
   const st = await status(buildCtx(engine, v));
@@ -409,7 +409,7 @@ async function lifecycleMany(flags, action, args) {
 
 async function cmdAutostart(flags, args) {
   const info = autostart.status();
-  if (!info.supported) throw new Error('autostart is only implemented for macOS and Linux');
+  if (!info.supported) throw new Error('autostart is not available on this host');
 
   const refs = args.slice();
   let off = !!(flags.off || flags.disable);

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnAsync, findBin } from '../archive.js';
 import { mkdirp } from '../paths.js';
-import { IS_WIN } from '../platform.js';
+import { host } from '../host/index.js';
 
 export default {
   key: 'postgres',
@@ -68,8 +68,8 @@ export default {
     if (!pgctl) throw new Error('pg_ctl not found in package');
     // keep postgres unix sockets in their own run subdir instead of run/
     const sockDir = path.join(ctx.runDir, 'postgres');
-    const socketFlag = IS_WIN ? '' : `-k ${sockDir}`;
-    if (!IS_WIN) mkdirp(sockDir);
+    const socketFlag = host.capabilities.unixSocket ? `-k ${sockDir}` : '';
+    if (host.capabilities.unixSocket) mkdirp(sockDir);
     return {
       cmd: pgctl,
       args: [

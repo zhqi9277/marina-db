@@ -1,0 +1,1 @@
+console=ttyS0 reboot=k panic=1 root=/dev/vda rw init=/opt/marina/bin/marina-init

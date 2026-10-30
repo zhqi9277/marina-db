@@ -1,16 +1,21 @@
-// Login / boot autostart: one OS-level hook that starts the enabled databases.
-// macOS -> LaunchAgent (runs at login), Linux -> systemd --user service.
+// Login autostart: one OS hook that starts the enabled databases.
+// The host renders and loads it: LaunchAgent, systemd --user, or a logon task.
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirs, ensureDirs } from './paths.js';
-import { IS_MAC, IS_LINUX } from './platform.js';
+import { darwin, host, linux, win32 } from './host/index.js';
+import { systemdEscape, xmlEscape } from './host/escape.js';
 import * as state from './state.js';
 
-const LABEL = 'com.marina.autostart';
-const UNIT_NAME = 'marina-autostart.service';
+const BY_MANAGER = { launchd: darwin, systemd: linux, schtasks: win32 };
+
+function backendFor(target) {
+  return BY_MANAGER[target?.manager] || null;
+}
+
+export { systemdEscape, xmlEscape };
 export const CLI = fileURLToPath(new URL('../bin/marina.js', import.meta.url));
 export const NODE = process.execPath;
 
@@ -21,70 +26,14 @@ export function isEnabled(ctx) {
 }
 
 export function unitTarget() {
-  if (IS_MAC) {
-    const dir = process.env.MARINA_LAUNCHD_DIR || path.join(os.homedir(), 'Library', 'LaunchAgents');
-    return { manager: 'launchd', dir, file: path.join(dir, `${LABEL}.plist`) };
-  }
-  if (IS_LINUX) {
-    const dir = process.env.MARINA_SYSTEMD_DIR || path.join(os.homedir(), '.config', 'systemd', 'user');
-    return { manager: 'systemd', dir, file: path.join(dir, UNIT_NAME) };
-  }
-  return null;
-}
-
-export function xmlEscape(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-/**
- * systemd expands `%` specifiers and `$` variables inside ExecStart, so a
- * literal path must double them (`%%`, `$$`). Only the ExecStart command line
- * uses this; unit metadata such as Description is unchanged.
- */
-export function systemdEscape(value) {
-  return String(value).replace(/%/g, '%%').replace(/\$/g, '$$$$');
+  return host.unitTarget();
 }
 
 export function renderUnit(ids, target = unitTarget()) {
-  if (!target) throw new Error('autostart is only implemented for macOS and Linux');
+  const backend = backendFor(target);
+  if (!target || !backend) throw new Error('autostart is only implemented for macOS and Linux');
   const log = path.join(dirs.root, 'logs', 'autostart.log');
-  if (target.manager === 'launchd') {
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>${LABEL}</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>${xmlEscape(NODE)}</string>
-    <string>${xmlEscape(CLI)}</string>
-    <string>start</string>
-    <string>--autostart</string>
-  </array>
-  <key>RunAtLoad</key><true/>
-  <key>ProcessType</key><string>Background</string>
-  <key>StandardOutPath</key><string>${xmlEscape(log)}</string>
-  <key>StandardErrorPath</key><string>${xmlEscape(log)}</string>
-</dict>
-</plist>
-`;
-  }
-  return `[Unit]
-Description=marina autostart databases (${ids.join(', ')})
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart="${systemdEscape(NODE)}" "${systemdEscape(CLI)}" start --autostart
-RemainAfterExit=yes
-
-[Install]
-WantedBy=default.target
-`;
+  return backend.renderUnit(ids, target, { node: NODE, cli: CLI, log });
 }
 
 function run(cmd, args) {
@@ -95,32 +44,15 @@ function run(cmd, args) {
 
 function unload(target) {
   if (!fs.existsSync(target.file)) return [];
-  if (target.manager === 'launchd') {
-    // `bootout` is the modern verb, but it does not exist on older macOS: fall
-    // back to `unload -w`, otherwise disabling autostart leaves the job loaded
-    // and it comes back at the next login
-    const res = run('launchctl', ['bootout', `gui/${process.getuid()}`, target.file]);
-    if (res.ok || res.skipped) return [res];
-    const fallback = run('launchctl', ['unload', '-w', target.file]);
-    return fallback.ok || fallback.skipped ? [fallback] : [res, fallback];
-  }
-  return [run('systemctl', ['--user', 'disable', '--now', UNIT_NAME])];
+  const backend = backendFor(target);
+  if (!backend) return [];
+  return backend.unloadAutostart(target, run);
 }
 
 function load(target) {
-  if (target.manager === 'launchd') {
-    const uid = `gui/${process.getuid()}`;
-    unload(target);
-    const res = run('launchctl', ['bootstrap', uid, target.file]);
-    if (!res.ok) {
-      const fallback = run('launchctl', ['load', '-w', target.file]);
-      return [res, fallback];
-    }
-    return [res];
-  }
-  const reload = run('systemctl', ['--user', 'daemon-reload']);
-  const enable = run('systemctl', ['--user', 'enable', '--now', UNIT_NAME]);
-  return [reload, enable];
+  const backend = backendFor(target);
+  if (!backend) return [];
+  return backend.loadAutostart(target, run);
 }
 
 /**

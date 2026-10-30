@@ -1,12 +1,14 @@
-// Platform abstraction: the one place that knows about macOS / Linux / Windows.
-import fs from 'node:fs';
-import path from 'node:path';
+// Facade over the OS host. Download-name tables (arch, SDK tags, tar flags) stay
+// here because they describe packages for every platform, not just the one we
+// are running on. Process, links, and library inspection go through the host.
+import { host } from './host/index.js';
 
-export const IS_MAC = process.platform === 'darwin';
-export const IS_LINUX = process.platform === 'linux';
-export const IS_WIN = process.platform === 'win32';
-export const PLATFORM = process.platform;
-export const OS_LABEL = IS_MAC ? 'macOS' : IS_LINUX ? 'Linux' : 'Windows';
+export { host };
+export const IS_MAC = host.id === 'darwin';
+export const IS_LINUX = host.id === 'linux';
+export const IS_WIN = host.id === 'win32';
+export const PLATFORM = host.id;
+export const OS_LABEL = host.label;
 
 /** read MARINA_<name> */
 export function env(name, fallback = undefined) {
@@ -26,7 +28,7 @@ export function arch(platform = PLATFORM) {
 }
 
 export function exe(name) {
-  return IS_WIN ? `${name}.exe` : name;
+  return host.exe(name);
 }
 
 /** MySQL names macOS builds after the SDK major (macos13/14/15). */
@@ -47,38 +49,15 @@ export function tarArgs(file) {
 
 /** command used to inspect a binary's library dependencies, or null */
 export function libInspector() {
-  if (IS_MAC) return { cmd: 'otool', args: ['-L'] };
-  if (IS_LINUX) return { cmd: 'ldd', args: [] };
-  return null; // Windows: no ldd/otool; skipped
+  return host.libInspector();
 }
 
 /** symlink a directory; falls back to a copy when the OS refuses (Windows) */
 export function linkDir(target, link) {
-  try {
-    // recursive: an older real directory (e.g. a previous Windows copy
-    // fallback) must be removed entirely, otherwise cpSync would nest the new
-    // payload inside it instead of replacing it.
-    fs.rmSync(link, { recursive: true, force: true });
-  } catch {}
-  try {
-    fs.symlinkSync(path.resolve(target), link, IS_WIN ? 'junction' : 'dir');
-    return 'symlink';
-  } catch {
-    fs.cpSync(target, link, { recursive: true });
-    return 'copy';
-  }
+  return host.linkDir(target, link);
 }
 
 /** symlink a single file; falls back to a copy */
 export function linkFile(target, link) {
-  try {
-    fs.rmSync(link, { force: true });
-  } catch {}
-  try {
-    fs.symlinkSync(target, link, 'file');
-    return 'symlink';
-  } catch {
-    fs.copyFileSync(target, link);
-    return 'copy';
-  }
+  return host.linkFile(target, link);
 }

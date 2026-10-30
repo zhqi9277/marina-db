@@ -30,6 +30,8 @@ const installer = await import('../src/installer.js');
 const download = await import('../src/download.js');
 const autostart = await import('../src/autostart.js');
 const redisEngine = (await import('../src/engines/redis.js')).default;
+const mariaEngine = (await import('../src/engines/mariadb.js')).default;
+const mysqlEngine = (await import('../src/engines/mysql.js')).default;
 const shims = await import('../src/shims.js');
 const configcheck = await import('../src/configcheck.js');
 const settings = await import('../src/settings.js');
@@ -78,8 +80,9 @@ function writeConf(name, text) {
 }
 
 function spawnHold(cwd) {
-  // cwd is what marina uses as the ownership marker for its servers
-  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], {
+  // cwd and the trailing argv are what marina uses as the ownership markers for
+  // its servers (command line on macOS, /proc cwd on Linux)
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)', cwd], {
     cwd,
     stdio: 'ignore',
   });
@@ -178,8 +181,8 @@ function readWitness(file) {
   return Number(fs.readFileSync(file, 'utf8'));
 }
 
-// Windows intentionally trusts the pid file instead of inspecting processes
-const notWindows = process.platform === 'win32' ? 'pid identity lookup is POSIX-only' : false;
+// These spawn a live process and read it back. Windows command-line matching is fixture-tested in test/host.mjs.
+const notWindows = process.platform === 'win32' ? 'live pid inspection test runs on the POSIX host' : false
 
 // ------------------------------------------------------------ lifecycle ----
 
@@ -272,7 +275,9 @@ test('stop() does not signal a pid that was reused by an unrelated process', { s
   try {
     assert.equal(lifecycle.pidOwnedBy(child.pid, ctx), false);
     const res = await lifecycle.stop(ctx, { quiet: true });
-    assert.equal(res.stopped, true);
+    // nothing of ours was running: stop() must not report it stopped anything
+    assert.equal(res.stopped, false);
+    assert.equal(res.already, true);
     assert.equal(lifecycle.pidAlive(child.pid), true, 'an unrelated process must survive stop()');
     assert.equal(fs.existsSync(pidFile), false, 'the stale pid file is still removed');
   } finally {
@@ -285,6 +290,83 @@ test('stop() is idempotent when nothing is running', async () => {
   const ctx = makeCtx(root, { pidFile: path.join(root, 'server.pid') });
   const res = await lifecycle.stop(ctx, { quiet: true });
   assert.equal(res.already, true);
+});
+
+test('status() reports a foreign listener as port-busy, never as running', async () => {
+  const root = tmp('foreign-status');
+  const live = await listeningPort();
+  const ctx = makeCtx(root, { pidFile: path.join(root, 'server.pid'), port: live.port });
+  try {
+    const st = await lifecycle.status(ctx);
+    assert.equal(st.state, 'port-busy', 'an open port marina did not open is not a running service');
+    assert.equal(st.healthy, false);
+    assert.equal(st.pid, null);
+  } finally {
+    await live.close();
+  }
+});
+
+test('stop() does not claim it stopped a port that belongs to another process', async () => {
+  const root = tmp('foreign-stop');
+  const live = await listeningPort();
+  const ctx = makeCtx(root, { pidFile: path.join(root, 'server.pid'), port: live.port });
+  const out = captureStderr();
+  ui.setQuiet(false);
+  try {
+    const t0 = Date.now();
+    const res = await lifecycle.stop(ctx, { quiet: false });
+    assert.equal(res.stopped, false);
+    assert.equal(res.portBusy, true);
+    assert.equal(res.already, true);
+    assert.ok(Date.now() - t0 < 2000, 'a foreign listener must not cost a graceful-stop timeout');
+    assert.equal(await lifecycle.tcpProbe(live.port), true, 'another process must never be shut down');
+    assert.match(out.captured, /port \d+ is held by another process marina did not start/);
+  } finally {
+    ui.setQuiet(true);
+    out.restore();
+    await live.close();
+  }
+});
+
+test('start() refuses to start on a port held by a foreign process', async () => {
+  const root = tmp('foreign-start');
+  const live = await listeningPort();
+  let started = false;
+  const ctx = makeCtx(root, {
+    pidFile: path.join(root, 'server.pid'),
+    port: live.port,
+    startCommand: () => {
+      started = true;
+      return { cmd: process.execPath, args: ['-e', ''], foreground: true };
+    },
+  });
+  const t0 = Date.now();
+  try {
+    await assert.rejects(
+      lifecycle.start(ctx, { quiet: true, timeoutMs: 500 }),
+      /already in use by a process marina did not start/,
+    );
+    assert.equal(started, false, 'no server may be spawned while the port is taken');
+    assert.ok(Date.now() - t0 < 2000, 'the conflict must be reported before any readiness wait');
+  } finally {
+    await live.close();
+  }
+});
+
+test('status() reports our own unresponsive pid as degraded', async () => {
+  const root = tmp('degraded');
+  const pidFile = path.join(root, 'server.pid');
+  const child = spawnHold(root);
+  fs.writeFileSync(pidFile, String(child.pid));
+  const ctx = makeCtx(root, { pidFile });
+  try {
+    const st = await lifecycle.status(ctx);
+    assert.equal(st.state, 'degraded');
+    assert.equal(st.pid, child.pid);
+    assert.equal(st.healthy, false);
+  } finally {
+    try { process.kill(child.pid, 'SIGKILL'); } catch {}
+  }
 });
 
 test('stop() surfaces a failed stopCommand and still falls back to the pid', async () => {
@@ -403,6 +485,64 @@ test('start() reclaims a stale pid only when it belongs to this install', async 
     for (const child of [stale, bystander]) {
       try { process.kill(child.pid, 'SIGKILL'); } catch {}
     }
+  }
+});
+
+// ------------------------------------------------- mysql family helpers ----
+
+test('mariadb shuts down through mariadb-admin, not the deprecated mysqladmin alias', () => {
+  const root = tmp('admin-pick');
+  for (const name of ['mysqladmin', 'mariadb-admin']) {
+    writeExecutable(path.join(root, 'bin', name), '#!/bin/sh\nexit 0\n');
+  }
+  const ctx = {
+    root,
+    major: '11.4',
+    port: 3307,
+    sockFile: path.join(root, 'x.sock'),
+    account: { user: 'root', password: 'pw' },
+  };
+  assert.equal(path.basename(mariaEngine.stopCommand(ctx).cmd), 'mariadb-admin');
+  assert.equal(path.basename(mysqlEngine.stopCommand(ctx).cmd), 'mysqladmin');
+});
+
+test('firstDiagnostic skips the MariaDB deprecation notice', () => {
+  const stderr = [
+    '/x/bin/mysqladmin: Deprecated program name. It will be removed in a future release, use \'mariadb-admin\' instead',
+    "/x/bin/mysqladmin: connect to server at 'localhost' failed",
+    "error: 'Can't connect to local server through socket /x/run/mariadb-11.4.sock'",
+  ].join('\n');
+  assert.equal(lifecycle.firstDiagnostic(stderr), "/x/bin/mysqladmin: connect to server at 'localhost' failed");
+  assert.equal(lifecycle.firstDiagnostic(''), '');
+});
+
+test('a failed shutdown helper reports the real error, not the deprecation noise', async () => {
+  const root = tmp('stop-noise');
+  const pidFile = path.join(root, 'server.pid');
+  const child = spawnHold(root);
+  fs.writeFileSync(pidFile, String(child.pid));
+  const ctx = makeCtx(root, {
+    pidFile,
+    stopCommand: () => ({
+      cmd: process.execPath,
+      args: [
+        '-e',
+        'console.error("mysqladmin: Deprecated program name. It will be removed in a future release"); console.error("connect to server failed"); process.exit(1)',
+      ],
+    }),
+  });
+  const out = captureStderr();
+  ui.setQuiet(false);
+  try {
+    const res = await lifecycle.stop(ctx, { quiet: false });
+    assert.equal(res.stopped, true);
+    assert.equal(await waitDead(child.pid), true, 'the pid fallback still stops the server');
+    assert.match(out.captured, /exited 1: connect to server failed/);
+    assert.doesNotMatch(out.captured, /exited 1: mysqladmin: Deprecated/);
+  } finally {
+    ui.setQuiet(true);
+    out.restore();
+    try { process.kill(child.pid, 'SIGKILL'); } catch {}
   }
 });
 
@@ -844,9 +984,12 @@ test('changeAccount keeps the old mysql credentials when the server ALTER fails'
   state.setAccount('mysql', { user: 'root', password: 'oldpass' });
 
   const live = await listeningPort();
+  const owner = spawnHold(root);
+  state.setPort('mysql', '8.4', live.port);
+  const ctx = registry.buildCtx(registry.engines.mysql, { major: '8.4', version: '8.4.11' });
+  fs.mkdirSync(path.dirname(ctx.pidFile), { recursive: true });
+  fs.writeFileSync(ctx.pidFile, String(owner.pid));
   try {
-    state.setPort('mysql', '8.4', live.port);
-    const ctx = registry.buildCtx(registry.engines.mysql, { major: '8.4', version: '8.4.11' });
     const result = await settings.changeAccount(ctx, { password: 'newpass' });
 
     assert.deepEqual(result.account, { user: 'root', password: 'oldpass' });
@@ -855,6 +998,8 @@ test('changeAccount keeps the old mysql credentials when the server ALTER fails'
     assert.deepEqual(state.accountOf('mysql'), { user: 'root', password: 'oldpass' });
   } finally {
     await live.close();
+    try { process.kill(owner.pid, 'SIGKILL'); } catch {}
+    fs.rmSync(ctx.pidFile, { force: true });
   }
 });
 
@@ -865,9 +1010,12 @@ test('changeAccount persists the mysql password only after a successful ALTER', 
   state.setAccount('mysql', { user: 'root', password: 'oldpass' });
 
   const live = await listeningPort();
+  const owner = spawnHold(root);
+  state.setPort('mysql', '8.4', live.port);
+  const ctx = registry.buildCtx(registry.engines.mysql, { major: '8.4', version: '8.4.11' });
+  fs.mkdirSync(path.dirname(ctx.pidFile), { recursive: true });
+  fs.writeFileSync(ctx.pidFile, String(owner.pid));
   try {
-    state.setPort('mysql', '8.4', live.port);
-    const ctx = registry.buildCtx(registry.engines.mysql, { major: '8.4', version: '8.4.11' });
     const result = await settings.changeAccount(ctx, { password: 'newpass' });
 
     assert.deepEqual(result.account, { user: 'root', password: 'newpass' });
@@ -875,6 +1023,8 @@ test('changeAccount persists the mysql password only after a successful ALTER', 
     assert.deepEqual(state.accountOf('mysql'), { user: 'root', password: 'newpass' });
   } finally {
     await live.close();
+    try { process.kill(owner.pid, 'SIGKILL'); } catch {}
+    fs.rmSync(ctx.pidFile, { force: true });
   }
 });
 
@@ -885,9 +1035,13 @@ test('changeAccount keeps the old postgres password when ALTER ROLE fails', asyn
   state.setAccount('postgres', { user: 'postgres', password: 'oldpass' });
 
   const live = await listeningPort();
+  const owner = spawnHold(root);
+  state.setPort('postgres', '17', live.port);
+  const ctx = registry.buildCtx(registry.engines.postgres, { major: '17', version: '17.11' });
+  const pidFile = path.join(ctx.dataDir, 'postmaster.pid');
+  fs.mkdirSync(ctx.dataDir, { recursive: true });
+  fs.writeFileSync(pidFile, String(owner.pid));
   try {
-    state.setPort('postgres', '17', live.port);
-    const ctx = registry.buildCtx(registry.engines.postgres, { major: '17', version: '17.11' });
     const result = await settings.changeAccount(ctx, { password: 'newpass' });
 
     assert.deepEqual(result.account, { user: 'postgres', password: 'oldpass' });
@@ -896,6 +1050,8 @@ test('changeAccount keeps the old postgres password when ALTER ROLE fails', asyn
     assert.deepEqual(state.accountOf('postgres'), { user: 'postgres', password: 'oldpass' });
   } finally {
     await live.close();
+    try { process.kill(owner.pid, 'SIGKILL'); } catch {}
+    fs.rmSync(pidFile, { force: true });
   }
 });
 

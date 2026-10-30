@@ -2,8 +2,9 @@
 import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { spawnAsync, findBin } from './archive.js';
+import { host } from './host/index.js';
 import { ensureDirs } from './paths.js';
 import { staleConfigReferences } from './configcheck.js';
 import { ok, warn, info, color } from './ui.js';
@@ -33,89 +34,13 @@ export function pidAlive(pid) {
   }
 }
 
-function realpathOf(target) {
-  try {
-    return fs.realpathSync(target);
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Identity of a live process: command line and/or cwd, or null when it cannot
- * be inspected. Linux is served by /proc; elsewhere `ps` is tried first and
- * `lsof` is the fallback (some sandboxes forbid exec'ing ps).
+ * be inspected. The host reads /proc, ps/lsof, or Win32_Process.CommandLine.
  */
 export function processDetails(pid) {
-  if (process.platform === 'win32' || !pidAlive(pid)) return null;
-  try {
-    const argv = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').filter(Boolean);
-    let cwd = null;
-    try {
-      cwd = fs.realpathSync(fs.readlinkSync(`/proc/${pid}/cwd`));
-    } catch {}
-    if (argv.length || cwd) return { command: argv.join(' '), cwd };
-  } catch {}
-  try {
-    const res = spawnSync('ps', ['-p', String(pid), '-o', 'command='], { encoding: 'utf8', timeout: 2000 });
-    if (!res.error && res.status === 0) {
-      const command = (res.stdout || '').trim();
-      if (command) return { command, cwd: null };
-    }
-  } catch {}
-  try {
-    const res = spawnSync('lsof', ['-p', String(pid), '-a', '-d', 'cwd', '-Fn'], { encoding: 'utf8', timeout: 3000 });
-    if (!res.error && res.status === 0) {
-      const line = (res.stdout || '').split('\n').find((row) => row.startsWith('n'));
-      if (line) return { command: null, cwd: line.slice(1) };
-    }
-  } catch {}
-  return null;
-}
-
-/**
- * Root-independent marina layout markers. A moved project keeps the same
- * engines/<key>/<major>/<version> · data/<key>/<major> · etc/... · run/... shape
- * under the old root, so these let us recognise (and stop) pre-move processes.
- */
-function marinaLayout(ctx) {
-  const sep = path.sep;
-  const key = ctx.engine?.key || ctx.key;
-  const major = ctx.major === undefined || ctx.major === null ? '' : String(ctx.major);
-  if (!key || !major) return { needles: [], suffixes: [] };
-  const data = `${sep}data${sep}${key}${sep}${major}`;
-  return {
-    needles: [
-      `${sep}engines${sep}${key}${sep}`,
-      `${data}${sep}`,
-      `${sep}etc${sep}${key}${sep}${major}${sep}`,
-      `${sep}run${sep}${key}-${major}.pid`,
-    ],
-    // a process may sit exactly on the datadir (redis chdir's into it)
-    suffixes: [data],
-  };
-}
-
-/** Match one process identity record (command line and/or cwd) against ctx. */
-function matchesInstall(details, ctx) {
-  const texts = [details.command, details.cwd].filter(Boolean);
-  if (!texts.length) return true; // nothing to judge by -> keep the old trust
-  const roots = [ctx.root, ctx.dataDir, ctx.confFile, ctx.logFile, ctx.pidFile]
-    .filter(Boolean)
-    .flatMap((root) => {
-      const resolved = path.resolve(root);
-      const real = realpathOf(root);
-      return real && real !== resolved ? [resolved, real] : [resolved];
-    });
-  if (roots.some((root) => texts.some((text) => text.includes(root)))) return true;
-  if (details.cwd && roots.some((root) => details.cwd === root || details.cwd.startsWith(root + path.sep))) return true;
-
-  const { needles, suffixes } = marinaLayout(ctx);
-  return texts.some(
-    (text) =>
-      needles.some((needle) => text.includes(needle)) ||
-      suffixes.some((suffix) => text === suffix || text.endsWith(suffix)),
-  );
+  if (!pidAlive(pid)) return null;
+  return host.processDetails(pid);
 }
 
 /**
@@ -129,23 +54,56 @@ function matchesInstall(details, ctx) {
  */
 export function pidOwnedBy(pid, ctx, details = processDetails(pid)) {
   if (!Number.isFinite(pid) || !pidAlive(pid)) return false;
-  // Windows has no portable command-line lookup; keep trusting the pid file there.
-  if (process.platform === 'win32') return true;
   // if the process cannot be inspected, keep the old pid-file trust instead of
   // leaving a service running that the user asked to stop
   if (!details) return true;
-  return matchesInstall(details, ctx);
+  return host.matchesInstall(details, ctx);
 }
 
-export async function healthy(ctx) {
+/**
+ * An open port is not proof that marina's server is up: another program (a
+ * system mysqld, a docker-compose database, a VPN tool...) can hold the same
+ * port. A service is only "running" when the pid marina recorded is alive,
+ * still belongs to this install, and the server answers on its protocol.
+ */
+export function serviceState({ owned = false, answered = false, portOpen = false } = {}) {
+  if (owned) return answered ? 'running' : 'degraded';
+  if (portOpen) return 'port-busy';
+  return 'stopped';
+}
+
+async function engineAnswers(ctx) {
   try {
-    const verdict = await ctx.engine.probe(ctx);
+    const verdict = await ctx.engine.probe?.(ctx);
     if (verdict === true) return true;
     if (verdict === false) return false;
   } catch {
     /* engine probe unavailable -> fall through to TCP */
   }
   return tcpProbe(ctx.port);
+}
+
+/**
+ * Full runtime picture for one ctx: `state` is one of running / degraded /
+ * port-busy / stopped, `pid` is only set for a process marina can account for.
+ */
+export async function probeState(ctx) {
+  const pid = readPid(ctx);
+  const alive = pidAlive(pid);
+  const owned = alive && pidOwnedBy(pid, ctx);
+  const portOpen = await tcpProbe(ctx.port);
+  const answered = owned && portOpen ? await engineAnswers(ctx) : false;
+  return {
+    state: serviceState({ owned, answered, portOpen }),
+    pid: owned ? pid : null,
+    alive,
+    owned,
+    portOpen,
+  };
+}
+
+export async function healthy(ctx) {
+  return (await probeState(ctx)).state === 'running';
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -197,6 +155,27 @@ export function tailLog(ctx, lines = 12) {
   }
 }
 
+// MariaDB keeps compatibility aliases (mysqladmin, mysqld_safe, ...) that print a
+// deprecation notice on every run. When such a helper fails, that notice is the
+// first stderr line and would hide the real error (connection refused, access
+// denied...). Skip it so the warning stays actionable.
+const STDERR_NOISE = /deprecated program name|will be removed in a future release|using a password on the command line/i;
+
+export function firstDiagnostic(text) {
+  const lines = String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.find((line) => !STDERR_NOISE.test(line)) || lines[0] || '';
+}
+
+/** Shell command that shows which process owns a port (used in conflict errors). */
+export function portHint(port) {
+  return host.id === 'win32'
+    ? `netstat -ano | findstr :${port}`
+    : `lsof -nP -iTCP:${port} -sTCP:LISTEN`;
+}
+
 function serverCommand(ctx) {
   if (ctx.engine.startCommand) return ctx.engine.startCommand(ctx);
   const bin = findBin(ctx.root, ctx.engine.serverBin || []);
@@ -218,18 +197,26 @@ export async function start(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
     );
   }
 
-  if (await healthy(ctx)) {
+  const current = await probeState(ctx);
+  if (current.state === 'running') {
     if (!quiet) ok(`${ctx.engine.label} ${ctx.version} is already running on port ${ctx.port}`);
-    return { already: true, pid: readPid(ctx) };
+    return { already: true, pid: current.pid };
+  }
+  if (current.state === 'port-busy') {
+    // starting would only time out 30s later on EADDRINUSE; fail now and say
+    // which process is squatting on the port (one line: callers print the first)
+    throw new Error(
+      `${ctx.engine.label} ${ctx.version} cannot start: port ${ctx.port} is already in use by a process marina did not start — inspect: ${portHint(ctx.port)}`,
+    );
   }
 
   const pid = readPid(ctx);
   if (pidAlive(pid)) {
     if (pidOwnedBy(pid, ctx)) {
       if (!quiet) warn(`stale ${ctx.engine.label} pid ${pid} is alive but not answering — terminating it`);
-      try { process.kill(pid, 'SIGKILL'); } catch {}
+      host.terminate(pid, 'kill');
       if (!(await waitFor(() => !pidAlive(pid), 5000))) {
-        throw new Error(`${ctx.engine.label} pid ${pid} did not exit after SIGKILL — stop it manually: kill -9 ${pid}`);
+        throw new Error(`${ctx.engine.label} pid ${pid} did not exit after ${host.forceVerb} — stop it manually: ${host.killHint(pid)}`);
       }
     } else if (!quiet) {
       warn(`pid ${pid} in ${ctx.pidFile} belongs to another process (pid reuse) — removing the stale pid file without signalling it`);
@@ -270,7 +257,7 @@ export async function start(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
     // ready keeps holding the port/datadir, and the retry would fail
     for (const candidate of new Set([readPid(ctx), spawnedPid])) {
       if (pidAlive(candidate) && pidOwnedBy(candidate, ctx)) {
-        try { process.kill(candidate, 'SIGKILL'); } catch {}
+        host.terminate(candidate, 'kill');
         await waitFor(() => !pidAlive(candidate), 3000);
       }
     }
@@ -292,11 +279,28 @@ export async function start(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
 
 export async function stop(ctx, { quiet = false } = {}) {
   const pid = readPid(ctx);
-  const running = await healthy(ctx);
-  if (!running && !pidAlive(pid)) {
+  const alive = pidAlive(pid);
+  const owned = alive && pidOwnedBy(pid, ctx);
+  const portOpen = await tcpProbe(ctx.port);
+
+  // Nothing marina recorded is alive. A port that still answers therefore
+  // belongs to somebody else: signalling it would take down a database marina
+  // never started, and reporting "stopped" would be a lie (the port stays up).
+  if (!owned) {
+    if (alive && !quiet) {
+      warn(`pid ${pid} in ${ctx.pidFile} belongs to another process (pid reuse) — removing the stale pid file without signalling it`);
+    }
     cleanRuntimeFiles(ctx);
+    if (portOpen) {
+      if (!quiet) {
+        warn(
+          `${ctx.engine.label} ${ctx.version} is not running — port ${ctx.port} is held by another process marina did not start (${portHint(ctx.port)})`,
+        );
+      }
+      return { already: true, portBusy: true, stopped: false };
+    }
     if (!quiet) info(`${ctx.engine.label} ${ctx.version} is already stopped`);
-    return { already: true };
+    return { already: true, stopped: false };
   }
 
   if (!quiet) info(`stopping ${ctx.engine.label} ${ctx.version}`);
@@ -315,48 +319,49 @@ export async function stop(ctx, { quiet = false } = {}) {
     } catch {
       spec = null;
     }
-    if (spec) {
-      let res = null;
-      try {
-        res = await spawnAsync(spec.cmd, spec.args, { cwd: ctx.root });
-      } catch (e) {
-        // a missing/broken shutdown helper must not take the pid fallback down
-        if (!quiet) warn(`graceful stop command failed: ${path.basename(spec.cmd)} could not run: ${String(e.message).split('\n')[0]}`);
-      }
-      // a failed shutdown helper should not stay silent; the pid fallback below
-      // still gets a chance to stop the server
-      if (res && res.code !== 0 && !quiet) {
-        const first = (res.stderr || '').trim().split('\n')[0];
-        warn(`graceful stop command failed: ${path.basename(spec.cmd)} exited ${res.code}${first ? `: ${first}` : ''}`);
-      }
+  }
+
+  // Ask the server to shut down cleanly. Its exit is confirmed through the pid
+  // file instead of the health probe: a broken probe (moved install, missing
+  // client binary) must not turn a dead server into "still running" or vice
+  // versa, and a failed helper must not cost the 15s wait before signalling.
+  let gracefulOk = false;
+  if (spec) {
+    let res = null;
+    try {
+      res = await spawnAsync(spec.cmd, spec.args, { cwd: ctx.root });
+      gracefulOk = res.code === 0;
+    } catch (e) {
+      // a missing/broken shutdown helper must not take the pid fallback down
+      if (!quiet) warn(`graceful stop command failed: ${path.basename(spec.cmd)} could not run: ${firstDiagnostic(e.message)}`);
+    }
+    // a failed shutdown helper should not stay silent; the pid fallback below
+    // still gets a chance to stop the server
+    if (res && res.code !== 0 && !quiet) {
+      const detail = firstDiagnostic(res.stderr);
+      warn(`graceful stop command failed: ${path.basename(spec.cmd)} exited ${res.code}${detail ? `: ${detail}` : ''}`);
     }
   }
 
-  let stopped = stale.length ? false : await waitFor(async () => !(await healthy(ctx)), 15000);
-
-  // The probe can be broken and the pid file can outlive its server: a live
-  // process recorded in our pid file must still actually be terminated, and its
-  // death must be confirmed — otherwise stop() reports success for a server that
-  // is still holding the port/datadir.
-  if (pidAlive(pid)) {
-    if (!pidOwnedBy(pid, ctx)) {
-      if (!quiet) warn(`pid ${pid} belongs to another process (pid reuse) — removing the stale pid file without signalling it`);
-    } else {
-      try { process.kill(pid, 'SIGTERM'); } catch {}
-      stopped = await waitFor(() => !pidAlive(pid), 15000);
-      if (!stopped) {
-        if (!quiet) warn('graceful stop timed out — sending SIGKILL');
-        try { process.kill(pid, 'SIGKILL'); } catch {}
-        stopped = await waitFor(() => !pidAlive(pid), 5000);
-      }
-      if (!stopped) {
-        throw new Error(`${ctx.engine.label} ${ctx.version} is still running as pid ${pid} — stop it manually: kill -9 ${pid}`);
-      }
+  let stopped = gracefulOk ? await waitFor(() => !pidAlive(pid), 15000) : false;
+  if (!stopped) {
+    host.terminate(pid, 'term');
+    stopped = await waitFor(() => !pidAlive(pid), 10000);
+    if (!stopped) {
+      if (!quiet) warn(`graceful stop timed out — sending ${host.forceVerb}`);
+      host.terminate(pid, 'kill');
+      stopped = await waitFor(() => !pidAlive(pid), 5000);
     }
-  } else {
-    stopped = true; // no live pid left to signal
   }
+  if (!stopped) {
+    throw new Error(`${ctx.engine.label} ${ctx.version} is still running as pid ${pid} — stop it manually: ${host.killHint(pid)}`);
+  }
+
   cleanRuntimeFiles(ctx);
+  if (await tcpProbe(ctx.port)) {
+    if (!quiet) warn(`${ctx.engine.label} ${ctx.version} stopped, but port ${ctx.port} is still in use by another process`);
+    return { stopped: true, portBusy: true };
+  }
   if (!quiet) ok(`${ctx.engine.label} ${ctx.version} stopped`);
   return { stopped: true };
 }
@@ -367,15 +372,7 @@ export async function restart(ctx, opts = {}) {
 }
 
 export async function status(ctx) {
-  const pid = readPid(ctx);
-  const alive = pidAlive(pid);
-  const portOpen = await tcpProbe(ctx.port);
-  const isHealthy = await healthy(ctx);
-
-  let code = 'stopped';
-  if (isHealthy) code = 'running';
-  else if (alive) code = 'degraded';
-  else if (portOpen) code = 'port-busy';
+  const probe = await probeState(ctx);
 
   return {
     key: ctx.key,
@@ -383,9 +380,9 @@ export async function status(ctx) {
     major: ctx.major,
     version: ctx.version,
     port: ctx.port,
-    pid: alive ? pid : null,
-    state: code,
-    healthy: isHealthy,
+    pid: probe.pid,
+    state: probe.state,
+    healthy: probe.state === 'running',
   };
 }
 

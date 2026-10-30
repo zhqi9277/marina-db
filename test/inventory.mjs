@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import test, { after } from 'node:test';
 
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-inventory-'));
@@ -28,15 +29,27 @@ async function closedPort() {
   return port;
 }
 
-// one mysql major line is "served" by a loopback listener (no real database)
+// one mysql major line is "served" by a loopback listener (no real database).
+// marina only trusts a port it can attribute to its own pid, so the listener is
+// paired with a live holder process recorded in the run pid file.
 const listener = net.createServer();
 await new Promise((resolve) => listener.listen(0, '127.0.0.1', resolve));
 const livePort = listener.address().port;
+const holder = spawn(
+  process.execPath,
+  ['-e', 'setTimeout(() => {}, 120000)', versionPath('mysql', '8.4', '8.4.9')],
+  { cwd: versionPath('mysql', '8.4', '8.4.9'), stdio: 'ignore' },
+);
+holder.unref();
+const pidFile = path.join(HOME, 'run', 'mysql-8.4.pid');
+fs.mkdirSync(path.dirname(pidFile), { recursive: true });
+fs.writeFileSync(pidFile, String(holder.pid));
 state.setPort('mysql', '8.4', livePort);
 state.setPort('mysql', '8.0', await closedPort());
 state.setActive('mysql', '8.4.9');
 
 after(async () => {
+  try { process.kill(holder.pid, 'SIGKILL'); } catch {}
   await new Promise((resolve) => listener.close(resolve));
   fs.rmSync(HOME, { recursive: true, force: true });
 });
@@ -64,7 +77,7 @@ test('collectRows returns one enriched row per installed version', async () => {
   const active = byVersion.get('8.4.9');
   assert.equal(active.active, true);
   assert.equal(active.state, 'running');
-  assert.equal(active.pid, null);
+  assert.equal(active.pid, holder.pid);
   assert.equal(active.label, 'MySQL');
   assert.equal(active.major, '8.4');
   assert.equal(active.engine.key, 'mysql');

@@ -3,7 +3,7 @@ import { buildCtx } from './registry.js';
 import { renderConfig } from './installer.js';
 import { status, start, stop, tcpProbe } from './lifecycle.js';
 import { spawnAsync, findBin } from './archive.js';
-import { IS_WIN } from './platform.js';
+import { host } from './host/index.js';
 import * as state from './state.js';
 
 export function validatePort(value) {
@@ -43,9 +43,9 @@ function sqlEscape(value) {
 async function mysqlAlter(ctx, oldAccount, nextAccount) {
   const client = findBin(ctx.root, ['mysql', 'mariadb']);
   if (!client) throw new Error('mysql client not found in this package');
-  const target = IS_WIN
-    ? ['--protocol=TCP', '-h', '127.0.0.1', '-P', String(ctx.port)]
-    : [`--socket=${ctx.sockFile}`];
+  const target = host.capabilities.unixSocket
+    ? [`--socket=${ctx.sockFile}`]
+    : ['--protocol=TCP', '-h', '127.0.0.1', '-P', String(ctx.port)];
   const auth = [`-u${oldAccount.user || 'root'}`];
   if (oldAccount.password) auth.push(`-p${oldAccount.password}`);
 
@@ -92,12 +92,21 @@ export async function changeAccount(ctx, patch) {
   const isMysql = ctx.key === 'mysql' || ctx.key === 'mariadb';
 
   // server-side changes need a live server; storing a password that the server
-  // does not know would break probes and `marina stop`
+  // does not know would break probes and `marina stop`. A process marina did not
+  // start must never receive the credential change either.
   if (!running && isMysql && changesCreds) {
-    throw new Error(`${ctx.key} is stopped — start it first, then change the account/password`);
+    throw new Error(
+      st.state === 'port-busy'
+        ? `${ctx.key} is not running under marina — port ${ctx.port} is held by another process; start ${ctx.key} with marina first`
+        : `${ctx.key} is stopped — start it first, then change the account/password`,
+    );
   }
   if (!running && ctx.key === 'postgres' && patch.password !== undefined) {
-    throw new Error('postgres is stopped — start it first, then change the password');
+    throw new Error(
+      st.state === 'port-busy'
+        ? `postgres is not running under marina — port ${ctx.port} is held by another process; start postgres with marina first`
+        : 'postgres is stopped — start it first, then change the password',
+    );
   }
 
   if (running && isMysql) {

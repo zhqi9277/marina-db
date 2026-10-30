@@ -14,7 +14,7 @@ export async function versionStatus(engine, v, activePick) {
       version: v.version,
       active: false,
       pid: null,
-      state: activeStat.state === 'running' ? 'inactive' : activeStat.state,
+      state: activeStat.state === 'running' || activeStat.state === 'degraded' ? 'inactive' : activeStat.state,
     };
   }
   const st = await status(buildCtx(engine, v));

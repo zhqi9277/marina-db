@@ -54,7 +54,7 @@ Marina 是一个零依赖的本地数据库管理器：**装版本、切版本�
   支持 `--all`、面板里的全部开启/关闭。
 - **全屏面板**：TTY 下直接 `marina`，左右两栏，键盘驱动；Claude 风格暖橙配色。
 - **凭据可改**：每个库的端口、账号、密码都能在面板里改；MySQL 系会同步 `ALTER USER`。
-- **登录自启**：`a` / `A` 或 `marina autostart`，macOS LaunchAgent、Linux systemd --user。
+- **登录自启**：`a` / `A` 或 `marina autostart`，macOS LaunchAgent、Linux systemd --user、Windows 登录计划任务。
 - **本地隔离**：只监听 `127.0.0.1`，socket、pid、日志、数据全在 `runtime/` 下，删除即清理。
 - **可迁移**：搬家后 `marina reconfig --all` 重写绝对路径；配置指向旧目录时启动会秒级报错。
 
@@ -243,16 +243,19 @@ MARINA_CATALOG_URL=https://example.test/manifest.json marina install ...
 | MariaDB | ⚠️ 可列版本，本机不自动编译 | ⚠️ 同上 | ❌ |
 | Memcached | ⚠️ 可列版本，本机不自动编译 | ⚠️ 同上 | ❌ |
 
-平台差异集中在 `src/platform.js`：
+平台差异集中在 `src/host/`（`linux` / `darwin` / `win32` 三个后端）。`src/platform.js` 仍是对外门面：包名里的架构 token、macOS SDK 标签、tar 参数留在这里，因为它们描述的是**所有平台的安装包**，不是当前正在跑的系统。引擎和生命周期只问宿主的能力（unix socket、fork、POSIX 信号），不再自己判断操作系统。
 
 - 包名/架构：darwin `…-macos15-arm64.tar.gz`、linux `…-linux-glibc2.28-aarch64.tar.xz`、win32 `…-winx64.zip`
 - 解压：`.tar.gz/.tgz/.tar.xz/.zip` 按后缀选参数；Windows 无 bsdtar 时退回 PowerShell
-- MySQL：Windows 无 unix socket，客户端/探活走 TCP
-- PostgreSQL：Windows 省略 `-k`，不创建 socket 目录
-- MongoDB：Windows 不支持 `--fork`，由 marina detach
-- `current` 软链：Windows 退化为 junction/复制
+- 进程身份：Linux 读 `/proc`，macOS 用 `ps` / `lsof`，Windows 读 `Win32_Process.CommandLine`（大小写不敏感，`/` 与 `\` 都认）
+- 停止：POSIX 发 `SIGTERM` / `SIGKILL`；Windows 用 `taskkill`，手工提示是 `taskkill /F /PID`
+- MySQL：没有 unix socket 时，客户端/探活走 TCP
+- PostgreSQL：没有 unix socket 时省略 `-k`，不创建 socket 目录
+- MongoDB：没有 fork 时由 marina detach
+- `current` 软链：Windows 用 junction，失败再复制
 - shims：Windows 生成 `.cmd`；`shellenv` 输出 PowerShell 语法
 - 依赖检查：`otool -L` / `ldd`；Windows 跳过
+- 登录自启：LaunchAgent、`systemd --user`、登录计划任务（`schtasks /SC ONLOGON`，任务 XML 写在 `%APPDATA%\marina`）
 
 Linux / Windows **尚未做真机端到端安装验证**。
 
@@ -555,7 +558,7 @@ marina rm redis@7 --purge        # 连 datadir 一起删（不可恢复）
 
 ### 登录自启
 
-macOS 使用用户级 LaunchAgent，Linux 使用 `systemd --user`，不需要 root：
+macOS 使用用户级 LaunchAgent，Linux 使用 `systemd --user`，Windows 使用当前用户的登录计划任务，都不需要管理员：
 
 ```bash
 marina autostart                 # 查看每个库的 on/off
@@ -567,11 +570,12 @@ marina autostart --off --all     # 全部关闭
 
 - macOS 单元：`~/Library/LaunchAgents/com.marina.autostart.plist`
 - Linux 单元：`~/.config/systemd/user/marina-autostart.service`
+- Windows 任务：`marina-autostart`，定义文件在 `%APPDATA%\marina\marina-autostart.xml`，触发器是登录（`ONLOGON`）
 - 单元实际执行：`<node> <marina.js> start --autostart`，由 marina 读取
   `state.json → settings.autostart` 决定启动哪些库。
 - 面板里：DETAIL 显示 `autostart on/off`，按 `a` 切换当前库，按 `A` 切换全部。
 - 日志：`runtime/logs/autostart.log`。
-- macOS 是**用户登录后**触发，不是开机即启；Linux 若要开机即使用户未登录，需要
+- 三个系统都是**用户登录后**触发，不是开机即启；Linux 若要开机即使用户未登录，需要
   `loginctl enable-linger $USER`。
 
 ### 目录搬家
@@ -637,8 +641,8 @@ npm run marina -- remote   # 不装全局时直接跑
 - pid 归属校验与 stop 终止确认（含搬家后的旧进程、pid 复用防误杀）
 - `state.json` 跨进程锁（3 进程并发自增不丢更新）、死锁/超时锁回收
 - payload 复用 / 残缺自愈 / 解压与编译失败清理、`stopCommand` 失败告警
-- Windows/systemd 纯函数加固：`current` 目录过滤、Expand-Archive 参数、systemd `%`/`$` 转义、非空目录替换
-- settings / doctor / shims / registry / platform / configcheck / ui 的隔离 `MARINA_HOME` 行为
+- 宿主层纯函数：三系统能力、shim、Windows 命令行归属、登录计划任务 XML；以及 `current` 目录过滤、Expand-Archive 参数、systemd `%`/`$` 转义、非空目录替换
+- settings / doctor / shims / registry / platform / host / configcheck / ui 的隔离 `MARINA_HOME` 行为
 - TUI 按键、箭头导航、doctor、账号密码显示、端口/账号/密码输入
 - 各引擎 `account()` 契约
 
@@ -651,6 +655,8 @@ npm run marina -- remote   # 不装全局时直接跑
 | `src/indexing.js` | 各引擎索引源与解析（目录 / tag feed / JSON） |
 | `src/versions.js` | 索引缓存、平台过滤、版本选择、HEAD、校验和 |
 | `src/installer.js` | 解析目标 → 下载/编译 → 配置 → 初始化 → 激活 |
+| `src/host/` | 全系统宿主：进程、信号、路径、shell、登录自启 |
+| `src/platform.js` | 宿主门面，以及安装包的架构 token / tar 参数 |
 | `src/lifecycle.js` | start/stop/status、探活、超时、启动前检查 |
 | `src/settings.js` | 改端口/账号/密码与服务端同步 |
 | `src/registry.js` | 引擎注册、版本发现、`buildCtx` |
@@ -694,8 +700,8 @@ export default {
 - **校验和**：MySQL 只有官方 `.md5`（当前未消费）；Redis/Memcached 上游无 sha256。
 - **PostgreSQL 列表包含全部历史版本**（数百个），建议 `--major 17` 过滤。
 - **Windows / Linux 未真机验证**。
-- **自启是“登录时”**：macOS 用 LaunchAgent（用户登录后触发），Linux 用 `systemd --user`；
-  Windows 未实现（可用任务计划程序）。
+- **自启是“登录时”**：macOS 用 LaunchAgent，Linux 用 `systemd --user`，Windows 用登录计划任务。
+  三个系统都还没有真机端到端验证。
 - **不做认证管理**：MongoDB 的 `--auth`、PostgreSQL 的 pg_hba 不自动改。
 
 ---
