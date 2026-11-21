@@ -10,5 +10,8 @@ node_modules/
 # build artifacts
 dist/
 
+# stray kernel .config left over from scripts/build-kernel.sh
+/.config
+
 # npm publish cache
 .npm-cache/
