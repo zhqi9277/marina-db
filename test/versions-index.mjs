@@ -2,6 +2,7 @@
 // fresh cache entry (TTL is pinned) and only exercising offline branches.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
@@ -10,8 +11,9 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-versions-'));
 process.env.MARINA_HOME = HOME;
 process.env.MARINA_INDEX_TTL = '21600'; // 6h, so fresh fixtures are always reused
 
-const versions = await import('../src/versions.js');
-const { engines } = await import('../src/registry.js');
+const versions = await import('../src/install/versions.js');
+const { engines } = await import('../src/core/registry.js');
+const { platformProblem } = await import('../src/install/catalog.js');
 
 const { readCache, writeCache, cacheFile } = versions._internal;
 const INDEX_DIR = path.join(HOME, 'cache', 'index');
@@ -75,6 +77,11 @@ test('resolveVersion honours exact versions, major lines and the supported pool'
   const major = await versions.resolveVersion(engines.mysql, '8.0');
   assert.equal(major.version, '8.0.29');
 
+  const unsupportedExact = await versions.resolveVersion(engines.mysql, '8.0.25');
+  assert.equal(unsupportedExact.version, '8.0.25');
+  assert.equal(unsupportedExact.supported, false);
+  await assert.rejects(versions.resolveVersion(engines.mysql, '8.0.99'), /8\.0\.99 is not in the remote index/);
+
   await assert.rejects(versions.resolveVersion(engines.mysql, '9.9'), (e) => {
     assert.match(e.message, /MySQL 9\.9 is not in the remote index/);
     assert.match(e.message, /newest: /);
@@ -89,17 +96,42 @@ test('resolveVersion reports an empty remote index', async () => {
 });
 
 test('resolveVersion falls back to unsupported entries when nothing is supported', async () => {
-  // mariadb has no supported platform in the catalog, so the pool is kept
-  writeCache('mariadb', {
-    engine: 'mariadb',
+  writeCache('mysql', {
+    engine: 'mysql',
     source: 'fixture',
     fetchedAt: Date.now(),
-    versions: [{ version: '11.4.13', major: '11.4', kind: 'source', urls: [], platformKnown: false }],
+    versions: [{ version: '8.4.11', major: '8.4', kind: 'binary', urls: [], platformKnown: true }],
   });
-  const hit = await versions.resolveVersion(engines.mariadb, '11.4');
-  assert.equal(hit.version, '11.4.13');
+  const hit = await versions.resolveVersion(engines.mysql, '8.4');
+  assert.equal(hit.version, '8.4.11');
   assert.equal(hit.supported, false);
-  assert.match(hit.reason, /MariaDB|macOS|platform/i);
+  assert.match(hit.reason, /build for this version/);
+});
+
+test('resolveArtifact keeps every candidate URL and does not probe first', async () => {
+  const result = await versions.resolveArtifact({
+    version: '1.2.3',
+    urls: ['https://one.test/a.tar.gz', 'https://two.test/a.tar.gz'],
+  }, { engine: 'redis' });
+  assert.deepEqual(result.urls, ['https://one.test/a.tar.gz', 'https://two.test/a.tar.gz']);
+  assert.equal(result.url, 'https://one.test/a.tar.gz');
+});
+
+test('resolveArtifact fails closed when a declared checksum response has no hash', async () => {
+  const server = http.createServer((_req, res) => res.end('checksum unavailable'));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  try {
+    await assert.rejects(
+      versions._internal.loadChecksum(
+        { sha256Url: `http://127.0.0.1:${port}/missing.sha256` },
+        `http://127.0.0.1:${port}/a.tar.gz`,
+      ),
+      /no sha256 found/,
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test('resolveArtifact explains when no artifact is known instead of probing', async () => {
@@ -113,11 +145,11 @@ test('resolveArtifact explains when no artifact is known instead of probing', as
   );
 });
 
-test('_internal.decorate flags a platform problem before the artifact check', () => {
+test('_internal.decorate reflects MariaDB support on the current host', () => {
   const [entry] = versions._internal.decorate('mariadb', [
     { version: '11.4.13', major: '11.4', kind: 'source', urls: ['u'], platformKnown: false },
   ]);
-  assert.equal(entry.supported, false);
-  assert.equal(typeof entry.reason, 'string');
-  assert.ok(entry.reason.length > 0);
+  const problem = platformProblem('mariadb');
+  assert.equal(entry.supported, problem === null);
+  assert.equal(entry.reason, problem);
 });

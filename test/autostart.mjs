@@ -1,7 +1,7 @@
 // OS hook rendering (no launchctl/systemctl, no filesystem writes).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { renderUnit, CLI, NODE } from '../src/autostart.js';
+import { renderUnit, CLI, NODE } from '../src/runtime/autostart.js';
 
 test('launchd unit runs marina start --autostart', () => {
   const xml = renderUnit(['mysql:8.4'], { manager: 'launchd', dir: '/tmp', file: '/tmp/x.plist' });

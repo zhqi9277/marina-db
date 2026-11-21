@@ -14,8 +14,8 @@ import {
   refreshIndex,
   PROFILES,
   SOURCE_ORDER,
-} from '../src/indexing.js';
-import { PLATFORM, arch } from '../src/platform.js';
+} from '../src/install/indexing.js';
+import { PLATFORM, arch } from '../src/core/platform.js';
 
 test('parseHrefs skips navigation links and cleans query/fragment suffixes', () => {
   const html = `<ul>

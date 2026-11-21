@@ -29,14 +29,15 @@ export const linux = defineHost({
     const dir = process.env.MARINA_SYSTEMD_DIR || path.join(os.homedir(), '.config', 'systemd', 'user');
     return { manager: 'systemd', dir, file: path.join(dir, UNIT_NAME), unitName: UNIT_NAME };
   },
-  renderUnit(ids, _target, { node, cli }) {
+  renderUnit(ids, _target, { node, cli, home }) {
+    const homeArgument = home ? ` "${systemdEscape(`--runtime-home=${home}`)}"` : '';
     return `[Unit]
 Description=marina autostart databases (${ids.join(', ')})
 After=network.target
 
 [Service]
 Type=oneshot
-ExecStart="${systemdEscape(node)}" "${systemdEscape(cli)}" start --autostart
+ExecStart="${systemdEscape(node)}" "${systemdEscape(cli)}"${homeArgument} start --autostart
 RemainAfterExit=yes
 
 [Install]

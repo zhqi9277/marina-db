@@ -1,9 +1,9 @@
 // Offline tests for version selection and platform decoration.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { pickEntry, _internal } from '../src/versions.js';
-import { majorOf, platformProblem } from '../src/catalog.js';
-import { normalizeOs } from '../src/overlay.js';
+import { pickEntry, _internal } from '../src/install/versions.js';
+import { majorOf, platformProblem } from '../src/install/catalog.js';
+import { normalizeOs } from '../src/install/overlay.js';
 
 const list = [
   { version: '8.4.11', major: '8.4', kind: 'binary', supported: true, urls: ['u1'] },
@@ -49,14 +49,11 @@ test('decorate: an indexed version without a build for this platform is unsuppor
 });
 
 test('platform problems come from engine metadata only', () => {
-  if (process.platform === 'darwin') {
-    assert.equal(platformProblem('mysql'), null);
-    assert.ok(platformProblem('mariadb'));
-    assert.ok(platformProblem('memcached'));
-    assert.equal(platformProblem('postgres'), null);
+  for (const key of ['mysql', 'mariadb', 'memcached', 'postgres']) {
+    assert.equal(platformProblem(key, 'darwin'), null);
   }
-  if (process.platform === 'win32') {
-    assert.ok(platformProblem('redis'));
-    assert.ok(platformProblem('postgres'));
-  }
+  assert.equal(platformProblem('postgres', 'win32'), null);
+  assert.equal(platformProblem('mariadb', 'win32'), null);
+  assert.match(platformProblem('redis', 'win32'), /prebuilt artifact/);
+  assert.ok(platformProblem('memcached', 'win32'));
 });

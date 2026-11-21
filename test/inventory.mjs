@@ -12,9 +12,9 @@ import test, { after } from 'node:test';
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-inventory-'));
 process.env.MARINA_HOME = HOME;
 
-const { engines } = await import('../src/registry.js');
-const state = await import('../src/state.js');
-const { collectRows, collectEngines, versionStatus } = await import('../src/inventory.js');
+const { engines } = await import('../src/core/registry.js');
+const state = await import('../src/core/state.js');
+const { collectRows, collectEngines, versionStatus } = await import('../src/runtime/inventory.js');
 
 const versionPath = (key, major, version) => path.join(HOME, 'engines', key, major, version);
 for (const [major, version] of [['8.0', '8.0.29'], ['8.4', '8.4.9'], ['8.4', '8.4.11']]) {

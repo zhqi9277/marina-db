@@ -30,13 +30,13 @@ function fakeEngine(key, label, state) {
 test('readKeys emits the key names the app compares against', () => {
   const keys = [];
   const off = readKeys((k) => keys.push(k));
-  for (const s of ['\x1b[A', '\x1b[B', '\x1b[C', '\r', 'j', 'k', '?', 'q']) {
+  for (const s of ['\x1b[A', '\x1b[B', '\x1b[C', '\r', '\x15', 'j', 'k', '?', 'q']) {
     process.stdin.emit('data', Buffer.from(s));
   }
   off();
   process.stdin.pause();
   process.stdin.unref?.();
-  assert.deepEqual(keys, ['esc:A', 'esc:B', 'esc:C', 'enter', 'j', 'k', '?', 'q']);
+  assert.deepEqual(keys, ['esc:A', 'esc:B', 'esc:C', 'enter', 'ctrl-u', 'j', 'k', '?', 'q']);
 });
 
 test('arrow keys move the database selection', async () => {
@@ -202,7 +202,6 @@ test('actions menu exposes start all / stop all / doctor', () => {
   assert.ok(ids.includes('startAll'));
   assert.ok(ids.includes('stopAll'));
   assert.ok(ids.includes('doctor'));
-  assert.ok(ids.includes('reconfig'));
   assert.equal(actions.find((a) => a.id === 'startAll').enabled, true); // redis is stopped
   assert.equal(actions.find((a) => a.id === 'stopAll').enabled, true); // mysql is running
 });
@@ -214,7 +213,7 @@ test('doctor view renders every check with the right width', () => {
   app.mode = 'doctor';
   app.doctor = [
     { name: 'platform', value: 'macOS arm64', ok: true },
-    { name: 'libs', value: 'all engine dylibs resolve (6 checked)', ok: true },
+    { name: 'libs', value: 'all engine libraries are self-contained (6 checked)', ok: true },
     { name: 'ports', value: 'mysql port 3306', ok: false },
   ];
   app.render();

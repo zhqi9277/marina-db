@@ -9,7 +9,7 @@ import test, { after } from 'node:test';
 import {
   IS_MAC, IS_LINUX, IS_WIN, OS_LABEL, PLATFORM,
   env, arch, exe, macosSdkTags, tarArgs, libInspector, linkDir, linkFile,
-} from '../src/platform.js';
+} from '../src/core/platform.js';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-platform-'));
 

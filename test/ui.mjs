@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 process.env.NO_COLOR = '1';
-const ui = await import('../src/ui.js');
+const ui = await import('../src/ui/console.js');
 
 function captureOutput(fn) {
   const stdout = [];

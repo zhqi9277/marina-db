@@ -16,7 +16,8 @@
   },
   "scripts": {
     "marina": "node bin/marina.js",
-    "test": "node --test test/*.mjs"
+    "test": "node --test test/*.mjs",
+    "smoke:e2e": "node test/e2e/smoke.mjs"
   },
   "keywords": [
     "cli",
