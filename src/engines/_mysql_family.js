@@ -132,6 +132,7 @@ no-auto-rehash
         const mysqld = findBin(ctx.root, serverNames);
         if (!mysqld) throw new Error(`cannot find ${serverNames[0]} under ${ctx.root}`);
         const res = await spawnAsync(mysqld, [
+          '--no-defaults',
           '--initialize-insecure',
           `--basedir=${ctx.root}`,
           `--datadir=${ctx.dataDir}`,
