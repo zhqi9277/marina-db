@@ -34,6 +34,7 @@ async function closedPort() {
 // paired with a live holder process recorded in the run pid file.
 const listener = net.createServer();
 await new Promise((resolve) => listener.listen(0, '127.0.0.1', resolve));
+listener.unref();
 const livePort = listener.address().port;
 const holder = spawn(
   process.execPath,
