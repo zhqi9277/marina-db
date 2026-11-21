@@ -214,7 +214,7 @@ test('doctor view renders every check with the right width', () => {
   app.mode = 'doctor';
   app.doctor = [
     { name: 'platform', value: 'macOS arm64', ok: true },
-    { name: 'libs', value: 'all engine dylibs resolve (6 checked)', ok: true },
+    { name: 'libs', value: 'all engine libraries are self-contained (6 checked)', ok: true },
     { name: 'ports', value: 'mysql port 3306', ok: false },
   ];
   app.render();

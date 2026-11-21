@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
 
-import { depsOf } from '../src/libcheck.js';
+import { depsOf, foreignDeps } from '../src/libcheck.js';
 import { libInspector } from '../src/platform.js';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-libcheck-'));
@@ -76,4 +76,21 @@ test('depsOf parses inspector output and reports unresolvable libraries', { skip
 test('depsOf with empty inspector output is skipped, not "all resolved"', { skip: process.platform === 'win32' }, () => {
   fakeInspector('#!/bin/sh\nexit 0\n');
   assert.deepEqual(depsOf('/fake/binary'), { skipped: true, deps: [], missing: [] });
+});
+
+test('foreignDeps keeps only libraries outside the install and the OS', () => {
+  const install = path.join(root, 'engine');
+  const own = path.join(install, 'lib', 'libown.dylib');
+  const deps = [
+    own,
+    '/usr/lib/libz.1.dylib',
+    '/lib/x86_64-linux-gnu/libc.so.6',
+    '/System/Library/Frameworks/Security.framework/Security',
+    '/opt/other-stack/lib/libssl.3.dylib',
+    `${install}-sibling/lib/libnear.dylib`,
+  ];
+  assert.deepEqual(foreignDeps(deps, install), [
+    '/opt/other-stack/lib/libssl.3.dylib',
+    `${install}-sibling/lib/libnear.dylib`,
+  ]);
 });

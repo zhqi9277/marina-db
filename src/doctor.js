@@ -7,7 +7,7 @@ import { OS_LABEL, host } from './platform.js';
 import { engineList, activeCtx } from './registry.js';
 import { status, tcpProbe } from './lifecycle.js';
 import { findBin } from './archive.js';
-import { depsOf } from './libcheck.js';
+import { depsOf, foreignDeps } from './libcheck.js';
 import { indexCacheInfo } from './versions.js';
 
 /**
@@ -41,7 +41,7 @@ export async function runDoctor() {
     ok: idx.files > 0,
   });
 
-  const missingLibs = [];
+  const libProblems = [];
   let inspected = 0;
   for (const engine of engineList) {
     const ctx = activeCtx(engine);
@@ -51,16 +51,19 @@ export async function runDoctor() {
     const deps = depsOf(bin);
     if (deps.skipped) continue;
     inspected++;
-    for (const dep of deps.missing) missingLibs.push(`${engine.key}: ${dep}`);
+    for (const dep of deps.missing) libProblems.push(`${engine.key}: ${dep} (missing)`);
+    for (const dep of foreignDeps(deps.deps.filter((d) => !deps.missing.includes(d)), ctx.root)) {
+      libProblems.push(`${engine.key}: ${dep} (outside install)`);
+    }
   }
   checks.push({
     name: 'libs',
     value: host.libInspector()
-      ? missingLibs.length
-        ? missingLibs.join(', ')
-        : `all engine dylibs resolve (${inspected} checked)`
+      ? libProblems.length
+        ? libProblems.join(', ')
+        : `all engine libraries are self-contained (${inspected} checked)`
       : 'skipped on Windows (no otool/ldd)',
-    ok: !host.libInspector() || missingLibs.length === 0,
+    ok: !host.libInspector() || libProblems.length === 0,
   });
 
   const conflicts = [];

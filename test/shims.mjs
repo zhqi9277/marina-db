@@ -43,8 +43,12 @@ test('resolveBin maps a client binary to the active engine root', () => {
 });
 
 test('installShims writes executable shims for the active clients', () => {
+  const stale = path.join(dirs.shims, posix ? 'mariadb' : 'mariadb.cmd');
+  fs.mkdirSync(dirs.shims, { recursive: true });
+  fs.writeFileSync(stale, 'stale');
   const created = installShims();
   assert.deepEqual(created, [{ bin: 'redis-cli', target: path.join(root, 'bin', 'redis-cli') }]);
+  assert.equal(fs.existsSync(stale), false, 'shim for an inactive engine is removed');
 
   const dest = path.join(dirs.shims, posix ? 'redis-cli' : 'redis-cli.cmd');
   assert.equal(fs.existsSync(dest), true);

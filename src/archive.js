@@ -6,11 +6,12 @@ import { mkdirp } from './paths.js';
 import { info } from './ui.js';
 import { host } from './host/index.js';
 import { tarArgs } from './platform.js';
+import { clientEnv } from './env.js';
 export { expandArchiveArgs } from './host/win32.js';
 
 export function spawnAsync(cmd, args, opts = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: [opts.input ? 'pipe' : 'ignore', 'pipe', 'pipe'], ...opts });
+    const child = spawn(cmd, args, { stdio: [opts.input ? 'pipe' : 'ignore', 'pipe', 'pipe'], env: clientEnv(), ...opts });
     let stdout = '';
     let stderr = '';
     child.stdout?.on('data', (d) => (stdout += d));

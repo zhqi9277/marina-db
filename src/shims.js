@@ -16,6 +16,7 @@ export function shimScript(bin) {
 export function installShims() {
   ensureDirs();
   const created = [];
+  const wanted = new Set();
   for (const engine of engineList) {
     const ctx = activeCtx(engine);
     if (!ctx || !ctx.root) continue;
@@ -23,9 +24,15 @@ export function installShims() {
       const target = findBin(ctx.root, [bin]);
       if (!target) continue;
       const dest = path.join(dirs.shims, host.shimFileName(bin));
+      wanted.add(path.basename(dest));
       fs.writeFileSync(dest, shimScript(bin), { mode: 0o755 });
       created.push({ bin, target });
     }
+  }
+  const managed = new Set(engineList.flatMap((engine) =>
+    engine.clientBins.map((bin) => host.shimFileName(bin))));
+  for (const name of managed) {
+    if (!wanted.has(name)) fs.rmSync(path.join(dirs.shims, name), { force: true });
   }
   return created;
 }

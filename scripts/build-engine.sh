@@ -12,6 +12,17 @@
 # prebuilt artifact for a platform that has no upstream binary.
 set -euo pipefail
 
+# Build only against the system toolchain. A shell often carries another tool's
+# PATH entries, pkg-config and compiler flags; inheriting them would bake foreign
+# headers and libraries into the artifact. Extra tool directories (for example a
+# cmake that is not installed system-wide) are opt-in through MARINA_BUILD_PATH.
+export PATH="${MARINA_BUILD_PATH:+$MARINA_BUILD_PATH:}/usr/bin:/bin:/usr/sbin:/sbin"
+unset PKG_CONFIG PKG_CONFIG_PATH PKG_CONFIG_LIBDIR PKG_CONFIG_SYSROOT_DIR \
+      CPPFLAGS CFLAGS CXXFLAGS LDFLAGS LIBS CPATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH LIBRARY_PATH \
+      CMAKE_PREFIX_PATH CMAKE_INCLUDE_PATH CMAKE_LIBRARY_PATH ACLOCAL_PATH \
+      LD_LIBRARY_PATH LD_PRELOAD DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH DYLD_INSERT_LIBRARIES \
+      PGHOST PGPORT PGUSER PGPASSWORD PGDATA MYSQL_HOST MYSQL_TCP_PORT MYSQL_UNIX_PORT MYSQL_PWD
+
 ENGINE=${1:?usage: build-engine.sh <engine> <version> <outdir>}
 VERSION=${2:?missing version}
 OUT=${3:-dist}
@@ -92,6 +103,29 @@ esac
 
 # strip build-host paths that would otherwise leak into the artifact
 find "$PREFIX" -type f \( -name '*.la' -o -name '*.a' \) -delete 2>/dev/null || true
+
+# An artifact must run on a machine that has none of this host's tools: every
+# dynamic dependency has to be an OS library or live inside the payload.
+verify_self_contained() {
+  [ "$OS" = windows ] && return 0
+  local f dep deps bad=0
+  while IFS= read -r f; do
+    file -b "$f" | grep -qE 'Mach-O|ELF' || continue
+    if [ "$OS" = darwin ]; then
+      deps=$(otool -L "$f" 2>/dev/null | tail -n +2 | awk '{print $1}')
+    else
+      deps=$(ldd "$f" 2>/dev/null | awk '/=>/ {print $3}')
+    fi
+    for dep in $deps; do
+      case "$dep" in
+        /usr/lib/*|/System/*|/lib/*|/lib64/*|@*|"$PREFIX"/*) ;;
+        /*) echo "error: ${f#"$PREFIX"/} depends on $dep, which is outside the payload and the OS" >&2; bad=1 ;;
+      esac
+    done
+  done < <(find "$PREFIX" -type f)
+  return "$bad"
+}
+verify_self_contained || { echo "error: $ENGINE $VERSION is not self-contained — see above" >&2; exit 1; }
 
 NAME="${ENGINE}-${VERSION}-${OS}-${ARCH}"
 if [ "$OS" = windows ]; then

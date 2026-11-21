@@ -1,7 +1,32 @@
 // Binary dependency inspection, per OS: otool -L on macOS, ldd on Linux.
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 import { libInspector } from './platform.js';
+
+const SYSTEM_LIB_DIRS = ['/usr/lib', '/usr/lib64', '/lib', '/lib64', '/System/Library', '/Library/Apple'];
+
+function within(file, dir) {
+  const rel = path.relative(dir, file);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+/**
+ * Dependencies that live neither inside the install nor in the OS: a payload that
+ * links another tool's libraries only runs while that tool stays installed.
+ */
+export function foreignDeps(deps, root) {
+  const roots = [path.resolve(root)];
+  try {
+    roots.push(fs.realpathSync(root));
+  } catch {
+    // root vanished; the plain path is all there is to compare against
+  }
+  return deps.filter((dep) => {
+    if (SYSTEM_LIB_DIRS.some((dir) => within(dep, dir))) return false;
+    return !roots.some((own) => within(dep, own));
+  });
+}
 
 /**
  * @returns {{skipped:boolean, deps:string[], missing:string[]}}

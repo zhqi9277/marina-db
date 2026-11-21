@@ -12,6 +12,7 @@ import { changePort, changeAccount } from './settings.js';
 import * as autostart from './autostart.js';
 import { findBin } from './archive.js';
 import { OS_LABEL } from './platform.js';
+import { clientEnv } from './env.js';
 import { runDoctor } from './doctor.js';
 import * as state from './state.js';
 import {
@@ -592,7 +593,7 @@ function cmdExec(flags, args, tail) {
   }
   const isServer = (engine.serverBin || []).includes(binName);
   const prefix = !isServer && engine.clientArgs ? engine.clientArgs(ctx) : [];
-  const child = spawn(bin, [...prefix, ...pass], { stdio: 'inherit' });
+  const child = spawn(bin, [...prefix, ...pass], { stdio: 'inherit', env: clientEnv() });
   return new Promise((resolve, reject) => {
     child.on('error', reject);
     child.on('exit', (code, signal) => {
@@ -613,7 +614,7 @@ function cmdShimExec(args, tail) {
   }
   const isServer = (found.engine.serverBin || []).includes(bin);
   const prefix = !isServer && found.engine.clientArgs ? found.engine.clientArgs(found.ctx) : [];
-  const child = spawn(found.path, [...prefix, ...pass], { stdio: 'inherit' });
+  const child = spawn(found.path, [...prefix, ...pass], { stdio: 'inherit', env: clientEnv() });
   child.on('exit', (code, signal) => {
     if (signal) process.kill(process.pid, signal);
     else process.exit(code ?? 0);

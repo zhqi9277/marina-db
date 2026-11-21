@@ -7,6 +7,7 @@ import { spawnAsync, findBin } from './archive.js';
 import { host } from './host/index.js';
 import { ensureDirs } from './paths.js';
 import { staleConfigReferences } from './configcheck.js';
+import { clientEnv } from './env.js';
 import { ok, warn, info, color } from './ui.js';
 import * as state from './state.js';
 
@@ -232,12 +233,12 @@ export async function start(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
     // wrapper (e.g. pg_ctl -w) — it daemonizes; ignore stdio so the daemon does
     // not inherit our pipes and leak server logs into the CLI output
     await new Promise((resolve, reject) => {
-      const child = spawn(spec.cmd, spec.args, { cwd: ctx.root, stdio: 'ignore' });
+      const child = spawn(spec.cmd, spec.args, { cwd: ctx.root, stdio: 'ignore', env: clientEnv() });
       child.on('error', reject);
       child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${path.basename(spec.cmd)} exited ${code}`))));
     });
   } else {
-    const child = spawn(spec.cmd, spec.args, { cwd: ctx.root, detached: true, stdio: 'ignore' });
+    const child = spawn(spec.cmd, spec.args, { cwd: ctx.root, detached: true, stdio: 'ignore', env: clientEnv() });
     // wait for the exec result: an unhandled 'error' event would crash the CLI,
     // and a missing/broken binary must fail now instead of after the timeout
     const spawnError = await new Promise((resolve) => {

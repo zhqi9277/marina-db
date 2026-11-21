@@ -373,6 +373,7 @@ export PATH="$PWD/bin:$PATH"
 | `MARINA_INDEX_TTL` | `21600` | 索引缓存秒数 |
 | `MARINA_CATALOG_FILE` | — | 自建产物 overlay（本地 JSON） |
 | `MARINA_CATALOG_URL` | — | 自建产物 overlay（HTTP） |
+| `MARINA_BUILD_PATH` | — | 源码编译额外允许的工具目录（冒号分隔），默认只用系统工具链 |
 | `MARINA_DEBUG` | — | CLI 打印完整错误栈 |
 
 ---
@@ -506,6 +507,13 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
   不会残留成“已安装”；`--force` 强制重新解包。
 - **源码 vs 二进制**：PostgreSQL/Redis 本机编译；MySQL/MongoDB 解包官方二进制；
   MariaDB/Memcached 在 macOS 上只列版本，安装会明确拒绝（没有可用的自动化构建）。
+- **环境隔离**：marina 起的子进程不继承你 shell 里其他工具留下的状态。
+  源码编译只用系统工具链（`PATH` 收窄为 `/usr/bin:/bin:/usr/sbin:/sbin`，清掉 `PKG_CONFIG*` / `CPPFLAGS` /
+  `LDFLAGS` / `DYLD_*` 等），产物不会把别处的头文件和库烙进去；需要额外的构建工具（比如 cmake）时用
+  `MARINA_BUILD_PATH=/some/bin` 显式加入。客户端与服务进程会去掉 `PGHOST` / `PGPORT` / `PGPASSWORD` /
+  `MYSQL_HOST` / `MYSQL_PWD` / `REDISCLI_AUTH` 等“选服务器/选凭据”的变量，所以 `marina exec` 永远连的是 marina 自己的实例。
+- **自包含**：一个包只能依赖系统库和自身目录。`marina doctor` 的 `libs` 项会同时报告“找不到的库”和
+  “依赖了安装目录与系统之外的库”；`scripts/build-engine.sh` 打包前做同样的检查，不通过就不产出。
 
 ---
 
@@ -610,6 +618,7 @@ marina start postgres@17
 | 启动卡 30 秒后失败 | 先看日志；如果是搬家后，配置里可能是旧路径，`marina reconfig <db>` |
 | `port-busy` | 端口被非 marina 进程占用：`lsof -i :<port>`，或 `marina port <db> <新端口>` |
 | `dyld: Library not loaded` | 源码编译的二进制被搬家/删库；重装该版本（保留 datadir） |
+| `doctor` 的 `libs` 报 `(outside install)` | 这个包依赖了安装目录和系统之外的库，换一台机器就起不来：重装一个自包含的包（`scripts/build-engine.sh`） |
 | `index unavailable` / 403 | 镜像临时不可用；`--refresh` 重试，或 `MARINA_MIRROR=huawei` 换源 |
 | 校验和不匹配 | 缓存损坏：删 `runtime/cache/<db>/<ver>/` 后重装 |
 | `Access denied` | `marina auth <db>` 看保存的凭据；MySQL 系可用正确密码重新设置 |

@@ -18,6 +18,8 @@ import {
 import { resolveVersion, resolveArtifact } from './versions.js';
 import { linkFile, PLATFORM, OS_LABEL } from './platform.js';
 import { findArtifact } from './overlay.js';
+import { buildEnv } from './env.js';
+import { installShims } from './shims.js';
 import * as state from './state.js';
 import { start, stop, restart, healthy } from './lifecycle.js';
 import { ok, info, warn, hint, color } from './ui.js';
@@ -149,7 +151,7 @@ async function buildSource(root, build, engine) {
   for (const [cmd, ...rest] of build.steps) {
     const args = rest.map((a) => String(a).replace('{jobs}', String(jobs)).replace('{root}', root));
     const label = `${cmd} ${args.join(' ')}`.trim();
-    const res = await spawnAsync(cmd, args, { cwd: root });
+    const res = await spawnAsync(cmd, args, { cwd: root, env: buildEnv() });
     if (res.code !== 0) {
       const tail = (res.stderr || res.stdout || '').trim().split('\n').slice(-12).join('\n');
       throw new Error(`build step failed: ${label}\n${tail}`);
@@ -353,6 +355,7 @@ export async function remove(ref, { purge = false } = {}) {
     fs.rmSync(ctx.dataDir, { recursive: true, force: true });
     purged = true;
   }
+  installShims();
   return { engine, pick, purged, remaining };
 }
 
