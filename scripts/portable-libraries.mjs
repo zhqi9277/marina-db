@@ -150,12 +150,13 @@ export async function relocate(root) {
 
 export function verifyLibraries(root) {
   if (process.platform === 'win32') return;
+  const failures = [];
   for (const file of nativeFiles(root)) {
     if (process.platform === 'linux') {
       if (!dynamicElf(file)) continue;
       for (const dep of elfDeps(file)) {
         if (dep.file === 'not found' || (!linuxSystem.test(dep.name) && !local(dep.file, root))) {
-          throw new Error(path.relative(root, file) + ': non-relocatable dependency ' + dep.name + ' (' + dep.file + ')');
+          failures.push(path.relative(root, file) + ': ' + dep.name + ' (' + dep.file + ')');
         }
       }
     } else {
@@ -168,9 +169,10 @@ export function verifyLibraries(root) {
           : [machLocal(dep, file, root)];
         if (!dep.startsWith('@') || !candidates.some((candidate) =>
           darwinSystem.test(candidate) || (local(candidate, root) && fs.existsSync(candidate)))) {
-          throw new Error(path.relative(root, file) + ': non-relocatable dependency ' + dep);
+          failures.push(path.relative(root, file) + ': ' + dep);
         }
       }
     }
   }
+  if (failures.length) throw new Error('non-relocatable dependencies:\n' + failures.join('\n'));
 }

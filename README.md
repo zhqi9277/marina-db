@@ -608,7 +608,7 @@ export default {
 
 - 某个版本能否安装取决于当前平台的已发布清单，可用 `marina remote <db>` 查看。
 - Windows Redis 与 Memcached 由 Marina 管理便携进程。
-- MariaDB 默认归档用于单实例运行。使用 Galera、OQGraph 或 CrackLib 时，可通过 `--file` 安装包含所需组件的归档。
+- MariaDB 默认归档用于单实例运行。使用 Galera、OQGraph、CrackLib 或 CONNECT 时，可通过 `--file` 安装包含所需组件的归档。
 - 登录自启使用 LaunchAgent、`systemd --user` 或 Windows 登录计划任务。
 - MongoDB 的 `--auth`、PostgreSQL 的 `pg_hba.conf` 由用户管理。
 
