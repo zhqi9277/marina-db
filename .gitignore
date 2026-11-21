@@ -7,11 +7,5 @@ node_modules/
 # os noise
 .DS_Store
 
-# build artifacts
-dist/
-
-# stray kernel .config left over from scripts/build-kernel.sh
-/.config
-
 # npm publish cache
 .npm-cache/
