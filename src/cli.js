@@ -5,7 +5,7 @@ import { dirs } from './core/paths.js';
 import { engineList, getEngine, installedVersions, activeCtx, instanceContexts, resolveRef, pickVersion } from './core/registry.js';
 import { collectRows, versionStatus } from './runtime/inventory.js';
 import { status, start, stop, restart, stateBadge } from './runtime/lifecycle.js';
-import { install, remove, use, reconfigure } from './install/installer.js';
+import { install, remove, use } from './install/installer.js';
 import { listVersions } from './install/versions.js';
 import { installShims, resolveBin, shellenv } from './runtime/shims.js';
 import { readProject } from './core/project.js';
@@ -57,7 +57,6 @@ TOOLS
   marina which mysql                          resolve a client binary
   marina shims                                install shims into the runtime dir
   marina shellenv                             eval "$(marina shellenv)"
-  marina reconfig [<db[@ver]>|--all]  rewrite generated config + current symlink
   marina rm <db[@ver]> [--purge]
   marina doctor
   marina            (no args, TTY) full-screen dashboard
@@ -240,18 +239,18 @@ async function cmdInstall(flags, args) {
     const pool = usable.length ? usable : idx.versions;
     if (!pool.length) throw new Error(`${engine.label}: the remote index returned no versions`);
     if (!isInteractive()) {
-      throw new Error(
-        `missing version — e.g. marina install ${engine.key}@${pool[0].version}\n  (run in a TTY to pick from ${pool.length} versions)`,
+      const recommended = pool.find((v) => v.major === engine.defaultMajor) || pool[0];
+      target = `${engine.key}@${recommended.version}`;
+    } else {
+      const { item } = await select(
+        `${engine.label} — choose a version`,
+        pool.slice(0, 30).map((v) => ({
+          label: v.version,
+          hint: `${v.kind} · ${v.source}${v.supported ? '' : ` · n/a on ${OS_LABEL}`}`,
+        })),
       );
+      target = `${engine.key}@${item.label}`;
     }
-    const { item } = await select(
-      `${engine.label} — choose a version`,
-      pool.slice(0, 30).map((v) => ({
-        label: v.version,
-        hint: `${v.kind} · ${v.source}${v.supported ? '' : ` · n/a on ${OS_LABEL}`}`,
-      })),
-    );
-    target = `${engine.key}@${item.label}`;
   }
 
   const summary = await install(target, {
@@ -523,21 +522,6 @@ async function cmdAuth(flags, args) {
   ]]));
 }
 
-async function cmdReconfig(flags, args) {
-  const targets = flags.all
-    ? engineList.flatMap(instanceContexts)
-    : [resolveRef(requireRef(args, flags)).ctx];
-  if (!targets.length) return warn('nothing installed');
-  const done = [];
-  for (const ctx of targets) {
-    const r = await reconfigure(ctx);
-    done.push({ key: ctx.key, version: r.version, confFile: r.path || null });
-  }
-  if (flags.json) return jsonOut(done);
-  done.forEach((d) => ok(`${d.key} ${d.version}${d.confFile ? ` -> ${d.confFile}` : ''}`));
-  hint('restart running services to pick up new paths: marina restart <db>');
-}
-
 async function cmdRm(flags, args) {
   const res = await remove(requireRef(args, flags), { purge: !!flags.purge });
   if (flags.json) return jsonOut({ key: res.engine.key, version: res.pick.version, purged: res.purged });
@@ -675,8 +659,6 @@ async function dispatch(flags, rest, tail) {
     case 'autostart':
     case 'boot': return cmdAutostart(flags, args);
     case 'auth': return cmdAuth(flags, args);
-    case 'reconfig':
-      return cmdReconfig(flags, args);
     case 'rm':
     case 'uninstall':
     case 'remove': return cmdRm(flags, args);

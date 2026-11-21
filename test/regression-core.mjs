@@ -33,7 +33,6 @@ const redisEngine = (await import('../src/engines/redis.js')).default;
 const mariaEngine = (await import('../src/engines/mariadb.js')).default;
 const mysqlEngine = (await import('../src/engines/mysql.js')).default;
 const shims = await import('../src/runtime/shims.js');
-const configcheck = await import('../src/runtime/configcheck.js');
 const settings = await import('../src/runtime/settings.js');
 const project = await import('../src/core/project.js');
 const registry = await import('../src/core/registry.js');
@@ -202,7 +201,7 @@ test('pidOwnedBy only trusts a pid whose command line lives under this install',
   }
 });
 
-test('pidOwnedBy accepts a moved install by its layout but never a system binary', { skip: notWindows }, () => {
+test('pidOwnedBy rejects a moved install and never accepts a system binary', { skip: notWindows }, () => {
   const oldRoot = tmp('moved-old');
   const newRoot = tmp('moved-new');
   const child = spawnHold(tmp('moved-proc'));
@@ -216,8 +215,8 @@ test('pidOwnedBy accepts a moved install by its layout but never a system binary
     assert.equal(lifecycle.pidOwnedBy(child.pid, ctx, { command: currentCommand, cwd: null }), true);
     assert.equal(
       lifecycle.pidOwnedBy(child.pid, ctx, { command: oldCommand, cwd: null }),
-      true,
-      'an install moved to another directory must still be recognised via engines/<key>/',
+      false,
+      'a moved install must not be treated as owned',
     );
     assert.equal(
       lifecycle.pidOwnedBy(child.pid, ctx, { command: '/usr/local/bin/mysqld --datadir=/var/lib/mysql', cwd: null }),
@@ -229,7 +228,7 @@ test('pidOwnedBy accepts a moved install by its layout but never a system binary
   }
 });
 
-test('stop() terminates a pre-move server whose cwd is the old dataDir', { skip: notWindows }, async () => {
+test('stop() rejects a server outside the current install', { skip: notWindows }, async () => {
   const oldRoot = tmp('moved-old-cwd');
   const oldData = path.join(oldRoot, 'data', 'redis', '7');
   fs.mkdirSync(oldData, { recursive: true });
@@ -239,11 +238,10 @@ test('stop() terminates a pre-move server whose cwd is the old dataDir', { skip:
   fs.writeFileSync(pidFile, String(child.pid));
   const ctx = makeCtx(root, { pidFile });
   try {
-    assert.equal(lifecycle.pidOwnedBy(child.pid, ctx), true, 'data/<key>/<major> cwd identifies the old install');
+    assert.equal(lifecycle.pidOwnedBy(child.pid, ctx), false);
     const res = await lifecycle.stop(ctx, { quiet: true });
-    assert.equal(res.stopped, true);
-    assert.equal(await waitDead(child.pid), true, 'the pre-move process must actually be terminated');
-    assert.equal(fs.existsSync(pidFile), false);
+    assert.equal(res.stopped, false);
+    assert.equal(await waitDead(child.pid), false);
   } finally {
     try { process.kill(child.pid, 'SIGKILL'); } catch {}
   }
@@ -648,23 +646,23 @@ test('state.mutate reclaims dead, ownerless, self-owned and stale locks', () => 
     // 1) owner pid no longer exists
     fs.mkdirSync(lock, { recursive: true });
     fs.writeFileSync(path.join(lock, 'pid'), '2147483646');
-    state.mutate((s) => { s.settings.__staleOwner = true; });
-    assert.equal(state.load().settings.__staleOwner, true);
+    state.mutate((s) => { s.settings.accounts.__staleOwner = true; });
+    assert.equal(state.load().settings.accounts.__staleOwner, true);
     assert.equal(fs.existsSync(lock), false);
 
     // 2) pid file was never written (creator died between mkdir and write)
     fs.mkdirSync(lock, { recursive: true });
     age(lock, 1000);
-    state.mutate((s) => { s.settings.__ownerless = true; });
-    assert.equal(state.load().settings.__ownerless, true);
+    state.mutate((s) => { s.settings.accounts.__ownerless = true; });
+    assert.equal(state.load().settings.accounts.__ownerless, true);
     assert.equal(fs.existsSync(lock), false);
 
     // 3) aged lock "owned" by this very pid = leftover from a previous run
     fs.mkdirSync(lock, { recursive: true });
     fs.writeFileSync(path.join(lock, 'pid'), String(process.pid));
     age(lock, 1000);
-    state.mutate((s) => { s.settings.__selfLeftover = true; });
-    assert.equal(state.load().settings.__selfLeftover, true);
+    state.mutate((s) => { s.settings.accounts.__selfLeftover = true; });
+    assert.equal(state.load().settings.accounts.__selfLeftover, true);
     assert.equal(fs.existsSync(lock), false);
 
     // 4) lock older than MARINA_STATE_LOCK_STALE even with a live owner
@@ -672,8 +670,8 @@ test('state.mutate reclaims dead, ownerless, self-owned and stale locks', () => 
     fs.writeFileSync(path.join(lock, 'pid'), String(process.ppid));
     age(lock, 60000);
     process.env.MARINA_STATE_LOCK_STALE = '1000';
-    state.mutate((s) => { s.settings.__staleAge = true; });
-    assert.equal(state.load().settings.__staleAge, true);
+    state.mutate((s) => { s.settings.accounts.__staleAge = true; });
+    assert.equal(state.load().settings.accounts.__staleAge, true);
     assert.equal(fs.existsSync(lock), false);
   } finally {
     if (savedTimeout === undefined) delete process.env.MARINA_STATE_LOCK_TIMEOUT;
@@ -717,8 +715,8 @@ test('state.mutate times out with an actionable error when the lock stays held',
 test('state.mutate releases the lock when the mutation throws', () => {
   assert.throws(() => state.mutate(() => { throw new Error('boom'); }), /boom/);
   assert.equal(fs.existsSync(path.join(HOME, 'state.lock')), false, 'a thrown mutation must release the lock');
-  state.mutate((s) => { s.settings.__afterThrow = true; });
-  assert.equal(state.load().settings.__afterThrow, true);
+  state.mutate((s) => { s.settings.accounts.__afterThrow = true; });
+  assert.equal(state.load().settings.accounts.__afterThrow, true);
 });
 
 // ------------------------------------------------------------ installer ----
@@ -930,51 +928,6 @@ test('resolveBin falls through to mariadb when mysql is not installed', {
   assert.equal(hit.path, mysql);
 });
 
-// ---------------------------------------------------------- configcheck ----
-
-test('staleConfigReferences understands redis.conf / mongod.yaml directives outside runtime/', () => {
-  const redisConf = writeConf('redis.conf', [
-    '# generated by marina — edit, then: marina restart redis',
-    'dir /old/.marina/data/redis/7',
-    'logfile /old/.marina/etc/redis/7/redis.conf',
-    'pidfile /old/.marina/run/redis-7.pid',
-    '',
-  ].join('\n'));
-  assert.deepEqual(staleConfigReferencesWith(redisConf, 'redis', '7'), [
-    '/old/.marina/data/redis/7',
-    '/old/.marina/etc/redis/7/redis.conf',
-    '/old/.marina/run/redis-7.pid',
-  ]);
-
-  const mongoConf = writeConf('mongod.conf', 'storage:\n  dbPath: /old/root/data/mongodb/7\n');
-  assert.deepEqual(staleConfigReferencesWith(mongoConf, 'mongodb', '7'), ['/old/root/data/mongodb/7']);
-
-  const mysqlConf = writeConf('my.cnf', '[mysqld]\nbasedir = /old/root/data/mysql/8.4/8.4.11\n');
-  assert.deepEqual(staleConfigReferencesWith(mysqlConf, 'mysql', '8.4'), [
-    '/old/root/data/mysql/8.4/8.4.11',
-  ]);
-});
-
-test('staleConfigReferences keeps comments, relative and non-marina paths out', () => {
-  const current = path.join(HOME, 'data', 'redis', '7');
-  const file = writeConf('redis.conf', [
-    '# dir /old/.marina/data/redis/7',
-    `dir ${current}`,
-    'dir /usr/lib/redis',
-    'dir /old/myruntime/x',
-    'dir relative/path',
-    'dir /old/.marina/data/redis/8',
-    'dir /old/.marina/data/redis/70',
-    'bind 127.0.0.1',
-    'dir /old/.marina/data/redis/7',
-  ].join('\n'));
-  assert.deepEqual(staleConfigReferencesWith(file, 'redis', '7'), ['/old/.marina/data/redis/7']);
-});
-
-function staleConfigReferencesWith(confFile, key, major) {
-  return configcheck.staleConfigReferences({ confFile, key, major });
-}
-
 // ------------------------------------------------------------- settings ----
 
 test('changeAccount keeps the old mysql credentials when the server ALTER fails', async () => {
@@ -1029,12 +982,10 @@ test('changeAccount persists the mysql password only after a successful ALTER', 
   }
 });
 
-test('changeAccount keeps the old postgres password when ALTER ROLE fails', async () => {
+test('changeAccount does not store an unenforced postgres password', async () => {
   const root = path.join(HOME, 'engines', 'postgres', '17', '17.11');
   writeExecutable(path.join(root, 'bin', 'postgres'), '#!/bin/sh\nexit 0\n');
   writeExecutable(path.join(root, 'bin', 'psql'), '#!/bin/sh\nexit 1\n');
-  state.setAccount('postgres', { user: 'postgres', password: 'oldpass' });
-
   const live = await listeningPort();
   const owner = spawnHold(root);
   state.setPort('postgres', '17', live.port);
@@ -1045,10 +996,11 @@ test('changeAccount keeps the old postgres password when ALTER ROLE fails', asyn
   try {
     const result = await settings.changeAccount(ctx, { password: 'newpass' });
 
-    assert.deepEqual(result.account, { user: 'postgres', password: 'oldpass' });
+    assert.equal(result.account.user, 'postgres');
+    assert.equal(result.account.password, null);
     assert.deepEqual(result.applied, []);
-    assert.match(result.notes.join(' '), /server password NOT changed/);
-    assert.deepEqual(state.accountOf('postgres', '17'), { user: 'postgres', password: 'oldpass' });
+    assert.match(result.notes.join(' '), /trust/i);
+    assert.deepEqual(state.accountOf('postgres', '17'), { user: 'postgres', password: null });
   } finally {
     await live.close();
     try { process.kill(owner.pid, 'SIGKILL'); } catch {}

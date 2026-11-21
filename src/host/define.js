@@ -20,8 +20,8 @@ export function defineHost(spec) {
     terminate: spec.terminate,
     forceVerb: spec.forceVerb,
     killHint: spec.killHint,
-    matchesInstall(details, ctx, { allowLayout = true, extraPaths } = {}) {
-      return matchesInstall(details, ctx, { caseInsensitive: !!spec.pathCaseInsensitive, allowLayout, extraPaths });
+    matchesInstall(details, ctx) {
+      return matchesInstall(details, ctx, { caseInsensitive: !!spec.pathCaseInsensitive });
     },
     installVersion(details, ctx) {
       return installVersion(details, ctx, !!spec.pathCaseInsensitive);

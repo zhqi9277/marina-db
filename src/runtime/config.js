@@ -23,20 +23,3 @@ export function renderConfig(ctx, { force = false } = {}) {
   writeConfig(ctx.confFile, text);
   return { path: ctx.confFile, written: true };
 }
-
-export function configSnapshot(ctx) {
-  const file = ctx.confFile;
-  if (!file) return () => {};
-  const previous = fs.existsSync(file) ? fs.readFileSync(file) : null;
-  return () => {
-    if (previous) writeConfig(file, previous);
-    else fs.rmSync(file, { force: true });
-  };
-}
-
-export function syncVersionConfig(ctx) {
-  if (!ctx.root || !ctx.confFile || !ctx.engine.syncVersionConfig || !fs.existsSync(ctx.confFile)) return;
-  const previous = fs.readFileSync(ctx.confFile, 'utf8');
-  const updated = ctx.engine.syncVersionConfig(ctx, previous);
-  if (updated !== previous) writeConfig(ctx.confFile, updated);
-}

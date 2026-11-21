@@ -77,7 +77,7 @@ test('failed initialization leaves no installed version or committed port', { sk
   assert.equal(fs.existsSync(path.join(home, 'state.json')), false);
 });
 
-test('use updates the selected MySQL basedir and preserves user config', (t) => {
+test('use keeps a path-free MySQL config and user setting', (t) => {
   const { cli, home } = fixture(t);
   const major = path.join(home, 'engines', 'mysql', '8.4');
   for (const version of ['8.4.1', '8.4.2']) {
@@ -85,12 +85,14 @@ test('use updates the selected MySQL basedir and preserves user config', (t) => 
     fs.mkdirSync(bin, { recursive: true });
     fs.writeFileSync(path.join(bin, windows ? 'mysqld.exe' : 'mysqld'), '', { mode: 0o755 });
   }
+  const confFile = path.join(home, 'etc', 'mysql', '8.4', 'my.cnf');
+  fs.mkdirSync(path.dirname(confFile), { recursive: true });
+  fs.writeFileSync(confFile, '[mysqld]\nmax_connections = 200\n');
   json(cli('use', 'mysql@8.4.1', '--json'));
-  const { confFile } = json(cli('reconfig', 'mysql', '--json'))[0];
   fs.appendFileSync(confFile, '\n# user setting\n');
   json(cli('use', 'mysql@8.4.2', '--json'));
   const config = fs.readFileSync(confFile, 'utf8');
-  assert.equal(config.match(/^basedir\s*=\s*(.+)$/m)?.[1], path.join(major, '8.4.2'));
+  assert.doesNotMatch(config, /^\s*(basedir|datadir|pid-file|log-error|tmpdir)\s*=/m);
   assert.match(config, /# user setting/);
 });
 
@@ -98,7 +100,7 @@ test('a manifest-only version resolves without consulting a remote index', (t) =
   const { dir, env, node } = fixture(t);
   env.MARINA_CATALOG_FILE = path.join(dir, 'manifest.json');
   fs.writeFileSync(env.MARINA_CATALOG_FILE, JSON.stringify({ artifacts: [{
-    name: 'redis', version: '99.0.1', os: process.platform, arch: process.arch, url: 'https://example.test/redis.tar.gz',
+    name: 'redis', version: '99.0.1', os: process.platform, arch: process.arch, sha256: '0123456789abcdef'.repeat(4), url: 'https://example.test/redis.tar.gz',
   }] }));
   const target = json(node('--input-type=module', '-e', `
     import { resolveTarget } from './src/install/installer.js';
@@ -117,9 +119,14 @@ test('CLI distinguishes selected and running versions on one instance', { skip: 
   const script = `#!/usr/bin/env node
 const fs = require('node:fs');
 const net = require('node:net');
-const text = fs.readFileSync(process.argv[2], 'utf8');
-const port = Number(text.match(/^port (\\d+)$/m)[1]);
-const pidFile = text.match(/^pidfile (.+)$/m)[1];
+const argv = process.argv.slice(2);
+const text = fs.readFileSync(argv[0], 'utf8');
+const valueAfter = (name, fallback) => {
+  const i = argv.indexOf(name);
+  return i >= 0 && argv[i + 1] ? argv[i + 1] : fallback;
+};
+const port = Number(valueAfter('--port', (text.match(/^port (\\d+)$/m) || [])[1]));
+const pidFile = valueAfter('--pidfile', (text.match(/^pidfile (.+)$/m) || [])[1]);
 net.createServer((sock) => sock.end()).listen(port, '127.0.0.1', () => fs.writeFileSync(pidFile, String(process.pid)));
 `;
   const old = localTarball(dir, 'redis-7.4.1.tar.gz', 'redis-server', script);

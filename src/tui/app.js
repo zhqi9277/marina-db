@@ -155,7 +155,6 @@ export class App {
       { id: 'startAll', label: 'Start all', enabled: this.installedRows().some(needsStart) },
       { id: 'stopAll', label: 'Stop all', enabled: this.installedRows().some((x) => x.runningVersion || x.state === 'running' || x.state === 'degraded') },
       { id: 'doctor', label: 'Doctor', enabled: true },
-      { id: 'reconfig', label: 'Reconfig paths', enabled: installed },
       { id: 'port', label: 'Change port', enabled: installed },
       { id: 'user', label: 'Set user', enabled: installed },
       { id: 'password', label: 'Set password', enabled: installed },

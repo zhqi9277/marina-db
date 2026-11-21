@@ -18,10 +18,6 @@ export default {
   primaryClient: 'psql',
   hasDataDir: true,
 
-  pidPath(ctx) {
-    return path.join(ctx.dataDir, 'postmaster.pid');
-  },
-
   readPid(ctx) {
     try {
       const pid = parseInt(fs.readFileSync(path.join(ctx.dataDir, 'postmaster.pid'), 'utf8').split('\n')[0], 10);
@@ -33,10 +29,6 @@ export default {
 
   // postgres has no my.cnf equivalent we own; connection settings live in the
   // cluster config, we pass runtime flags through pg_ctl -o instead.
-  confPath(ctx) {
-    return path.join(ctx.dataDir, 'postgresql.conf');
-  },
-
   renderConfig() {
     return null; // nothing to render; postgres writes its own files
   },
@@ -91,7 +83,7 @@ export default {
   account(ctx) {
     return {
       user: ctx.account?.user || 'postgres',
-      password: ctx.account?.password ?? null,
+      password: null,
       mode: 'trust',
       note: 'password stored, but pg_hba is trust: not enforced',
     };

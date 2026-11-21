@@ -49,14 +49,11 @@ test('decorate: an indexed version without a build for this platform is unsuppor
 });
 
 test('platform problems come from engine metadata only', () => {
-  if (process.platform === 'darwin') {
-    assert.equal(platformProblem('mysql'), null);
-    assert.ok(platformProblem('mariadb'));
-    assert.ok(platformProblem('memcached'));
-    assert.equal(platformProblem('postgres'), null);
+  for (const key of ['mysql', 'mariadb', 'memcached', 'postgres']) {
+    assert.equal(platformProblem(key, 'darwin'), null);
   }
-  if (process.platform === 'win32') {
-    assert.ok(platformProblem('redis'));
-    assert.ok(platformProblem('postgres'));
-  }
+  assert.equal(platformProblem('postgres', 'win32'), null);
+  assert.equal(platformProblem('mariadb', 'win32'), null);
+  assert.match(platformProblem('redis', 'win32'), /prebuilt artifact/);
+  assert.ok(platformProblem('memcached', 'win32'));
 });

@@ -30,7 +30,7 @@ export const CATALOG = {
     manifestName: 'postgresql',
     label: 'PostgreSQL',
     kind: 'source',
-    platforms: ['darwin', 'linux'],
+    platforms: ['darwin', 'linux', 'win32'],
     // 17.11 -> engines/postgres/17/17.11
     majorDepth: 1,
     build: {
@@ -52,7 +52,7 @@ export const CATALOG = {
     manifestName: 'redis',
     label: 'Redis',
     kind: 'source',
-    platforms: ['darwin', 'linux'],
+    platforms: ['darwin', 'linux', 'win32'],
     // 7.4.11 -> engines/redis/7/7.4.11
     majorDepth: 1,
     build: {
@@ -77,22 +77,28 @@ export const CATALOG = {
     manifestName: 'mariadb',
     label: 'MariaDB',
     kind: 'source',
-    platforms: [], // no macOS binary upstream; source build (cmake + boost) not automated yet
+    platforms: ['darwin', 'linux', 'win32'],
     majorDepth: 2,
-    build: null,
-    reason:
-      'MariaDB publishes no macOS binary; an automated source build (cmake + boost, 10-20 min) is not implemented yet',
+    build: {
+      jobs: 6,
+      steps: [['node', '{repo}/scripts/build-mariadb-source.mjs', '{root}']],
+      minutes: '10-20',
+    },
+    reason: 'MariaDB macOS source build requires cmake and the Command Line Tools',
   },
 
   memcached: {
     manifestName: 'memcached',
     label: 'Memcached',
     kind: 'source',
-    platforms: [], // needs libevent; source build not automated yet
+    platforms: ['darwin', 'linux'],
     majorDepth: 1,
-    build: null,
-    reason:
-      'memcached has no macOS build and needs libevent; an automated source build is not implemented yet',
+    build: {
+      jobs: 6,
+      steps: [['node', '{repo}/scripts/build-memcached-source.mjs', '{root}']],
+      minutes: '2-5',
+    },
+    reason: 'Memcached source build requires make and the Command Line Tools',
   },
 };
 
@@ -122,6 +128,10 @@ export function buildRecipe(key) {
 export function platformProblem(key, platform = PLATFORM) {
   const e = CATALOG[key];
   if (!e) return 'unknown engine';
+  if (key === 'mariadb') {
+    if (platform === 'linux' && process.arch !== 'x64' && process.arch !== 'x86_64') return 'MariaDB Linux bintar is available for x86_64; use a prebuilt artifact for this architecture';
+  }
+  if (key === 'redis' && platform === 'win32') return 'Redis on Windows needs a pinned prebuilt artifact';
   if (!e.platforms || !e.platforms.includes(platform)) {
     return e.unsupportedReason?.[platform] || e.reason || `${e.label} is not supported on ${platform}`;
   }

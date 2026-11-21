@@ -27,4 +27,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test test/host.mjs test/cli-workflows.mjs test/versions-index.mjs
+      - run: npm test
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-latest]
+        engine: [mysql, mariadb, postgres, mongodb, redis, memcached]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: engine smoke
+        run: npm run smoke:e2e -- ${{ matrix.engine }}

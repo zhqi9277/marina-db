@@ -2,7 +2,7 @@
 //
 //   <project>/bin, <project>/src        the CLI itself
 //   <project>/runtime/                  everything marina installs or generates
-//     engines/<db>/<major>/<version>/   downloaded payload (+ "current" symlink)
+//     engines/<db>/<major>/<version>/   downloaded payload
 //     data/<db>/<major>/                datadir, never touched by upgrades
 //     etc/<db>/<major>/                 generated config
 //     logs/<db>/<major>.log
@@ -20,7 +20,8 @@ import { fileURLToPath } from 'node:url';
 import { env } from './platform.js';
 
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
-export const PROJECT_ROOT = path.resolve(SRC_DIR, '..');
+// core/ is one level below src/, so two parent steps return the package root.
+export const PROJECT_ROOT = path.resolve(SRC_DIR, '..', '..');
 
 function defaultHome() {
   if (env('HOME')) return env('HOME');
@@ -60,11 +61,6 @@ export function engineDir(key, major) {
 /** engines/<db>/<major>/<version> */
 export function versionDir(key, major, version) {
   return path.join(engineDir(key, major), version);
-}
-
-/** engines/<db>/<major>/current */
-export function currentDir(key, major) {
-  return path.join(engineDir(key, major), 'current');
 }
 
 export function etcDir(key, major) {

@@ -5,9 +5,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { spawnAsync, findBin } from '../install/archive.js';
 import { host } from '../host/index.js';
-import { installPaths } from '../host/match.js';
 import { ensureDirs } from '../core/paths.js';
-import { staleConfigReferences } from './configcheck.js';
 import { clientEnv } from '../core/env.js';
 import { ok, warn, info, color } from '../ui/console.js';
 import { buildCtx, majorPick } from '../core/registry.js';
@@ -56,24 +54,11 @@ export function processDetails(pid) {
  * `details` is injectable so tests can simulate an identity without exec'ing ps.
  */
 export function pidOwnedBy(pid, ctx, details = processDetails(pid)) {
-  return !!details && pidAlive(pid) && matchesService(details, ctx, readServiceRecord(ctx, pid));
+  return !!details && pidAlive(pid) && matchesService(details, ctx);
 }
 
-function readServiceRecord(ctx, pid) {
-  if (!ctx.runtimeFile) return null;
-  try {
-    const saved = JSON.parse(fs.readFileSync(ctx.runtimeFile, 'utf8'));
-    if (saved.pid === pid && typeof saved.version === 'string') return saved;
-  } catch {}
-  return null;
-}
-
-function matchesService(details, ctx, record) {
-  // Real instances use their exact runtime paths, including recorded paths from before a move.
-  if (host.matchesInstall(details, ctx, { allowLayout: !ctx.runtimeFile })) return true;
-  const recordedPaths = Array.isArray(record?.paths) ? record.paths.filter((entry) => typeof entry === 'string') : [];
-  const extraPaths = [...recordedPaths, ...staleConfigReferences(ctx)];
-  return extraPaths.length > 0 && host.matchesInstall(details, ctx, { allowLayout: false, extraPaths });
+function matchesService(details, ctx) {
+  return host.matchesInstall(details, ctx);
 }
 
 export function inspectService(ctx) {
@@ -82,11 +67,9 @@ export function inspectService(ctx) {
   if (!alive) return { pid, alive, owned: false, unknown: false, runningVersion: null };
   const details = processDetails(pid);
   const unknown = !details?.command && !details?.cwd;
-  const record = readServiceRecord(ctx, pid);
-  const owned = !unknown && matchesService(details, ctx, record);
+  const owned = !unknown && matchesService(details, ctx);
   const runningVersion = owned
-    ? host.installVersion(details, ctx) || record?.version ||
-      (ctx.runtimeFile && majorPick(ctx.engine, ctx.major)?.version) || ctx.version
+    ? host.installVersion(details, ctx) || majorPick(ctx.engine, ctx.major)?.version || ctx.version
     : null;
   return { pid, alive, owned, unknown, runningVersion };
 }
@@ -163,7 +146,7 @@ function readPid(ctx) {
 }
 
 function cleanRuntimeFiles(ctx) {
-  for (const f of [ctx.pidFile, ctx.runtimeFile, ctx.sockFile, ctx.sockFile && `${ctx.sockFile}.lock`]) {
+  for (const f of [ctx.pidFile, ctx.sockFile, ctx.sockFile && `${ctx.sockFile}.lock`]) {
     if (f && fs.existsSync(f)) {
       try {
         fs.rmSync(f, { force: true });
@@ -221,16 +204,6 @@ export function start(ctx, opts) {
 async function startService(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
   ensureDirs();
   if (!ctx.root) throw new Error(`package payload for ${ctx.key}@${ctx.version} is missing (reinstall)`);
-
-  // fail fast instead of waiting 30s when the generated config still points at
-  // another marina root (the project directory was moved)
-  const stale = staleConfigReferences(ctx);
-  if (stale.length) {
-    throw new Error(
-      `${ctx.engine.key} config points to a different marina root — run: marina reconfig ${ctx.engine.key}@${ctx.major}\n` +
-        `  stale path: ${stale[0]}`,
-    );
-  }
 
   const current = await probeState(ctx);
   if (current.state === 'unknown') throw new Error(`cannot verify ${ctx.key}@${ctx.major} process ownership`);
@@ -309,10 +282,6 @@ async function startService(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
     );
   }
   const newPid = readPid(ctx);
-  if (ctx.runtimeFile) {
-    const record = { pid: newPid, version: ctx.version, paths: installPaths(ctx).map((entry) => path.resolve(entry)) };
-    fs.writeFileSync(ctx.runtimeFile, JSON.stringify(record), { mode: 0o600 });
-  }
   if (!quiet) {
     const secs = ((Date.now() - startedAt) / 1000).toFixed(1);
     ok(`${ctx.engine.label} ${ctx.version} up on port ${ctx.port}${newPid ? ` (pid ${newPid})` : ''} in ${secs}s`);
@@ -361,20 +330,11 @@ async function stopService(ctx, { quiet = false, instance = false } = {}) {
 
   if (!quiet) info(`stopping ${ctx.engine.label} ${ctx.version}`);
 
-  // after a directory move the generated config points at the old root: talking
-  // to that socket/port is pointless, go straight to the pid
-  const stale = staleConfigReferences(ctx);
-  if (stale.length && !quiet) {
-    warn(`${ctx.engine.key} config points to ${stale[0]} — run: marina reconfig ${ctx.engine.key}@${ctx.major}`);
-  }
-
   let spec = null;
-  if (!stale.length) {
-    try {
-      spec = ctx.engine.stopCommand?.(ctx) || null;
-    } catch {
-      spec = null;
-    }
+  try {
+    spec = ctx.engine.stopCommand?.(ctx) || null;
+  } catch {
+    spec = null;
   }
 
   // Ask the server to shut down cleanly. Its exit is confirmed through the pid

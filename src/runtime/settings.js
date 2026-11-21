@@ -1,6 +1,6 @@
 // Per-database settings: port + stored credentials, with best-effort server sync.
-import { buildCtx, majorPick } from '../core/registry.js';
-import { configSnapshot, renderConfig } from './config.js';
+import { buildCtx } from '../core/registry.js';
+import { renderConfig } from './config.js';
 import { inspectService, start, stop, tcpProbe } from './lifecycle.js';
 import { spawnAsync, findBin } from '../install/archive.js';
 import { host } from '../host/index.js';
@@ -17,24 +17,19 @@ function serviceContext(ctx) {
   return { current, running: service.owned };
 }
 
-async function applyConfig(ctx, next, running, persist) {
-  const restore = configSnapshot(ctx);
-  const selected = majorPick(ctx.engine, ctx.major);
-  const configCtx = selected && selected.version !== next.version
-    ? buildCtx(ctx.engine, { ...selected, port: next.port, account: next.account }) : next;
+async function applyConfig(ctx, next, running, persist, rollback = () => {}) {
   let stopped = false;
-  let written = false;
   let started = false;
   try {
     if (running) stopped = (await stop(ctx, { quiet: true })).stopped;
-    written = !!renderConfig(configCtx, { force: true }).written;
-    if (running) started = (await start(next, { quiet: true })).started;
     persist();
+    if (ctx.engine.renderConfig) renderConfig(next, { force: true });
+    if (running) started = (await start(next, { quiet: true })).started;
   } catch (error) {
     try {
       if (started) await stop(next, { quiet: true });
-      if (written) restore();
       if (stopped) await start(ctx, { quiet: true });
+      rollback();
     } catch (recoveryError) {
       throw new Error(`${error.message}\nCould not restore ${ctx.key}@${ctx.major}: ${recoveryError.message}`, { cause: error });
     }
@@ -49,7 +44,13 @@ export function changePort(ctx, value) {
     if (port === current.port) return { port, same: true, restarted: false };
     if (await tcpProbe(port)) throw new Error(`port ${port} is already in use`);
 
-    await applyConfig(current, { ...current, port }, running, () => state.setPort(ctx.key, ctx.major, port));
+    await applyConfig(
+      current,
+      { ...current, port },
+      running,
+      () => state.setPort(ctx.key, ctx.major, port),
+      () => state.setPort(ctx.key, ctx.major, current.port),
+    );
     return { port, same: false, restarted: running };
   });
 }
@@ -113,6 +114,11 @@ async function changeInstanceAccount(requested, patch) {
   const changesCreds = patch.password !== undefined || patch.user !== undefined;
   const isMysql = ctx.key === 'mysql' || ctx.key === 'mariadb';
 
+  if (ctx.key === 'postgres' || ctx.key === 'mongodb' || ctx.key === 'memcached') {
+    const mode = ctx.key === 'postgres' ? 'trust: password not enforced' : 'authentication disabled';
+    return { account: ctx.engine.account(ctx), applied: [], notes: [mode], error: null };
+  }
+
   // server-side changes need a live server; storing a password that the server
   // does not know would break probes and `marina stop`. A process marina did not
   // start must never receive the credential change either.
@@ -154,7 +160,13 @@ async function changeInstanceAccount(requested, patch) {
     notes.push('pg_hba is trust, so the password is stored but not enforced');
   } else if (ctx.key === 'redis' && changesCreds) {
     const next = { ...ctx, account: nextAccount, user: nextAccount.user, password: nextAccount.password ?? '' };
-    await applyConfig(ctx, next, running, () => state.setAccount(ctx.key, nextAccount, ctx.major));
+    await applyConfig(
+      ctx,
+      next,
+      running,
+      () => state.setAccount(ctx.key, nextAccount, ctx.major),
+      () => state.setAccount(ctx.key, oldAccount, ctx.major),
+    );
     if (running) applied.push('restart');
     else notes.push('applies on next start (requirepass written to redis.conf)');
   } else {

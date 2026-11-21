@@ -1,4 +1,4 @@
-// A moved project must fail fast (not after a 30s timeout) with an actionable hint.
+// Path-free configs do not make stale absolute config text block startup.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { start } from '../src/runtime/lifecycle.js';
 
-test('start() refuses a stale config immediately', async () => {
+test('start() ignores stale absolute config text and checks the payload', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-life-'));
   const confFile = path.join(dir, 'my.cnf');
   fs.writeFileSync(confFile, `[mysqld]\nbasedir = /old/place/runtime/engines/mysql/8.4/8.4.11\n`);
@@ -27,6 +27,6 @@ test('start() refuses a stale config immediately', async () => {
   };
 
   const t0 = Date.now();
-  await assert.rejects(start(ctx, { quiet: true }), /different marina root/);
+  await assert.rejects(start(ctx, { quiet: true }), /payload|cannot find|server binary/i);
   assert.ok(Date.now() - t0 < 2000, 'must fail fast, not wait for the 30s readiness window');
 });

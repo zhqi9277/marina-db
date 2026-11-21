@@ -5,7 +5,7 @@ import { dirs } from './paths.js';
 
 const FILE = path.join(dirs.root, 'state.json');
 const LOCK = path.join(dirs.root, 'state.lock');
-const DEFAULTS = { version: 1, active: {}, selected: {}, ports: {}, settings: { mysqlRootPassword: 'root', accounts: {}, instanceAccounts: {}, autostart: [] } };
+const DEFAULTS = { version: 1, active: {}, selected: {}, ports: {}, settings: { accounts: {}, instanceAccounts: {}, autostart: [] } };
 
 function objectOf(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -115,8 +115,8 @@ export function mutate(fn) {
 }
 
 export const ACCOUNT_DEFAULTS = {
-  mysql: { user: 'root', password: null },
-  mariadb: { user: 'root', password: null },
+  mysql: { user: 'root', password: 'root' },
+  mariadb: { user: 'root', password: 'root' },
   postgres: { user: 'postgres', password: null },
   mongodb: { user: null, password: null },
   redis: { user: null, password: null },
@@ -129,9 +129,6 @@ export function resolveAccount(settings = {}, key, major) {
   const instance = objectOf(settings.instanceAccounts?.[`${key}:${major}`]);
   const saved = { ...settings.accounts?.[key], ...instance };
   let password = saved.password !== undefined ? saved.password : base.password;
-  if (password === null && !Object.hasOwn(instance, 'password') && (key === 'mysql' || key === 'mariadb')) {
-    password = settings.mysqlRootPassword ?? 'root';
-  }
   return { user: saved.user !== undefined ? saved.user : base.user, password };
 }
 
@@ -161,8 +158,6 @@ export function load() {
     selected: Object.fromEntries(Object.entries(objectOf(raw.selected)).filter(([, value]) => typeof value === 'string' && value)),
     ports,
     settings: {
-      ...DEFAULTS.settings,
-      ...settings,
       accounts: objectOf(settings.accounts),
       instanceAccounts: objectOf(settings.instanceAccounts),
       autostart: Array.isArray(settings.autostart) ? settings.autostart.filter((id) => typeof id === 'string') : [],
@@ -198,7 +193,6 @@ export function setAccount(key, patch, major) {
       return;
     }
     s.settings.accounts = { ...(s.settings.accounts || {}), [key]: next };
-    if (key === 'mysql') s.settings.mysqlRootPassword = next.password;
   });
 }
 

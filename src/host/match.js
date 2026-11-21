@@ -12,22 +12,6 @@ function realpathOf(target) {
   }
 }
 
-function marinaLayout(ctx, sep) {
-  const key = ctx.engine?.key || ctx.key;
-  const major = ctx.major === undefined || ctx.major === null ? '' : String(ctx.major);
-  if (!key || !major) return { needles: [], suffixes: [] };
-  const data = `${sep}data${sep}${key}${sep}${major}`;
-  return {
-    needles: [
-      `${sep}engines${sep}${key}${sep}${major}${sep}`,
-      `${data}${sep}`,
-      `${sep}etc${sep}${key}${sep}${major}${sep}`,
-      `${sep}run${sep}${key}-${major}.pid`,
-    ],
-    suffixes: [data],
-  };
-}
-
 function fold(value, caseInsensitive) {
   const text = String(value);
   if (!caseInsensitive) return text;
@@ -54,14 +38,14 @@ export function installVersion(details, ctx, caseInsensitive) {
 /**
  * @param {{command?: string|null, cwd?: string|null}} details
  * @param {object} ctx
- * @param {{caseInsensitive?: boolean, allowLayout?: boolean, extraPaths?: string[]}} [policy]
+ * @param {{caseInsensitive?: boolean}} [policy]
  */
-export function matchesInstall(details, ctx, { caseInsensitive = false, allowLayout = true, extraPaths = [] } = {}) {
+export function matchesInstall(details, ctx, { caseInsensitive = false } = {}) {
   const texts = [details.command, details.cwd].filter(Boolean);
   if (!texts.length) return false;
   const pathApi = caseInsensitive ? path.win32 : path;
   const sep = pathApi.sep;
-  const roots = [...installPaths(ctx), ...extraPaths]
+  const roots = installPaths(ctx)
     .filter(Boolean)
     .flatMap((root) => {
       const resolved = pathApi.resolve(root);
@@ -80,16 +64,7 @@ export function matchesInstall(details, ctx, { caseInsensitive = false, allowLay
     const boundary = fold(sep, caseInsensitive);
     if (foldedRoots.some((root) => cwd === root || cwd.startsWith(root + boundary))) return true;
   }
-  if (!allowLayout) return false;
-
-  const { needles, suffixes } = marinaLayout(ctx, sep);
-  const foldedNeedles = needles.map((needle) => fold(needle, caseInsensitive));
-  const foldedSuffixes = suffixes.map((suffix) => fold(suffix, caseInsensitive));
-  return foldedTexts.some(
-    (text) =>
-      foldedNeedles.some((needle) => text.includes(needle)) ||
-      foldedSuffixes.some((suffix) => text === suffix || text.endsWith(suffix)),
-  );
+  return false;
 }
 
 export function installPaths(ctx) {

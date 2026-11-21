@@ -16,7 +16,6 @@ const INDEX_DIR = path.join(dirs.cache, 'index');
 function cacheFile(key) {
   return path.join(INDEX_DIR, `${key}.${PLATFORM}.${process.arch}.json`);
 }
-
 function readCache(key) {
   try {
     return JSON.parse(fs.readFileSync(cacheFile(key), 'utf8'));
@@ -115,63 +114,66 @@ export async function resolveVersion(engine, tag) {
   );
 }
 
-async function headOk(url, timeout = 12000) {
-  try {
-    const res = await fetch(url, {
-      method: 'HEAD',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(timeout),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 async function loadChecksum(entry, url) {
   if (entry.sha256) return entry.sha256;
-  try {
-    if (entry.sha256Url) {
-      const text = await fetchText(entry.sha256Url, { timeout: 15000 });
-      const m = text.match(/\b([a-f0-9]{64})\b/i);
-      return m ? m[1].toLowerCase() : null;
+  if (entry.sha256Url) {
+    const text = await fetchText(entry.sha256Url, { timeout: 15000 });
+    const m = text.match(/\b([a-f0-9]{64})\b/i);
+    if (!m) throw new Error(`no sha256 found in checksum response ${entry.sha256Url}`);
+    return m[1].toLowerCase();
+  }
+  if (entry.sha256File) {
+    const text = await fetchText(entry.sha256File, { timeout: 15000 });
+    const base = path.basename(new URL(url).pathname);
+    for (const line of text.split('\n')) {
+      const m = line.match(/^([a-f0-9]{64})\s+\*?(.+)$/i);
+      if (m && m[2].trim() === base) return m[1].toLowerCase();
     }
-    if (entry.sha256File) {
-      const text = await fetchText(entry.sha256File, { timeout: 15000 });
-      const base = path.basename(new URL(url).pathname);
-      for (const line of text.split('\n')) {
-        const m = line.match(/^([a-f0-9]{64})\s+\*?(.+)$/i);
-        if (m && m[2].trim() === base) return m[1].toLowerCase();
-      }
-    }
-  } catch {
-    /* checksum is best-effort */
+    throw new Error(`no sha256 entry found for ${base} in ${entry.sha256File}`);
   }
   return null;
 }
 
 /**
  * Pick a downloadable artifact for the current platform.
- * @returns {Promise<{url:string, sha256:string|null, tried:string[]}>}
+ * @returns {Promise<{url:string, urls:string[], sha256:string|null, tried:string[]}>}
  */
 export async function resolveArtifact(entry, { engine = '' } = {}) {
   let urls = [...(entry.urls || [])];
   if (!urls.length && engine === 'mysql') urls = mysqlUpstreamCandidates(entry.version);
+  if (PLATFORM === 'win32' && engine === 'postgres') {
+    urls = [1, 2, 3].map((suffix) =>
+      `https://get.enterprisedb.com/postgresql/postgresql-${entry.version}-${suffix}-windows-x64-binaries.zip`);
+  }
+  if (PLATFORM === 'win32' && engine === 'mariadb') {
+    urls = [`https://archive.mariadb.org/mariadb-${entry.version}/winx64-packages/mariadb-${entry.version}-winx64.zip`];
+  }
+  if (PLATFORM === 'linux' && engine === 'mariadb' && ['x64', 'x86_64'].includes(process.arch)) {
+    urls = [`https://archive.mariadb.org/mariadb-${entry.version}/bintar-linux-systemd-x86_64/mariadb-${entry.version}-linux-systemd-x86_64.tar.gz`];
+  }
   if (!urls.length) {
     throw new Error(
       `no ${OS_LABEL} artifact is known for ${entry.version}\n` +
         `  hint: marina remote ${engine} --refresh   (or install another version)`,
     );
   }
-  const tried = [];
-  for (const url of urls) {
-    tried.push(url);
-    if (await headOk(url)) {
-      return { url, sha256: await loadChecksum(entry, url), tried };
-    }
-  }
-  throw new Error(`none of the artifact URLs answered:\n  ${tried.join('\n  ')}`);
+  const sha256 = await loadChecksum(entry, urls[0]);
+  return {
+    url: urls[0],
+    urls,
+    sha256,
+    tried: urls,
+  };
 }
+
+export const _internal = {
+  readCache,
+  writeCache,
+  cacheFile,
+  decorate,
+  majorOf,
+  loadChecksum,
+};
 
 /** Summary for `marina doctor` — reads the cache only, no network. */
 export function indexCacheInfo() {
@@ -191,5 +193,3 @@ export function indexCacheInfo() {
     return { engines: [], files: 0, newest: 0 };
   }
 }
-
-export const _internal = { readCache, writeCache, cacheFile, decorate, majorOf };

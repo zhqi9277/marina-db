@@ -14,10 +14,15 @@ const registry = await import('../src/core/registry.js');
 const { expandArchiveArgs } = await import('../src/install/archive.js');
 const { renderUnit, systemdEscape, xmlEscape, CLI, NODE } = await import('../src/runtime/autostart.js');
 const { linkDir, linkFile, IS_WIN } = await import('../src/core/platform.js');
+const { PROJECT_ROOT } = await import('../src/core/paths.js');
 
 const { engines } = registry;
 
 after(() => fs.rmSync(HOME, { recursive: true, force: true }));
+
+test('project root is package root after src/core/ reorganization', () => {
+  assert.equal(PROJECT_ROOT, path.resolve(process.cwd()));
+});
 
 const enginePath = (...parts) => path.join(HOME, 'engines', ...parts);
 
@@ -48,10 +53,8 @@ test('installedVersions ignores current and dot-prefixed directories', () => {
   assert.equal(registry.pickVersion(engines.redis, 'current'), null);
 });
 
-test('installedVersions ignores a POSIX current symlink', { skip: IS_WIN }, () => {
-  fs.rmSync(enginePath('redis', '7', 'current'), { recursive: true, force: true });
-  fs.symlinkSync(enginePath('redis', '7', '7.2.5'), enginePath('redis', '7', 'current'), 'dir');
-
+test('installedVersions ignores dot-prefixed staging and dotdir entries', { skip: IS_WIN }, () => {
+  fs.mkdirSync(enginePath('redis', '.stage-test'), { recursive: true });
   const versions = registry.installedVersions(engines.redis).map((r) => r.version);
   assert.deepEqual(versions, ['7.2.5']);
 });

@@ -124,31 +124,6 @@ test('activeCtx reflects the active version and is null when nothing is installe
   assert.equal(registry.activeCtx(engines.redis), null);
 });
 
-test('syncCurrentSymlink points current at the version and is idempotent', { skip: process.platform === 'win32' }, () => {
-  const link = path.join(HOME, 'engines', 'mysql', '8.4', 'current');
-  registry.syncCurrentSymlink(engines.mysql, '8.4', '8.4.11');
-  assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
-  assert.equal(fs.realpathSync(link), fs.realpathSync(versionPath('mysql', '8.4', '8.4.11')));
-
-  // a second call replaces, rather than nests, the existing link
-  registry.syncCurrentSymlink(engines.mysql, '8.4', '8.4.9');
-  assert.equal(fs.realpathSync(link), fs.realpathSync(versionPath('mysql', '8.4', '8.4.9')));
-
-  // real directory at the link path is replaced as well
-  fs.rmSync(link, { force: true });
-  fs.mkdirSync(link);
-  fs.writeFileSync(path.join(link, 'junk'), 'x');
-  registry.syncCurrentSymlink(engines.mysql, '8.4', '8.4.11');
-  assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
-  assert.equal(fs.existsSync(path.join(link, 'junk')), false);
-});
-
-test('syncCurrentSymlink does nothing when the target version is absent', () => {
-  const link = path.join(HOME, 'engines', 'mysql', '8.0', 'current');
-  registry.syncCurrentSymlink(engines.mysql, '8.0', '8.0.99');
-  assert.equal(fs.existsSync(link), false);
-});
-
 test('ensureVersionDirs creates the engine/etc/data/log skeleton', () => {
   registry.ensureVersionDirs(engines.mysql, '8.0');
   for (const dir of [

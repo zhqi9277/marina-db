@@ -42,19 +42,39 @@ export function normalizeOs(os) {
 export async function loadOverlay() {
   if (cache !== null) return cache;
   const file = env('CATALOG_FILE');
-  const url = env('CATALOG_URL');
-  if (!file && !url) {
-    cache = [];
+  if (file) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const artifacts = Array.isArray(raw) ? raw : raw?.artifacts || raw?.packages;
+      cache = Array.isArray(artifacts) ? artifacts : [];
+    } catch (e) {
+      warn(`catalog overlay unavailable (${e.message.split('\n')[0]})`);
+      cache = [];
+    }
     return cache;
   }
-  try {
-    const raw = file ? JSON.parse(fs.readFileSync(file, 'utf8')) : await fetchJson(url);
-    const artifacts = Array.isArray(raw) ? raw : raw?.artifacts || raw?.packages;
-    cache = Array.isArray(artifacts) ? artifacts : [];
-  } catch (e) {
-    warn(`catalog overlay unavailable (${e.message.split('\n')[0]})`);
-    cache = [];
+
+  const url = env('CATALOG_URL');
+  const candidates = url
+    ? [url]
+    : [
+        'https://cnb.cool/zhqi9277/marina/-/releases/download/engines/manifest.json',
+        'https://github.com/zhqi9277/marina-db/releases/download/engines/manifest.json',
+      ];
+  for (const candidate of candidates) {
+    try {
+      const raw = await fetchJson(candidate);
+      const artifacts = Array.isArray(raw) ? raw : raw?.artifacts || raw?.packages;
+      cache = Array.isArray(artifacts) ? artifacts : [];
+      return cache;
+    } catch {
+      // Try the next catalog only. The remote index remains the fallback.
+    }
   }
+  if (env('CATALOG_URL')) {
+    warn(`catalog overlay unavailable (${candidates[0]})`);
+  }
+  cache = [];
   return cache;
 }
 
@@ -62,5 +82,6 @@ export async function overlayArtifacts(manifestName) {
   const list = await loadOverlay();
   const wantArch = normalizeArch(archToken());
   return list.filter((a) => a?.name === manifestName && /^\d+(?:\.\d+){1,2}$/.test(a.version) &&
-    typeof a.url === 'string' && a.url && normalizeOs(a.os) === PLATFORM && normalizeArch(a.arch) === wantArch);
+    typeof a.url === 'string' && a.url && /^[a-f0-9]{64}$/i.test(a.sha256 || '') &&
+    normalizeOs(a.os) === PLATFORM && normalizeArch(a.arch) === wantArch);
 }

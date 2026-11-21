@@ -3,14 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import {
-  dirs, ensureDirs, engineDir, versionDir, currentDir, cacheDir, mkdirp,
+  dirs, ensureDirs, engineDir, versionDir, cacheDir, mkdirp,
 } from '../core/paths.js';
 import { downloadFile, sha256File } from './download.js';
 import { extractTar, discoverRoot, listDirs } from './archive.js';
 import {
   parseRef, installedVersions, pickVersion, buildCtx,
-  syncCurrentSymlink, ensureVersionDirs, isInstalled, majorPick, pendingInstallFile,
+  ensureVersionDirs, isInstalled, majorPick, pendingInstallFile,
 } from '../core/registry.js';
 import {
   buildRecipe, catalogKeyOf, majorOf, platformProblem,
@@ -21,10 +22,11 @@ import { overlayArtifacts } from './overlay.js';
 import { buildEnv } from '../core/env.js';
 import { installShims } from '../runtime/shims.js';
 import * as state from '../core/state.js';
-import { configSnapshot, renderConfig, syncVersionConfig } from '../runtime/config.js';
+import { renderConfig } from '../runtime/config.js';
 import { start, stop, restart, inspectService } from '../runtime/lifecycle.js';
 import { withInstanceLock } from '../runtime/instance-lock.js';
 import { ok, info, warn, hint, color } from '../ui/console.js';
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** Best-effort version extraction from a local file name. */
 function versionFromFilename(file) {
@@ -95,15 +97,19 @@ export async function resolveTarget(ref, { file = null, version = null } = {}) {
   }
 
   const artifact = await resolveArtifact(entry, { engine: engine.key });
+  const binaryPlatform = (PLATFORM === 'win32' &&
+    (engine.key === 'postgres' || engine.key === 'mariadb')) ||
+    (PLATFORM === 'linux' && engine.key === 'mariadb' &&
+      ['x64', 'x86_64'].includes(process.arch));
   return {
     engine,
     major: entry.major,
     version: entry.version,
-    kind: entry.kind,
+    kind: binaryPlatform ? 'binary' : entry.kind,
     channel: 'index',
-    urls: [artifact.url],
+    urls: artifact.urls,
     sha256: artifact.sha256,
-    build: entry.kind === 'source' ? buildRecipe(key) : null,
+    build: entry.kind === 'source' && !binaryPlatform ? buildRecipe(key) : null,
     indexSource: entry.indexSource,
     stale: entry.stale,
   };
@@ -153,9 +159,13 @@ async function buildSource(root, build, engine) {
   const jobs = build.jobs || Math.min(8, os.cpus().length);
   info(`building ${engine.label} from source (${build.minutes || build.seconds || 'a while'})`);
   for (const [cmd, ...rest] of build.steps) {
-    const args = rest.map((a) => String(a).replace('{jobs}', String(jobs)).replace('{root}', root));
-    const label = `${cmd} ${args.join(' ')}`.trim();
-    const res = await spawnAsync(cmd, args, { cwd: root, env: buildEnv() });
+    const args = rest.map((a) => String(a)
+      .replace('{jobs}', String(jobs))
+      .replace('{root}', root)
+      .replace('{repo}', REPO_ROOT));
+    const executable = cmd === 'node' ? process.execPath : cmd;
+    const label = `${executable} ${args.join(' ')}`.trim();
+    const res = await spawnAsync(executable, args, { cwd: root, env: buildEnv() });
     if (res.code !== 0) {
       const tail = (res.stderr || res.stdout || '').trim().split('\n').slice(-12).join('\n');
       throw new Error(`build step failed: ${label}\n${tail}`);
@@ -264,7 +274,6 @@ async function installTarget(target, opts, port) {
   const wasInstalled = isInstalled(engine, major, version);
   const destination = versionDir(engine.key, major, version);
   const backup = path.join(path.dirname(destination), `.backup-${version}`);
-  const restoreConfig = configSnapshot(previousCtx);
   mkdirp(path.dirname(pending));
   fs.writeFileSync(pending, '');
   let ctx;
@@ -298,16 +307,13 @@ async function installTarget(target, opts, port) {
     }
 
     const selectedCtx = selected === version ? ctx : previousCtx;
-    syncVersionConfig(selectedCtx);
-    syncCurrentSymlink(engine, major, selected);
     state.selectVersion(engine.key, major, selected, { active: makeActive, port });
   } catch (error) {
     const live = ctx && inspectService(ctx);
     if (!service.owned && (live?.unknown || (live?.owned && live.runningVersion === version))) throw error;
-    restoreConfig();
+    if (!wasInstalled && ctx?.confFile) fs.rmSync(ctx.confFile, { force: true });
     if (!wasInstalled || fs.existsSync(backup)) fs.rmSync(destination, { recursive: true, force: true });
     if (fs.existsSync(backup)) fs.renameSync(backup, destination);
-    restoreCurrent(engine, major, previous);
     fs.rmSync(pending, { force: true });
     throw error;
   }
@@ -328,22 +334,6 @@ async function installTarget(target, opts, port) {
   };
 }
 
-function restoreCurrent(engine, major, pick) {
-  if (pick) syncCurrentSymlink(engine, major, pick.version);
-  else fs.rmSync(currentDir(engine.key, major), { recursive: true, force: true });
-}
-
-export function reconfigure(ctx) {
-  return withInstanceLock(ctx, () => {
-    const pick = majorPick(ctx.engine, ctx.major);
-    if (!pick) throw new Error(`${ctx.key}@${ctx.major} is no longer installed`);
-    const selected = buildCtx(ctx.engine, pick);
-    const result = renderConfig(selected, { force: true });
-    syncCurrentSymlink(ctx.engine, ctx.major, pick.version);
-    return { ...result, version: pick.version };
-  });
-}
-
 export async function use(ref, { restart: doRestart = false, quiet = false } = {}) {
   const { engine, tag } = parseRef(ref);
   const pick = pickVersion(engine, tag);
@@ -357,8 +347,6 @@ async function useVersion(engine, pick, doRestart, quiet) {
   if (!isInstalled(engine, pick.major, pick.version)) throw new Error(`${engine.key}@${pick.version} is no longer installed`);
   const prevVersion = state.getActive(engine.key);
   const ctx = buildCtx(engine, pick);
-  const previousSelection = majorPick(engine, pick.major);
-  const restoreConfig = configSnapshot(ctx);
   const stopped = [];
   let started = false;
   const prev = prevVersion && installedVersions(engine).find((row) => row.version === prevVersion);
@@ -376,14 +364,10 @@ async function useVersion(engine, pick, doRestart, quiet) {
         if (!quiet) info(`stopped ${engine.label} ${running.version}`);
       }
     }
-    syncVersionConfig(ctx);
-    syncCurrentSymlink(engine, pick.major, pick.version);
     if (doRestart) started = (await restart(ctx, { quiet })).started;
     state.selectVersion(engine.key, pick.major, pick.version, { active: true });
   } catch (error) {
     if (started) await stop(ctx, { quiet: true });
-    restoreConfig();
-    restoreCurrent(engine, pick.major, previousSelection);
     for (const running of stopped) {
       try { await start(running, { quiet: true }); } catch (rollbackError) {
         throw new Error(`${error.message}\nCould not restart ${running.key}@${running.version}: ${rollbackError.message}`, { cause: error });
@@ -421,8 +405,6 @@ async function removeVersion(engine, pick, purge) {
     if (fallback) current.active[engine.key] = fallback.version;
     else delete current.active[engine.key];
   });
-  restoreCurrent(engine, pick.major, selected);
-  if (selected) syncVersionConfig(buildCtx(engine, selected));
 
   let purged = false;
   if (purge && !selected && !(live.owned && live.runningVersion !== pick.version)) {

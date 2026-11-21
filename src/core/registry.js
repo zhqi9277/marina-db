@@ -1,9 +1,8 @@
 // Engine registry + version resolution + per-version context.
 import path from 'node:path';
 import fs from 'node:fs';
-import { dirs, engineDir, versionDir, currentDir, etcDir, dataDir, logDir, runFile, mkdirp } from './paths.js';
+import { dirs, engineDir, versionDir, etcDir, dataDir, logDir, runFile, mkdirp } from './paths.js';
 import { discoverRoot } from '../install/archive.js';
-import { linkDir } from './platform.js';
 import * as state from './state.js';
 import mysql from '../engines/mysql.js';
 import mariadb from '../engines/mariadb.js';
@@ -126,7 +125,6 @@ export function buildCtx(engine, { major, version, port, account = state.account
     logDir: logDir(engine.key),
     tmpDir: dirs.tmp,
     pidFile: runFile(engine.key, major, 'pid'),
-    runtimeFile: runFile(engine.key, major, 'service.json'),
     sockFile: runFile(engine.key, major, 'sock'),
     confFile: confName ? path.join(etcDir(engine.key, major), confName) : null,
     logFile: path.join(logDir(engine.key), `${major}.log`),
@@ -157,19 +155,6 @@ export function instanceContexts(engine) {
   const rows = installedVersions(engine);
   const majors = new Set(rows.map((row) => row.major));
   return [...majors].map((major) => buildCtx(engine, majorPick(engine, major, rows)));
-}
-
-/** Point engines/<db>/<major>/current at the selected version. */
-export function syncCurrentSymlink(engine, major, version) {
-  const link = currentDir(engine.key, major);
-  const target = versionDir(engine.key, major, version);
-  if (!fs.existsSync(target)) return;
-  try {
-    const st = fs.lstatSync(link);
-    if (st.isSymbolicLink() || st.isFile()) fs.rmSync(link, { force: true });
-    else if (st.isDirectory()) fs.rmSync(link, { recursive: true, force: true });
-  } catch {}
-  linkDir(target, link);
 }
 
 export function ensureVersionDirs(engine, major) {

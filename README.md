@@ -47,7 +47,6 @@ Marina 是一个零依赖的本地数据库管理器：**装版本、切版本�
 - **版本号不写死**：仓库里没有版本清单。`marina remote` 运行时查询镜像/上游索引，缓存 6 小时；
   镜像顺序、TTL 都能用环境变量调整。
 - **多版本共存**：`engines/<db>/<major>/<version>/`，同一 major 下可装多个小版本，
-  `current` 软链指向激活版本，`use` 一条命令切换。
 - **装完即用**：下载 → 校验 → 解压/编译 → 生成配置 → 初始化 datadir → 首次启动完成
   root 初始化 → 停止；之后 `start` 即可。
 - **服务生命周期**：start / stop / restart / status / logs / port / auth，
@@ -56,7 +55,7 @@ Marina 是一个零依赖的本地数据库管理器：**装版本、切版本�
 - **凭据可改**：每个库的端口、账号、密码都能在面板里改；MySQL 系会同步 `ALTER USER`。
 - **登录自启**：`a` / `A` 或 `marina autostart`，macOS LaunchAgent、Linux systemd --user、Windows 登录计划任务。
 - **本地隔离**：只监听 `127.0.0.1`，socket、pid、日志、数据全在 `runtime/` 下，删除即清理。
-- **可迁移**：搬家后 `marina reconfig --all` 重写绝对路径；配置指向旧目录时启动会秒级报错。
+- **可迁移**：配置不保存绝对路径，移动仓库前先停止服务；搬到新位置后直接启动即可。
 
 Marina **不做**的事：开机自启（只做登录自启，见第 13 节）、远程管理、集群/复制、GUI。
 
@@ -137,7 +136,6 @@ marina            # TTY 进入全屏面板；管道/CI 下打印帮助，不会�
 ```
 runtime/
   engines/<db>/<major>/<version>/   下载/编译出来的 payload
-  engines/<db>/<major>/current      -> 激活版本软链
   data/<db>/<major>/                datadir，升级不覆盖
   etc/<db>/<major>/                 生成的配置（my.cnf / redis.conf / mongod.conf …）
   logs/<db>/<major>.log
@@ -168,7 +166,7 @@ runtime/
 ```
 
 - `active`：每个引擎在未指定版本时使用的默认版本。
-- `selected`：每条 `engine:major` 版本线选择的版本，对应 `current`。正在运行的版本由运行记录和进程信息确定。
+- `selected`：每条 `engine:major` 版本线选择的版本。正在运行的版本由运行记录和进程信息确定。
 - `ports`：按 `engine:major` 存端口，同一 major 的多个小版本共用一个端口。
 - `settings.instanceAccounts`：按 `engine:major` 存账号密码。旧版的 `settings.accounts` 和 `mysqlRootPassword` 继续作为兼容默认值。
 - 删除 `state.json` 不会删数据，但会丢失激活版本、端口和凭据设置。
@@ -254,7 +252,6 @@ MARINA_CATALOG_URL=https://example.test/manifest.json marina install ...
 - MySQL：没有 unix socket 时，客户端/探活走 TCP
 - PostgreSQL：没有 unix socket 时省略 `-k`，不创建 socket 目录
 - MongoDB：没有 fork 时由 marina detach
-- `current` 软链：Windows 用 junction，失败再复制
 - shims：Windows 生成 `.cmd`；`shellenv` 输出 PowerShell 语法
 - 依赖检查：`otool -L` / `ldd`；Windows 跳过
 - 登录自启：LaunchAgent、`systemd --user`、登录计划任务（`schtasks /SC ONLOGON`，任务 XML 写在 `%APPDATA%\marina`）
@@ -315,7 +312,7 @@ export PATH="$PWD/bin:$PATH"
 
 | 命令 | 说明 |
 |---|---|
-| `marina use <db>@<ver>` | 切换激活版本（改 `current` 软链 + state） |
+| `marina use <db>@<ver>` | 切换激活版本并更新 state |
 | `marina use <db>@<ver> --restart` | 切换后顺便重启 |
 | `marina use` | 读取最近的 `.marinarc` 批量应用 |
 | `marina current` | 显示激活版本与项目 pin |
@@ -340,7 +337,7 @@ export PATH="$PWD/bin:$PATH"
 | `marina port <db> [N]` | 读/改端口；自动重写配置，运行中自动重启 |
 | `marina auth <db>` | 查看账号、密码、认证方式 |
 | `marina auth <db> <user> <password>` | 修改并尽量同步服务端 |
-| `marina reconfig [db\|--all]` | 重写生成配置 + `current` 软链 |
+
 | `marina rm <db>[@ver]` | 卸载版本；`--purge` 连 datadir |
 
 ### 客户端与工具
@@ -410,7 +407,6 @@ TTY 下 `marina` 进入面板；非 TTY 打印帮助，避免 CI 卡住。状态
 | Start / Stop / Restart | 当前库 |
 | Start all / Stop all | 所有已安装库，逐个执行，失败会列第一条错误 |
 | Doctor | 本地自检：platform / node / tar / MARINA_HOME / index / libs / ports |
-| Reconfig paths | 重写配置 + `current` 软链（目录搬家后用） |
 | Change port | 输入新端口，自动重写配置，运行中自动重启 |
 | Set user | 输入新账号；MySQL 系会创建用户并授权 |
 | Set password | 掩码输入；MySQL 系执行 `ALTER USER`，Redis 写 `requirepass` |
@@ -492,7 +488,6 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
 ```
 远程索引 ──▶ cache/<db>/<ver>/*.tar.gz ──校验──▶ engines/<db>/<major>/<ver>/
    （镜像/上游）                                    │
-                                        current 软链 ◀┘
                                                      │
  etc/<db>/<major>/*.conf ◀── 渲染（已存在不覆盖，--force 才重写）
  data/<db>/<major>/      ◀── 引擎初始化（mysqld --initialize-insecure / initdb / …）
@@ -502,7 +497,7 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
 - **major 深度**由 `src/install/catalog.js` 的 `majorDepth` 决定：
   MySQL `8.4.11→8.4`，PostgreSQL `17.11→17`，Redis `7.4.11→7`。
 - **安装成功默认切换 active**，`--no-use` 保留原来的选择。同一版本线已有服务运行时，安装保留运行中的进程，两种版本可通过 `status` 区分。
-- **配置不覆盖**：`etc/` 下已有文件默认保留，方便你改参数；`--force` / `reconfig` 才重写。
+- **配置不覆盖**：`etc/` 下已有文件默认保留，方便你改参数；`--force` 可强制重写。
 - **离线安装**：`--file` 直接给本地包，仍然走解压/初始化/配置流程。
 - **overlay**：`MARINA_CATALOG_FILE/URL` 中匹配的版本可以独立解析。完整版本要求精确匹配。
 - **payload 自愈**：版本目录残缺（找不到 marker）时自动删除重解压；解压、重命名或源码编译失败会清理本次半成品，
@@ -590,24 +585,17 @@ marina autostart --off --all     # 全部关闭
 
 ### 目录搬家
 
-生成配置里是绝对路径，搬家后需要：
+生成配置不保存绝对路径，启动参数会在启动时传入当前根目录、端口、
+数据目录、pid 和日志位置。移动仓库时先停止服务，搬家后直接启动即可：
 
 ```bash
-marina reconfig --all
-marina restart <db>@<major>      # 或全部重启
+marina stop --all
+# 搬运仓库
+marina start --all
 ```
 
-- 启动前会检查配置里的路径；发现指向别的 marina 根目录会**立即报错**并提示 reconfig，
-  不会干等 30 秒超时。
-- 源码编译的 PostgreSQL 把绝对 prefix 编进了 install_name，搬家后 `pg_isready`/`psql`
-  可能 dyld 报错；此时保留 datadir 重装二进制即可：
-
-```bash
-marina stop postgres@17
-marina rm postgres@17            # 不 purge，datadir 还在
-marina install postgres@17
-marina start postgres@17
-```
+- PostgreSQL / Redis 源码包若包含写死的绝对构建路径，可重装该版本；
+  通常不需要迁移或重写 datadir。
 
 ---
 
@@ -617,7 +605,7 @@ marina start postgres@17
 |---|---|
 | `zsh: command not found: marina` | 没进 PATH：`bash scripts/install-cli.sh`，或 `export PATH="$PWD/bin:$PATH"` |
 | `degraded` | 有 pid 但探活失败：看 `marina logs`；常见是客户端二进制损坏、datadir 不可写、端口被别的东西占 |
-| 启动卡 30 秒后失败 | 先看日志；如果是搬家后，配置里可能是旧路径，`marina reconfig <db>` |
+| 启动卡 30 秒后失败 | 先看日志；移动仓库前应先停止服务，重启时会使用新运行时路径 |
 | `port-busy` | 端口被非 marina 进程占用：`lsof -i :<port>`，或 `marina port <db> <新端口>` |
 | `dyld: Library not loaded` | 源码编译的二进制被搬家/删库；重装该版本（保留 datadir） |
 | `doctor` 的 `libs` 报 `(outside install)` | 这个包依赖了安装目录和系统之外的库，换一台机器就起不来：重装一个自包含的包（`scripts/build-engine.sh`） |
@@ -652,7 +640,6 @@ npm run marina -- remote   # 不装全局时直接跑
 - pid 归属校验与 stop 终止确认（含搬家后的旧进程、pid 复用防误杀）
 - `state.json` 跨进程锁（3 进程并发自增不丢更新）、死锁/超时锁回收
 - payload 复用 / 残缺自愈 / 解压与编译失败清理、`stopCommand` 失败告警
-- 宿主层纯函数：三系统能力、shim、Windows 命令行归属、登录计划任务 XML；以及 `current` 目录过滤、Expand-Archive 参数、systemd `%`/`$` 转义、非空目录替换
 - settings / doctor / shims / registry / platform / host / configcheck / ui 的隔离 `MARINA_HOME` 行为
 - TUI 按键、箭头导航、doctor、账号密码显示、端口/账号/密码输入
 - 各引擎 `account()` 契约

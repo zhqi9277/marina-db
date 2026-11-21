@@ -146,7 +146,6 @@ install: HEAD 校验 → 下载 → 校验和 → 解压/编译
 ```
 runtime/
   engines/<db>/<major>/<version>/   下载/编译出来的 payload
-  engines/<db>/<major>/current      -> 激活版本软链
   data/<db>/<major>/                datadir，升级不覆盖
   etc/<db>/<major>/                 生成的配置
   logs/<db>/<major>.log
@@ -156,7 +155,7 @@ runtime/
   state.lock                        写 state.json 的目录锁
 ```
 
-好处很直接：备份就是 `cp -a runtime/data/...`，清理就是删目录，换机器把整个 `runtime/` 拷走再 `marina reconfig --all` 就能继续用。
+好处很直接：备份就是 `cp -a runtime/data/...`，清理就是删目录，换机器把整个 `runtime/` 拷走就能继续用。
 
 `state.json` 的写入用了**目录锁 + 临时文件 rename 原子替换**。测试里专门起了 3 个进程并发自增，确认不会丢更新；进程崩溃留下的锁会按 pid 和锁龄自动回收。
 
@@ -171,7 +170,7 @@ runtime/
 
 几个容易被忽略的细节：
 
-- **配置默认不覆盖**：`etc/` 下已有文件会保留，方便你改参数；只有 `--force` 或 `reconfig` 才重写；
+- **配置默认不覆盖**：`etc/` 下已有文件会保留，方便你改参数；只有 `--force` 才重写；
 - **payload 自愈**：版本目录残缺（找不到 marker）会自动删除重解压，不会留下「看起来装了其实坏了」的状态；
 - **失败清理**：解压、重命名、源码编译失败会清掉本次半成品；
 - **源码 vs 二进制**：PostgreSQL/Redis 本机编译，MySQL/MongoDB 用官方二进制，MariaDB/Memcached 在没有自动化构建的平台上会明确拒绝，而不是装一半。
@@ -184,7 +183,7 @@ Marina 做了几件事：
 
 - **pid 归属校验**：Linux 读 `/proc`，macOS 用 `ps`/`lsof`，Windows 读 `Win32_Process.CommandLine`。pid 被系统复用时不会误杀别的进程；
 - **探活优先用引擎自带工具**（`pg_isready`、`redis-cli ping`、`mysqladmin ping`），工具坏了就回退 TCP，不会因为客户端损坏把运行中的服务判成停止；
-- **启动前检查配置里的绝对路径**：仓库搬家后配置指向旧目录，会**秒级报错**并提示 `reconfig`，而不是干等 30 秒超时；
+- **配置不保存绝对路径**：启动时通过命令行传入基目录、端口、pid、日志和数据目录，搬家时无需重写配置；
 - **`status` 区分 running / degraded / stopped / port-busy**，不是简单的「有 pid 就算 running」。
 
 最典型的一次 bug：本机另一个 `mysqld` 占了 3306，Marina 看到 pid 活着、端口也通，就报告 running；执行 stop 时差点把别人的进程杀掉。后来「运行中」被改成三个条件同时满足：**pid 文件里的进程活着 + 命令行确实属于这次安装 + 引擎协议有应答**。这也是为什么项目里有一堆看起来「过度防御」的测试。
@@ -196,7 +195,6 @@ Marina 做了几件事：
 比如：
 
 - macOS 自启用 LaunchAgent，Linux 用 `systemd --user`，Windows 用 `schtasks /SC ONLOGON`；
-- Windows 的 `current` 软链失败时退回目录复制；
 - 解压按 `.tar.gz` / `.tar.xz` / `.zip` 选参数，Windows 没有 bsdtar 时退回 PowerShell；
 - MySQL 没有 unix socket 时，客户端和探活自动走 TCP。
 

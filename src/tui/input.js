@@ -2,7 +2,7 @@
 //
 // Handlers update App state and call App operations. They deliberately do not
 // draw terminal text; the App renders after each state transition.
-import { install, use, reconfigure } from '../install/installer.js';
+import { install, use } from '../install/installer.js';
 import { changePort, changeAccount } from '../runtime/settings.js';
 import { setQuiet } from '../ui/console.js';
 
@@ -238,8 +238,6 @@ export async function handleActions(app, key) {
           return `password saved${r.applied.length ? ' · applied' : ''}${r.notes.length ? ` · ${r.notes[0]}` : ''}`;
         },
       });
-    case 'reconfig':
-      return app.run(`reconfiguring ${e.key}@${e.major}…`, () => reconfigure(e.ctx));
     case 'logs':
       return app.openLogs();
     case 'versions':
