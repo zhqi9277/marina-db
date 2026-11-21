@@ -10,6 +10,32 @@ import { mkdirp } from '../core/paths.js';
 import { findBin } from '../install/archive.js';
 import { host } from '../host/index.js';
 
+async function initializeMariaDb(ctx, installer) {
+  if (host.id === 'win32') return spawnAsync(installer, [`--datadir=${ctx.dataDir}`]);
+  const init = (cmd, root, dataDir) => spawnAsync(cmd, [
+    '--no-defaults',
+    `--basedir=${root}`,
+    `--datadir=${dataDir}`,
+    '--auth-root-authentication-method=normal',
+    '--skip-test-db',
+  ], { cwd: root });
+  if (![ctx.root, ctx.dataDir].some((dir) => /[\s*?\[\]]/.test(dir))) {
+    return init(installer, ctx.root, ctx.dataDir);
+  }
+
+  // mariadb-install-db splits the search path when it looks for my_print_defaults.
+  const staging = fs.mkdtempSync('/tmp/marina-mariadb-init-');
+  try {
+    const root = path.join(staging, 'install');
+    const dataDir = path.join(staging, 'data');
+    fs.symlinkSync(ctx.root, root);
+    fs.symlinkSync(ctx.dataDir, dataDir);
+    return await init(path.join(root, path.relative(ctx.root, installer)), root, dataDir);
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true });
+  }
+}
+
 function transportArgs(ctx) {
   if (host.capabilities.unixSocket) return [`--socket=${ctx.sockFile}`];
   return ['--protocol=TCP', '-h', '127.0.0.1', '-P', String(ctx.port)];
@@ -115,14 +141,8 @@ no-auto-rehash
       } else {
         const installer = findBin(ctx.root, ['mariadb-install-db', 'mysql_install_db']);
         if (!installer) throw new Error('cannot find mariadb-install-db / mysql_install_db');
-        const args = host.id === 'win32' ? [`--datadir=${ctx.dataDir}`] : [
-          `--basedir=${ctx.root}`,
-          `--datadir=${ctx.dataDir}`,
-          '--auth-root-authentication-method=normal',
-          '--skip-test-db',
-        ];
-        const res = await spawnAsync(installer, args);
-        if (res.code !== 0) throw new Error(`${path.basename(installer)} failed:\n${res.stderr.trim()}`);
+        const res = await initializeMariaDb(ctx, installer);
+        if (res.code !== 0) throw new Error(`${path.basename(installer)} failed:\n${res.stderr.trim() || res.stdout.trim()}`);
       }
       return { created: true };
     },
