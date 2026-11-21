@@ -57,7 +57,10 @@ try {
 
   if (key === 'mariadb') {
     // Keep the standalone server distribution, excluding clustering and test tools.
-    for (const item of ['bin/garbd', 'lib/galera', 'mariadb-test', 'mysql-test']) {
+    for (const item of [
+      'bin/garbd', 'lib/galera', 'lib/libgalera_smm.so', 'mariadb-test', 'mysql-test',
+      'lib/plugin/ha_oqgraph.so', 'lib/plugin/cracklib_password_check.so',
+    ]) {
       fs.rmSync(path.join(root, item), { recursive: true, force: true });
     }
   }

@@ -39,16 +39,19 @@ case "$ENGINE" in
         && make -j"$JOBS" && make install )
     ;;
   mariadb)
-    ssl_args=(-DWITH_SSL=system)
+    maria_args=(-DWITH_SSL=system)
     if [ "$(uname -s)" = Darwin ]; then
       ssl=${MARINA_OPENSSL_ROOT:?set MARINA_OPENSSL_ROOT to the OpenSSL 3 development prefix}
-      ssl_args+=("-DWITH_SSL=$ssl" "-DOPENSSL_INCLUDE_DIR=$ssl/include" \
-        "-DOPENSSL_SSL_LIBRARY=$ssl/lib/libssl.a" "-DOPENSSL_CRYPTO_LIBRARY=$ssl/lib/libcrypto.a" \
-        '-DCMAKE_IGNORE_PREFIX_PATH=/opt/homebrew;/usr/local')
+      sdk=$(xcrun --sdk macosx --show-sdk-path)
+      maria_args=("-DCMAKE_OSX_SYSROOT=$sdk" "-DCMAKE_C_COMPILER=$(xcrun --sdk macosx --find clang)" \
+        "-DCMAKE_CXX_COMPILER=$(xcrun --sdk macosx --find clang++)" -DWITH_ZLIB=bundled \
+        '-DCMAKE_IGNORE_PREFIX_PATH=/opt/homebrew;/usr/local' \
+        "-DWITH_SSL=$ssl" "-DOPENSSL_INCLUDE_DIR=$ssl/include" \
+        "-DOPENSSL_SSL_LIBRARY=$ssl/lib/libssl.a" "-DOPENSSL_CRYPTO_LIBRARY=$ssl/lib/libcrypto.a")
     fi
     cmake -S "$SRC" -B "$WORK/build" -DCMAKE_INSTALL_PREFIX="$PREFIX" \
       -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_NAME_DIR=@rpath -DCMAKE_MACOSX_RPATH=ON \
-      -DWITH_UNIT_TESTS=OFF -DCONC_WITH_SSL=OPENSSL -DWITH_PCRE=bundled "${ssl_args[@]}" \
+      -DWITH_UNIT_TESTS=OFF -DCONC_WITH_SSL=OPENSSL -DWITH_PCRE=bundled "${maria_args[@]}" \
       -DPLUGIN_COLUMNSTORE=NO -DPLUGIN_S3=NO -DPLUGIN_MROONGA=NO \
       -DPLUGIN_ROCKSDB=NO -DPLUGIN_TOKUDB=NO -DWITH_WSREP=OFF
     cmake --build "$WORK/build" --parallel "$JOBS"
