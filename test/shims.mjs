@@ -63,7 +63,7 @@ test('installShims writes executable shims for the active clients', () => {
 test('shimScript embeds the node binary, CLI path and the forwarded argv', () => {
   const script = shimScript('redis-cli');
   assert.ok(script.includes(process.execPath), 'should invoke the running node binary');
-  assert.ok(script.includes('bin/marina.js'), 'should point at the marina CLI');
+  assert.ok(script.includes(path.join('bin', 'marina.js')), 'should point at the marina CLI');
   assert.ok(script.includes('shim-exec'));
   assert.ok(script.includes('redis-cli'));
   if (posix) assert.match(script, /^#!\/bin\/sh/);

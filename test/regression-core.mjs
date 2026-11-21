@@ -937,7 +937,7 @@ test('changeAccount keeps the old mysql credentials when the server ALTER fails'
   }
 });
 
-test('changeAccount persists the mysql password only after a successful ALTER', async () => {
+test('changeAccount persists the mysql password only after a successful ALTER', { skip: process.platform === 'win32' && 'uses a POSIX client fixture' }, async () => {
   const root = path.join(HOME, 'engines', 'mysql', '8.4', '8.4.11');
   writeExecutable(path.join(root, 'bin', 'mysqld'), '#!/bin/sh\nexit 0\n');
   writeExecutable(path.join(root, 'bin', 'mysql'), '#!/bin/sh\nexit 0\n');

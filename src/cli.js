@@ -74,7 +74,7 @@ ENV
   MARINA_CATALOG_URL     override the GitHub build catalog URL
 
 HOMEPAGE
-  https://gitee.com/zhqi9277/marina
+  https://github.com/zhqi9277/marina-db
 `;
 
 const VALUE_FLAGS = new Set(['port', 'file', 'version', 'lines', 'bin', 'major', 'user', 'password']);

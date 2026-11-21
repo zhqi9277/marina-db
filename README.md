@@ -574,7 +574,7 @@ npm run marina -- remote   # 不装全局时直接跑
 
 1. 推送指向功能分支提交的 `engines-candidate-*` 标签，触发 `build-engines`。它在各目标平台打包引擎，把候选清单和归档发布到 GitHub Releases。
 2. 在 Actions 查看 30 项安装和生命周期验收。验证通过的运行会生成 `engine-validation-<attempt>`。
-3. 合并候选提交后，在 `main` 上运行 `promote-engines`，输入通过验收的运行 ID。工作流验证提交和归档摘要后更新 `engine-catalog`。回滚可还原该分支上的上一次发布提交。
+3. 以合并提交方式将候选提交纳入 `main`，然后运行 `promote-engines`，输入通过验收的运行 ID。工作流验证提交和归档摘要后更新 `engine-catalog`。回滚可还原该分支上的上一次发布提交。
 
 在目标环境可以用 `node scripts/package-engine.mjs redis 7.4.11 dist` 单独构建一个归档。macOS 的额外构建工具目录通过 `MARINA_BUILD_PATH` 指定。依赖检查会在搬动安装目录后执行。当版本提高时，同时更新构建矩阵和输入校验值。
 

@@ -111,9 +111,13 @@ async function relocateLinux(root) {
   const libraries = path.join(root, 'lib', 'marina');
   const env = { ...process.env, LD_LIBRARY_PATH: ['lib', 'lib64', 'lib/private', 'lib/mariadb'].map((dir) => path.join(root, dir)).join(':') };
   const added = new Map();
+  const missing = new Set();
   for (const file of files) {
     for (const dep of elfDeps(file, env)) {
-      if (dep.file === 'not found') throw new Error(path.relative(root, file) + ': missing ' + dep.name);
+      if (dep.file === 'not found') {
+        missing.add(dep.name + ' required by ' + path.relative(root, file));
+        continue;
+      }
       if (linuxSystem.test(dep.name) || local(dep.file, root)) continue;
       const name = path.basename(dep.name);
       const copy = path.join(libraries, name);
@@ -128,6 +132,7 @@ async function relocateLinux(root) {
       added.set(name, dep.file);
     }
   }
+  if (missing.size) throw new Error('missing libraries: \n' + [...missing].join('\n'));
   for (const file of [...files, ...[...added.keys()].map((name) => path.join(libraries, name))]) {
     const previous = command('patchelf', ['--print-rpath', file]).trim();
     const keep = previous.split(':').filter((ref) => /^\$\{?ORIGIN\}?($|\/)/.test(ref));

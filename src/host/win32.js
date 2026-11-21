@@ -47,7 +47,7 @@ function processDetails(pid) {
   const args = winProcessCommand(pid);
   if (!args) return null;
   try {
-    const res = spawnSync('powershell', args, { encoding: 'utf8', timeout: 4000, windowsHide: true });
+    const res = spawnSync('powershell', args, { encoding: 'utf8', timeout: 15000, windowsHide: true });
     if (res.error || res.status !== 0) return null;
     return parseWinCommandLine(res.stdout);
   } catch {

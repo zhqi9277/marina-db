@@ -31,7 +31,7 @@ const out = path.resolve(outputDir);
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-package-'));
 
 try {
-  const { binary, source, additional = [] } = sourcesFor(target);
+  const { binary, source, additional, sourceCode } = sourcesFor(target);
   const inputs = await Promise.all([binary ?? source, ...additional].map((input) => fetch(input, work)));
   let root = path.join(work, 'payload');
   fs.mkdirSync(root);
@@ -51,6 +51,11 @@ try {
     const layout = discoverRoot(root, engine.markers);
     if (!layout) throw new Error('upstream archive has an unrecognized ' + key + ' layout');
     root = layout;
+    if (key === 'mariadb' && process.platform === 'linux') {
+      // Galera clustering helpers depend on the upstream boost ABI.
+      fs.rmSync(path.join(root, 'bin', 'garbd'), { force: true });
+      fs.rmSync(path.join(root, 'lib', 'galera'), { recursive: true, force: true });
+    }
   } else {
     run('bash', ['scripts/build-engine.sh', key, inputs[0].file, root, ...inputs.slice(1).map(({ file }) => file)]);
   }
@@ -74,7 +79,8 @@ try {
   for (const names of [engine.serverBin, ...(engine.primaryClient ? [[engine.primaryClient]] : [])]) {
     if (!findBin(root, names)) throw new Error('package is missing ' + names.join('/'));
   }
-  fs.writeFileSync(path.join(root, 'MARINA-SOURCES.json'), JSON.stringify(inputs.map(({ url, sha256 }) => ({ url, sha256 })), null, 2) + '\n');
+  const provenance = { inputs: inputs.map(({ url, sha256 }) => ({ url, sha256 })), sourceCode };
+  fs.writeFileSync(path.join(root, 'MARINA-SOURCES.json'), JSON.stringify(provenance, null, 2) + '\n');
   await relocate(root);
   // Verify the staged archive in a different location so prefix paths cannot
   // resolve just because the original build output was left on the same runner.

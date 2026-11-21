@@ -25,7 +25,7 @@ function escapePattern(text) {
 /** Resolve the version when the OS exposes a path into a concrete payload. */
 export function installVersion(details, ctx, caseInsensitive) {
   const key = ctx.engine?.key || ctx.key;
-  const sep = caseInsensitive ? '/' : path.sep;
+  const sep = '/';
   const prefix = escapePattern(fold(`${sep}engines${sep}${key}${sep}${ctx.major}${sep}`, caseInsensitive));
   const version = new RegExp(`${prefix}(\\d+(?:\\.\\d+){1,2})(?=${escapePattern(sep)}|[\\s"']|$)`);
   for (const text of [details.command, details.cwd].filter(Boolean)) {
@@ -43,7 +43,7 @@ export function installVersion(details, ctx, caseInsensitive) {
 export function matchesInstall(details, ctx, { caseInsensitive = false } = {}) {
   const texts = [details.command, details.cwd].filter(Boolean);
   if (!texts.length) return false;
-  const pathApi = caseInsensitive ? path.win32 : path;
+  const pathApi = caseInsensitive ? path.win32 : path.posix;
   const sep = pathApi.sep;
   const roots = installPaths(ctx)
     .filter(Boolean)
