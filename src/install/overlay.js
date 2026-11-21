@@ -1,87 +1,104 @@
-// Optional prebuilt-artifact overlay: point marina at your own release manifest.
-//
-//   MARINA_CATALOG_FILE=/path/manifest.json
-//   MARINA_CATALOG_URL=https://…/manifest.json
-//
-// Shape (see scripts/make-manifest.mjs):
-//   { "artifacts": [ { name, version, major, os, arch, fileName, size, sha256, url } ] }
-//
-// When an artifact matches (engine + version + this OS + this arch) it wins over
-// the remote index (mirrors / official upstream) and is the only way to install
-// an engine the upstreams do not publish for this platform: build once in CI,
-// publish the tarballs, point marina at the manifest.
+// The hosted catalog and explicit local/test catalogs share the same format.
+import crypto from 'node:crypto';
 import fs from 'node:fs';
-import { PLATFORM, env } from '../core/platform.js';
+import path from 'node:path';
+import { env } from '../core/platform.js';
+import { dirs } from '../core/paths.js';
+import { CATALOG, majorOf } from './catalog.js';
 import { fetchJson } from './download.js';
-import { warn } from '../ui/console.js';
 
-let cache = null;
+export const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/zhqi9277/marina-db/engine-catalog/manifest.json';
+export const indexDir = path.join(dirs.cache, 'index');
 
-export function archToken() {
-  if (process.arch === 'arm64') return 'arm64';
-  return process.platform === 'win32' ? 'x64' : 'x86_64';
-}
-
-function normalizeArch(a) {
-  if (a === 'aarch64') return 'arm64';
-  if (a === 'x86_64') return 'x86_64';
-  if (a === 'x64') return process.platform === 'win32' ? 'x64' : 'x86_64';
-  return a;
-}
-
-/** manifests in the wild write "macos" / "windows"; compare on node platform names */
 export function normalizeOs(os) {
-  const s = String(os || '').toLowerCase();
-  if (!s) return '';
-  if (s === 'macos' || s === 'mac' || s === 'osx' || s === 'darwin') return 'darwin';
-  if (s === 'windows' || s === 'win' || s === 'win32') return 'win32';
-  if (s === 'linux') return 'linux';
-  return s;
+  const value = String(os || '').toLowerCase();
+  if (['macos', 'mac', 'osx'].includes(value)) return 'darwin';
+  if (['windows', 'win'].includes(value)) return 'win32';
+  return value;
 }
 
-export async function loadOverlay() {
-  if (cache !== null) return cache;
+export function normalizeArch(arch) {
+  if (arch === 'aarch64') return 'arm64';
+  if (arch === 'x86_64') return 'x64';
+  return arch;
+}
+
+export function parseCatalog(raw, { requireSize = false } = {}) {
+  const entries = Array.isArray(raw) ? raw : raw?.artifacts ?? raw?.packages;
+  if (!Array.isArray(entries) || (raw.schema != null && raw.schema !== 1)) {
+    throw new Error('invalid engine catalog schema');
+  }
+  const seen = new Set();
+  return entries.flatMap((entry) => {
+    const key = Object.keys(CATALOG).find((key) => key === entry?.name || CATALOG[key].manifestName === entry?.name);
+    if (!key) return []; // Allow newer catalogs to introduce engines older CLIs do not know.
+    const { version, url, size, sha256 } = entry;
+    const os = normalizeOs(entry.os);
+    const arch = normalizeArch(entry.arch);
+    const major = majorOf(key, version);
+    if (typeof version !== 'string' || !/^\d+(?:\.\d+){1,2}$/.test(version) ||
+        typeof url !== 'string' || !/^https?:\/\//i.test(url) ||
+        typeof sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(sha256) ||
+        !os || !arch || ((size != null || requireSize) && (!Number.isSafeInteger(size) || size <= 0))) {
+      throw new Error(`invalid catalog artifact for ${key} ${version} (${os}/${arch})`);
+    }
+    const id = `${key}/${version}/${os}/${arch}`;
+    if (seen.has(id)) throw new Error(`duplicate catalog artifact ${id}`);
+    seen.add(id);
+    return [{ ...entry, name: CATALOG[key].manifestName, key, version, major, os, arch, sha256: sha256.toLowerCase() }];
+  });
+}
+
+const requests = new Map();
+
+export async function loadCatalog({ refresh = false } = {}) {
   const file = env('CATALOG_FILE');
   if (file) {
     try {
-      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-      const artifacts = Array.isArray(raw) ? raw : raw?.artifacts || raw?.packages;
-      cache = Array.isArray(artifacts) ? artifacts : [];
-    } catch (e) {
-      warn(`catalog overlay unavailable (${e.message.split('\n')[0]})`);
-      cache = [];
-    }
-    return cache;
-  }
-
-  const url = env('CATALOG_URL');
-  const candidates = url
-    ? [url]
-    : [
-        'https://cnb.cool/zhqi9277/marina/-/releases/download/engines/manifest.json',
-        'https://github.com/zhqi9277/marina-db/releases/download/engines/manifest.json',
-      ];
-  for (const candidate of candidates) {
-    try {
-      const raw = await fetchJson(candidate);
-      const artifacts = Array.isArray(raw) ? raw : raw?.artifacts || raw?.packages;
-      cache = Array.isArray(artifacts) ? artifacts : [];
-      return cache;
-    } catch {
-      // Try the next catalog only. The remote index remains the fallback.
+      return { source: path.resolve(file), artifacts: parseCatalog(JSON.parse(fs.readFileSync(file, 'utf8'))), fetchedAt: null, stale: false };
+    } catch (error) {
+      throw new Error(`engine catalog ${file}: ${error.message}`);
     }
   }
-  if (env('CATALOG_URL')) {
-    warn(`catalog overlay unavailable (${candidates[0]})`);
-  }
-  cache = [];
-  return cache;
+  const url = env('CATALOG_URL') || DEFAULT_CATALOG_URL;
+  const existing = requests.get(url);
+  if (existing && (existing.refresh || !refresh)) return existing.promise;
+  const promise = loadRemoteCatalog(url, refresh).finally(() => {
+    if (requests.get(url)?.promise === promise) requests.delete(url);
+  });
+  requests.set(url, { promise, refresh });
+  return promise;
 }
 
-export async function overlayArtifacts(manifestName) {
-  const list = await loadOverlay();
-  const wantArch = normalizeArch(archToken());
-  return list.filter((a) => a?.name === manifestName && /^\d+(?:\.\d+){1,2}$/.test(a.version) &&
-    typeof a.url === 'string' && a.url && /^[a-f0-9]{64}$/i.test(a.sha256 || '') &&
-    normalizeOs(a.os) === PLATFORM && normalizeArch(a.arch) === wantArch);
+async function loadRemoteCatalog(source, refresh) {
+  const requireSize = source === DEFAULT_CATALOG_URL;
+  const name = crypto.createHash('sha256').update(source).digest('hex');
+  const file = path.join(indexDir, `catalog-${name}.json`);
+  const ttl = Number(env('INDEX_TTL', 21600)) * 1000;
+  let cached;
+  try {
+    const { fetchedAt, artifacts } = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (Number.isFinite(fetchedAt)) cached = { source, fetchedAt, artifacts: parseCatalog(artifacts, { requireSize }) };
+  } catch {
+    // Missing, obsolete or invalid cache entries are refreshed from the same source.
+  }
+  if (!refresh && cached && Date.now() - cached.fetchedAt < ttl) return { ...cached, stale: false };
+
+  let artifacts;
+  try {
+    artifacts = parseCatalog(await fetchJson(source), { requireSize });
+  } catch (error) {
+    if (!refresh && cached) return { ...cached, stale: true, error: error.message };
+    throw new Error(`engine catalog ${source}: ${error.message}`);
+  }
+  const fetchedAt = Date.now();
+  fs.mkdirSync(indexDir, { recursive: true });
+  const temp = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temp, JSON.stringify({ fetchedAt, artifacts }));
+    fs.renameSync(temp, file);
+  } finally {
+    fs.rmSync(temp, { force: true });
+  }
+  return { source, artifacts, fetchedAt, stale: false };
 }

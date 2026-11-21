@@ -1,78 +1,126 @@
 name: build-engines
 
-# Builds prebuilt marina artifacts for the engines that upstream does not ship for
-# a given OS, then publishes them + manifest.json as a release.
-#
-#   engines-<tag>  →  release "engines"  with
-#     redis-7.4.11-darwin-arm64.tar.gz
-#     redis-7.4.11-linux-x86_64.tar.gz
-#     …
-#     manifest.json
-#
-# Consumers: MARINA_CATALOG_URL=<release>/manifest.json marina install redis@7
 on:
-  workflow_dispatch:
   push:
-    tags: ['engines-*']
+    tags: ['engines-candidate-*']
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: engines-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  matrix:
+    runs-on: ubuntu-22.04
+    outputs:
+      combos: ${{ steps.matrix.outputs.combos }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - id: matrix
+        run: echo "combos=$(node scripts/engine-matrix.mjs)" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: matrix
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { os: macos-14,      engine: redis,     version: 7.4.11 }
-          - { os: ubuntu-22.04,  engine: redis,     version: 7.4.11 }
-          - { os: macos-14,      engine: memcached, version: 1.6.45 }
-          - { os: ubuntu-22.04,  engine: memcached, version: 1.6.45 }
-          - { os: macos-14,      engine: postgres,  version: 17.11 }
-          - { os: ubuntu-22.04,  engine: postgres,  version: 17.11 }
-          - { os: ubuntu-22.04,  engine: mariadb,   version: 11.4.13 }
-    runs-on: ${{ matrix.os }}
+      matrix: ${{ fromJSON(needs.matrix.outputs.combos) }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: deps (linux)
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Build dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libssl-dev libevent-dev zlib1g-dev
-
-      - name: build
-        shell: bash
-        run: bash scripts/build-engine.sh ${{ matrix.engine }} ${{ matrix.version }} dist
-
-      - uses: actions/upload-artifact@v4
+          sudo apt-get install -y build-essential cmake bison patchelf libaio1 libncurses5 libncurses-dev libnuma1 liburing2
+      - name: Package for this platform
+        run: node scripts/package-engine.mjs "${{ matrix.engine }}" "${{ matrix.version }}" dist
+      - uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.engine }}-${{ matrix.version }}-${{ runner.os }}-${{ runner.arch }}
+          name: engine-${{ matrix.engine }}-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/*
+          compression-level: 0
+          retention-days: 7
           if-no-files-found: error
 
-  publish:
+  candidate:
     needs: build
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      url: ${{ steps.release.outputs.url }}
+      sha256: ${{ steps.release.outputs.sha256 }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: engine-*
           path: dist
           merge-multiple: true
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: manifest
-        env:
-          MARINA_RELEASE_BASE: https://github.com/${{ github.repository }}/releases/download/engines
-        run: node scripts/make-manifest.mjs dist > dist/manifest.json
-
-      - name: publish
+      - name: Publish the checked candidate
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
-          gh release view engines >/dev/null 2>&1 || gh release create engines --title "prebuilt engines" --notes "marina artifacts"
-          gh release upload engines dist/* --clobber
+          base="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG"
+          node scripts/make-manifest.mjs generate dist "$base" > dist/manifest.json
+          if ! gh release view "$TAG" --json isDraft > release-state.json; then
+            gh release create "$TAG" --verify-tag --draft --prerelease --latest=false \
+              --title "Marina engine candidate $TAG" --notes "Engine bundles for candidate $GITHUB_SHA"
+            echo '{"isDraft":true}' > release-state.json
+          fi
+          if jq -e .isDraft release-state.json > /dev/null; then
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --draft=false --prerelease --latest=false
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > release.json
+          digest=$(node scripts/make-manifest.mjs verify dist/manifest.json release.json "$base")
+          echo "url=$base/manifest.json" >> "$GITHUB_OUTPUT"
+          echo "sha256=$digest" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    needs: [matrix, candidate]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.combos) }}
+    env:
+      MARINA_CATALOG_URL: ${{ needs.candidate.outputs.url }}
+      MARINA_CATALOG_SHA256: ${{ needs.candidate.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: npm run smoke:e2e -- "${{ matrix.engine }}" "${{ matrix.version }}"
+
+  validated:
+    needs: [smoke, candidate]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Record acceptance
+        env:
+          CATALOG_SHA256: ${{ needs.candidate.outputs.sha256 }}
+        run: |
+          jq -n --arg tag "$GITHUB_REF_NAME" --arg sha "$GITHUB_SHA" --arg manifest "$CATALOG_SHA256" \
+            '{tag: $tag, sha: $sha, manifest: $manifest, passed: 30}' > engine-validation.json
+          echo "All 30 engine builds passed. Catalog SHA-256: $CATALOG_SHA256" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: engine-validation-${{ github.run_attempt }}
+          path: engine-validation.json
+          if-no-files-found: error

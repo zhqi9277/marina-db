@@ -115,12 +115,13 @@ no-auto-rehash
       } else {
         const installer = findBin(ctx.root, ['mariadb-install-db', 'mysql_install_db']);
         if (!installer) throw new Error('cannot find mariadb-install-db / mysql_install_db');
-        const res = await spawnAsync(installer, [
+        const args = host.id === 'win32' ? [`--datadir=${ctx.dataDir}`] : [
           `--basedir=${ctx.root}`,
           `--datadir=${ctx.dataDir}`,
           '--auth-root-authentication-method=normal',
           '--skip-test-db',
-        ]);
+        ];
+        const res = await spawnAsync(installer, args);
         if (res.code !== 0) throw new Error(`${path.basename(installer)} failed:\n${res.stderr.trim()}`);
       }
       return { created: true };

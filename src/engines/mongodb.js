@@ -13,9 +13,10 @@ export default {
   defaultPort: 27017,
   serverBin: ['mongod'],
   markers: ['bin/mongod'],
-  clientBins: ['mongod', 'mongos', 'mongoexport', 'mongoimport', 'mongodump', 'mongorestore'],
-  primaryClient: 'mongosh', // shipped as a separate package
+  clientBins: ['mongosh', 'mongod', 'mongos', 'mongoexport', 'mongoimport', 'mongodump', 'mongorestore'],
+  primaryClient: 'mongosh',
   hasDataDir: true,
+  recordPid: !host.capabilities.fork,
 
   readPid(ctx) {
     try {
@@ -50,14 +51,20 @@ export default {
       '--bind_ip', '127.0.0.1',
       '--logpath', ctx.logFile,
       '--logappend',
-      '--pidfilepath', ctx.pidFile,
     ];
-    if (host.capabilities.fork) args.push('--fork');
+    if (host.capabilities.fork) args.push('--fork', '--pidfilepath', ctx.pidFile);
     return args;
   },
 
-  stopCommand() {
-    return null; // generic SIGTERM path: mongod shuts down cleanly on SIGTERM
+  stopCommand(ctx) {
+    if (host.capabilities.posixSignals) return null; // mongod shuts down cleanly on SIGTERM
+    const cmd = findBin(ctx.root, ['mongosh']);
+    if (!cmd) return null;
+    return {
+      cmd,
+      args: [...this.clientArgs(ctx), '--quiet', '--norc', '--eval',
+        'try { db.adminCommand({ shutdown: 1 }); } catch (e) { if (e.name !== "MongoNetworkError") throw e; }'],
+    };
   },
 
   account(ctx) {

@@ -1,8 +1,8 @@
 // Offline tests for version selection and platform decoration.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { pickEntry, _internal } from '../src/install/versions.js';
-import { majorOf, platformProblem } from '../src/install/catalog.js';
+import { pickEntry } from '../src/install/versions.js';
+import { majorOf } from '../src/install/catalog.js';
 import { normalizeOs } from '../src/install/overlay.js';
 
 const list = [
@@ -33,27 +33,4 @@ test('overlay os tokens are normalized (windows -> win32)', () => {
   assert.equal(normalizeOs('macOS'), 'darwin');
   assert.equal(normalizeOs('osx'), 'darwin');
   assert.equal(normalizeOs('linux'), 'linux');
-});
-
-test('decorate: an indexed version without a build for this platform is unsupported', () => {
-  const [known] = _internal.decorate('mysql', [
-    { version: '8.0.25', major: '8.0', kind: 'binary', urls: [], platformKnown: true },
-  ]);
-  assert.equal(known.supported, false);
-  assert.match(known.reason, /build for this version/);
-
-  const [lazy] = _internal.decorate('mysql', [
-    { version: '8.4.11', major: '8.4', kind: 'binary', urls: [] }, // discovered via tags, resolved lazily
-  ]);
-  assert.equal(lazy.supported, true);
-});
-
-test('platform problems come from engine metadata only', () => {
-  for (const key of ['mysql', 'mariadb', 'memcached', 'postgres']) {
-    assert.equal(platformProblem(key, 'darwin'), null);
-  }
-  assert.equal(platformProblem('postgres', 'win32'), null);
-  assert.equal(platformProblem('mariadb', 'win32'), null);
-  assert.match(platformProblem('redis', 'win32'), /prebuilt artifact/);
-  assert.ok(platformProblem('memcached', 'win32'));
 });

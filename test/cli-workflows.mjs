@@ -107,7 +107,7 @@ test('a manifest-only version resolves without consulting a remote index', (t) =
     const { version, channel } = await resolveTarget('redis@99.0.1');
     console.log(JSON.stringify({ version, channel }));
   `));
-  assert.deepEqual(target, { version: '99.0.1', channel: 'overlay' });
+  assert.deepEqual(target, { version: '99.0.1', channel: 'catalog' });
 });
 
 test('CLI distinguishes selected and running versions on one instance', { skip: windows }, async (t) => {

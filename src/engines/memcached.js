@@ -1,6 +1,7 @@
 // Memcached: no config file, no datadir — flags only.
 import fs from 'node:fs';
 import { mkdirp } from '../core/paths.js';
+import { IS_WIN } from '../core/platform.js';
 
 export default {
   key: 'memcached',
@@ -14,6 +15,7 @@ export default {
   clientBins: ['memcached', 'memcached-tool'],
   primaryClient: 'memcached',
   hasDataDir: false,
+  recordPid: IS_WIN,
 
   readPid(ctx) {
     try {
@@ -43,9 +45,8 @@ export default {
       '-p', String(ctx.port),
       '-m', '64',
       '-c', '1024',
-      '-P', ctx.pidFile,
-      '-d',
     ];
+    if (!IS_WIN) args.push('-P', ctx.pidFile, '-d');
     if (typeof process.getuid === 'function' && process.getuid() === 0) args.push('-u', 'nobody');
     return args;
   },

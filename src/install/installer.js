@@ -2,8 +2,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import os from 'node:os';
-import { fileURLToPath } from 'node:url';
 import {
   dirs, ensureDirs, engineDir, versionDir, cacheDir, mkdirp,
 } from '../core/paths.js';
@@ -13,20 +11,14 @@ import {
   parseRef, installedVersions, pickVersion, buildCtx,
   ensureVersionDirs, isInstalled, majorPick, pendingInstallFile,
 } from '../core/registry.js';
-import {
-  buildRecipe, catalogKeyOf, majorOf, platformProblem,
-} from './catalog.js';
-import { pickEntry, resolveVersion, resolveArtifact } from './versions.js';
-import { linkFile, PLATFORM, OS_LABEL } from '../core/platform.js';
-import { overlayArtifacts } from './overlay.js';
-import { buildEnv } from '../core/env.js';
+import { majorOf } from './catalog.js';
+import { resolveVersion } from './versions.js';
 import { installShims } from '../runtime/shims.js';
 import * as state from '../core/state.js';
 import { renderConfig } from '../runtime/config.js';
 import { start, stop, restart, inspectService } from '../runtime/lifecycle.js';
 import { withInstanceLock } from '../runtime/instance-lock.js';
 import { ok, info, warn, hint, color } from '../ui/console.js';
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** Best-effort version extraction from a local file name. */
 function versionFromFilename(file) {
@@ -40,10 +32,7 @@ export { renderConfig } from '../runtime/config.js';
 /**
  * Turn "<db>[@version]" into a concrete download plan.
  *
- * Precedence (unified pipeline):
- *   1 --file                     a local payload the user handed us
- *   2 overlay                    our own prebuilt artifact, matched by (engine, version, os, arch)
- *   3 remote index               discovered from mirrors / official sources, then HEAD-checked
+ * An explicit --file takes precedence over the published build catalog.
  */
 export async function resolveTarget(ref, { file = null, version = null } = {}) {
   const { engine, tag } = parseRef(ref);
@@ -68,51 +57,8 @@ export async function resolveTarget(ref, { file = null, version = null } = {}) {
     };
   }
 
-  const key = catalogKeyOf(engine.manifestName);
-
-  const prebuilt = (await overlayArtifacts(engine.manifestName))
-    .map((artifact) => ({ ...artifact, version: String(artifact.version), major: majorOf(engine.key, artifact.version) }))
-    .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
-  const overlayHit = pickEntry(engine.key, prebuilt, tag || version);
-  if (overlayHit) {
-    return {
-      engine,
-      major: overlayHit.major,
-      version: overlayHit.version,
-      kind: 'binary',
-      channel: 'overlay',
-      urls: [overlayHit.url],
-      sha256: overlayHit.sha256 || null,
-      indexSource: 'overlay',
-    };
-  }
-
   const entry = await resolveVersion(engine, tag || version);
-  const problem = platformProblem(key, PLATFORM);
-  if (problem) {
-    throw new Error(
-      `${engine.label} ${entry.version} on ${OS_LABEL}: ${problem}\n` +
-        `  hint: marina remote ${engine.key} (versions are still listed) · or provide a prebuilt artifact via MARINA_CATALOG_FILE`,
-    );
-  }
-
-  const artifact = await resolveArtifact(entry, { engine: engine.key });
-  const binaryPlatform = (PLATFORM === 'win32' &&
-    (engine.key === 'postgres' || engine.key === 'mariadb')) ||
-    (PLATFORM === 'linux' && engine.key === 'mariadb' &&
-      ['x64', 'x86_64'].includes(process.arch));
-  return {
-    engine,
-    major: entry.major,
-    version: entry.version,
-    kind: binaryPlatform ? 'binary' : entry.kind,
-    channel: 'index',
-    urls: artifact.urls,
-    sha256: artifact.sha256,
-    build: entry.kind === 'source' && !binaryPlatform ? buildRecipe(key) : null,
-    indexSource: entry.indexSource,
-    stale: entry.stale,
-  };
+  return { ...entry, engine, channel: 'catalog' };
 }
 
 export async function fetchPackage(target) {
@@ -128,59 +74,14 @@ export async function fetchPackage(target) {
     return { tarball: dest, sha256: sha };
   }
 
-  let lastError = null;
-  for (const url of target.urls || []) {
-    const name = path.basename(new URL(url).pathname);
-    const dest = path.join(mkdirp(cacheDir(target.engine.key, target.version)), name);
-    try {
-      await downloadFile(url, dest, { sha256: target.sha256, label: name });
-      return { tarball: dest, sha256: target.sha256 || (await sha256File(dest)) };
-    } catch (e) {
-      lastError = e;
-      warn(`${name}: ${e.message.split('\n')[0]}`);
-    }
+  const url = target.urls[0];
+  const name = target.fileName || path.basename(new URL(url).pathname);
+  if (!name || name !== path.posix.basename(name) || name !== path.win32.basename(name) || name === '.' || name === '..') {
+    throw new Error('invalid artifact file name: ' + name);
   }
-  throw lastError || new Error(`no download URL for ${target.engine.label} ${target.version}`);
-}
-
-/** Source tarballs wrap everything in one top-level dir. */
-function singleTopDir(dir) {
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => !e.name.startsWith('.'));
-    if (entries.length === 1 && entries[0].isDirectory()) return path.join(dir, entries[0].name);
-  } catch {}
-  return null;
-}
-
-/** Compile a source payload in place and expose its binaries under bin/. */
-async function buildSource(root, build, engine) {
-  if (!build) throw new Error(`${engine.label}: no build recipe`);
-  const { spawnAsync } = await import('./archive.js');
-  const jobs = build.jobs || Math.min(8, os.cpus().length);
-  info(`building ${engine.label} from source (${build.minutes || build.seconds || 'a while'})`);
-  for (const [cmd, ...rest] of build.steps) {
-    const args = rest.map((a) => String(a)
-      .replace('{jobs}', String(jobs))
-      .replace('{root}', root)
-      .replace('{repo}', REPO_ROOT));
-    const executable = cmd === 'node' ? process.execPath : cmd;
-    const label = `${executable} ${args.join(' ')}`.trim();
-    const res = await spawnAsync(executable, args, { cwd: root, env: buildEnv() });
-    if (res.code !== 0) {
-      const tail = (res.stderr || res.stdout || '').trim().split('\n').slice(-12).join('\n');
-      throw new Error(`build step failed: ${label}\n${tail}`);
-    }
-  }
-  const mappings = build.bins || {};
-  if (Object.keys(mappings).length) {
-    const binDir = path.join(root, 'bin');
-    mkdirp(binDir);
-    for (const [name, rel] of Object.entries(mappings)) {
-      const target = path.join(root, rel);
-      if (!fs.existsSync(target)) continue;
-      linkFile(target, path.join(binDir, name));
-    }
-  }
+  const dest = path.join(cacheDir(target.engine.key, target.version), name);
+  await downloadFile(url, dest, { sha256: target.sha256, size: target.size, label: name });
+  return { tarball: dest, sha256: target.sha256 };
 }
 
 /**
@@ -188,8 +89,8 @@ async function buildSource(root, build, engine) {
  *
  * `target.tarball` must already be downloaded. A complete payload is reused
  * unless `force` is set; an incomplete one is removed and re-extracted. A dest
- * created (or healed) here is removed again when extraction/rename/build fails,
- * so a later install never mistakes a half-built payload for a usable one.
+ * created (or healed) here is removed again when extraction or rename fails,
+ * so a later install never mistakes an incomplete payload for a usable one.
  */
 export async function materializePayload(target, engine, { force = false } = {}) {
   const tarball = target.tarball || target.file;
@@ -215,22 +116,12 @@ export async function materializePayload(target, engine, { force = false } = {})
   let created = false;
   try {
     await extractTar(tarball, stage);
-    if (target.kind === 'source') {
-      const top = singleTopDir(stage);
-      fs.renameSync(top || stage, dest);
-      created = true;
-      await buildSource(dest, target.build, engine);
-    } else {
-      const root = discoverRoot(stage, markers);
-      if (!root) {
-        throw new Error(
-          `unrecognized payload layout under ${stage}\n` +
-          `  expected one of: ${markers.join(', ')}`,
-        );
-      }
-      fs.renameSync(root, dest);
-      created = true;
+    const root = discoverRoot(stage, markers);
+    if (!root) {
+      throw new Error('unrecognized payload layout under ' + stage + '\n  expected one of: ' + markers.join(', '));
     }
+    fs.renameSync(root, dest);
+    created = true;
   } catch (e) {
     if (created) fs.rmSync(dest, { recursive: true, force: true });
     throw e;
@@ -264,7 +155,7 @@ async function installTarget(target, opts, port) {
 
   const origin = target.file
     ? target.file
-    : `${target.kind === 'source' ? 'source build' : 'binary'} · ${target.indexSource || target.channel} · ${target.urls?.[0] || ''}`;
+    : `${target.indexSource} · ${target.urls[0]}`;
   info(`${engine.label} ${version}  ${color.gray(`(${origin})`)}`);
   if (target.stale) warn('version index is a stale cache (network refresh failed)');
 

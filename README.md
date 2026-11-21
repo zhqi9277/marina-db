@@ -5,7 +5,7 @@
 <h1 align="center">Marina — 本地数据库的码头</h1>
 
 <p align="center">
-  仓库：<a href="https://gitee.com/zhqi9277/marina">gitee.com/zhqi9277/marina</a> ·
+  仓库：<a href="https://github.com/zhqi9277/marina-db">github.com/zhqi9277/marina-db</a> ·
   License: MIT · Node ≥ 18.17
 </p>
 
@@ -44,10 +44,9 @@ Marina 是一个零依赖的本地数据库管理器：**装版本、切版本�
 ## 1. 特性
 
 - **零依赖**：只用 Node 内置模块，`npm test` 不需要装任何东西，也没有构建步骤。
-- **版本号不写死**：仓库里没有版本清单。`marina remote` 运行时查询镜像/上游索引，缓存 6 小时；
-  镜像顺序、TTL 都能用环境变量调整。
+- **预编译引擎**。`marina remote` 读取 GitHub 发布清单，显示适配本机的版本。
 - **多版本共存**：`engines/<db>/<major>/<version>/`，同一 major 下可装多个小版本，
-- **装完即用**：下载 → 校验 → 解压/编译 → 生成配置 → 初始化 datadir → 首次启动完成
+- **装完即用**：下载 → 校验 → 解压 → 生成配置 → 初始化 datadir → 首次启动完成
   root 初始化 → 停止；之后 `start` 即可。
 - **服务生命周期**：start / stop / restart / status / logs / port / auth，
   支持 `--all`、面板里的全部开启/关闭。
@@ -66,15 +65,14 @@ Marina **不做**的事：开机自启（只做登录自启，见第 13 节）�
 ### 2.1 要求
 
 - Node.js **≥ 18.17**
-- macOS（已实测）或 Linux（代码就绪，未真机端到端验证）
-- 源码编译类引擎（PostgreSQL / Redis）需要 `make` + C 编译器；macOS 装 Xcode Command Line Tools
-- 磁盘：每个引擎约 100–400 MB（含数据目录）
+- macOS 15、Ubuntu 22.04 或 Windows Server 2022。架构见[平台支持](#5-平台支持)。
+- 安装时需要为下载归档和解压后的文件预留磁盘空间。
 
 ### 2.2 安装命令
 
 ```bash
-git clone https://gitee.com/zhqi9277/marina.git
-cd marina
+git clone https://github.com/zhqi9277/marina-db.git
+cd marina-db
 
 # 方式 A（推荐）：装到 ~/.local/bin，无需 sudo
 bash scripts/install-cli.sh
@@ -112,7 +110,7 @@ marina            # TTY 进入全屏面板；管道/CI 下打印帮助，不会�
 面板结构：
 
 ```
-╭─ 🍊 marina 0.1.0 ───────────────────────── 6 installed · runtime/ ─╮
+╭─ 🍊 marina 0.1.0 ───────────────────────── 6 installed ` runtime/ ─╮
 │ DATABASES                  │ DETAIL                                │
 ├────────────────────────────┴──────────────────────────────────────┤
 │▸ MySQL      8.4.11   ● 3306│ MySQL 8.4.11                          │
@@ -122,7 +120,7 @@ marina            # TTY 进入全屏面板；管道/CI 下打印帮助，不会�
 │                            │ password root                         │
 ├────────────────────────────┴──────────────────────────────────────┤
 │ ↑↓ move  enter actions  s/x/r start/stop/restart  S/X all  ...    │
-│ · ready                                                           │
+│ ` ready                                                           │
 ╰───────────────────────────────────────────────────────────────────╯
 ```
 
@@ -135,13 +133,13 @@ marina            # TTY 进入全屏面板；管道/CI 下打印帮助，不会�
 
 ```
 runtime/
-  engines/<db>/<major>/<version>/   下载/编译出来的 payload
+  engines/<db>/<major>/<version>/   解压后的引擎文件
   data/<db>/<major>/                datadir，升级不覆盖
   etc/<db>/<major>/                 生成的配置（my.cnf / redis.conf / mongod.conf …）
   logs/<db>/<major>.log
   run/<db>-<major>.pid|.sock|.service.json  进程、套接字与实际运行版本
   cache/<db>/<version>/*.tar.gz     已校验的下载缓存
-  cache/index/<engine>.<os>.<arch>.json  远程版本索引缓存
+  cache/index/catalog-<hash>.json  按清单 URL 缓存的版本索引
   shims/<bin>                       PATH shims
   state.json                        激活版本、端口、设置
   state.lock                        写入 state.json 时的目录锁（退出即删）
@@ -178,85 +176,23 @@ runtime/
 
 ## 4. 版本从哪来
 
-`marina remote` 的处理链路：
+默认清单存放在 GitHub 的 `engine-catalog` 分支，归档由 [GitHub Releases](https://github.com/zhqi9277/marina-db/releases) 提供。`marina remote` 和终端面板仅列出本机可安装的版本。指定完整版本时精确匹配，指定系列时选择最新补丁，非交互式省略版本时优先使用引擎的默认系列。
 
-```
-远端目录 / JSON / tag feed
-        │ 解析
-        ▼
-版本列表 ──平台/架构过滤──▶ 缓存 runtime/cache/index/*.json（TTL 6h）
-        │
-        ▼
-install: HEAD 校验 → 下载 → 校验和 → 解压/编译
-```
+清单默认缓存 6 小时，可用 `MARINA_INDEX_TTL` 调整。`marina remote --refresh` 立即重新读取。若指定版本缺失，安装命令会列出可用版本。
 
-**仓库里没有硬编码的版本清单或逐版本下载地址。** 索引来源按优先级尝试，失败自动降级到下一个。
-
-实测覆盖（2026-10）：
-
-| 引擎 | 来源（按顺序） | 获取方式 | 校验和 | 备注 |
-|---|---|---|---|---|
-| PostgreSQL | 阿里云 → 腾讯云 → 华为云 → `ftp.postgresql.org` | 目录列表 | `.sha256` | 源码编译 |
-| Redis | 华为云 → `download.redis.io/releases/` | 目录列表 | 无 | 源码编译 |
-| MariaDB | 阿里云 → 腾讯云 → 华为云 | 目录列表 | `sha256sums.txt` | macOS 无官方二进制 |
-| Memcached | 华为云 → `memcached.org/files/` | 目录列表 | 无 | 源码构建未自动化 |
-| MySQL | 阿里云 / 华为云目录（≤ 8.0.x）→ GitHub `mysql-server` tag feed（8.4/9.x） | 目录 + tag feed | 官方 `.md5`（当前未消费） | 8.4+ 文件走 `cdn.mysql.com` |
-| MongoDB | `downloads.mongodb.org/full.json` → `fastdl.mongodb.org` | JSON 索引 | JSON 内 `sha256` | 国内镜像无二进制 |
-
-必须知道的几个约束：
-
-- **国内镜像不带 MySQL 8.4**：阿里云/华为云目录停在 8.0.28/8.0.29。8.4/9.x 的版本号从官方
-  `mysql-server` tag feed 发现，二进制从 `cdn.mysql.com` 取。
-- **MongoDB 国内镜像没有二进制**：版本和文件都走官方 `full.json` + `fastdl`。
-- **清华镜像不可用**：改版后目录/文件均 404，因此没有作为索引源。
-- **镜像顺序可调**：`MARINA_MIRROR=huawei,aliyun marina remote`。
-- **索引 TTL**：默认 21600 秒，`MARINA_INDEX_TTL` 可改；`--refresh` 强制重查。
-- **平台过滤**：当前平台没有产物的版本会标 `n/a`，`install` 会给出原因；不会静默装错包。
-- **校验和**：有 sha256 就校验（PG / MariaDB / MongoDB）；MySQL 只有官方 `.md5`（当前未消费），
-  Redis/Memcached 上游没有官方 sha256，只校验下载完整性（大小/解压成功）。
-
-### 自建产物 overlay
-
-镜像缺平台（比如 macOS 的 MariaDB）时，可以自己做产物并让 marina 优先使用：
-
-```bash
-node scripts/make-manifest.mjs > manifest.json
-MARINA_CATALOG_FILE=manifest.json marina install mariadb@11.4.13
-# 或者
-MARINA_CATALOG_URL=https://example.test/manifest.json marina install ...
-```
-
-命中 `(engine, version, os, arch)` 的 overlay 优先于远程索引；`os` 会做
-`windows→win32`、`macos/osx→darwin` 归一化。
+`MARINA_CATALOG_FILE=/path/manifest.json` 或 `MARINA_CATALOG_URL=https://example.test/manifest.json` 可覆盖默认清单。已有归档可用 `marina install redis@7.4.11 --file /path/to/archive.tar.gz` 直接安装。
 
 ---
 
 ## 5. 平台支持
 
-| 能力 | macOS | Linux | Windows |
-|---|---|---|---|
-| CLI / 版本切换 / 全屏面板 | ✅ 实测 | ⚠️ 代码就绪，未真机验证 | ⚠️ 代码就绪，未真机验证 |
-| MySQL | ✅ 官方 tar.gz 实测 | ✅ 官方 `.tar.xz` | ✅ `.zip` |
-| MongoDB | ✅ 官方 tgz 实测 | ✅ tgz | ✅ `.zip` |
-| PostgreSQL | ✅ 源码编译实测 | ✅ 源码编译 | ❌ 源码需 MSVC，建议 WSL |
-| Redis | ✅ 源码编译实测 | ✅ 源码编译 | ❌ 无官方 Windows 构建（WSL / Memurai） |
-| MariaDB | ⚠️ 可列版本，本机不自动编译 | ⚠️ 同上 | ❌ |
-| Memcached | ⚠️ 可列版本，本机不自动编译 | ⚠️ 同上 | ❌ |
+| 平台 | 目标架构 | 验收环境 |
+|---|---|---|
+| macOS | Apple Silicon、Intel | macOS 15 |
+| Linux | x64、ARM64 | Ubuntu 22.04 |
+| Windows | x64 | Windows Server 2022 |
 
-平台差异集中在 `src/host/`（`linux` / `darwin` / `win32` 三个后端）。`src/core/platform.js` 仍是对外门面：包名里的架构 token、macOS SDK 标签、tar 参数留在这里，因为它们描述的是**所有平台的安装包**，不是当前正在跑的系统。引擎和生命周期只问宿主的能力（unix socket、fork、POSIX 信号），不再自己判断操作系统。
-
-- 包名/架构：darwin `…-macos15-arm64.tar.gz`、linux `…-linux-glibc2.28-aarch64.tar.xz`、win32 `…-winx64.zip`
-- 解压：`.tar.gz/.tgz/.tar.xz/.zip` 按后缀选参数；Windows 无 bsdtar 时退回 PowerShell
-- 进程身份：Linux 读 `/proc`，macOS 用 `ps` / `lsof`，Windows 读 `Win32_Process.CommandLine`（大小写不敏感，`/` 与 `\` 都认）
-- 停止：POSIX 发 `SIGTERM` / `SIGKILL`；Windows 用 `taskkill`，手工提示是 `taskkill /F /PID`
-- MySQL：没有 unix socket 时，客户端/探活走 TCP
-- PostgreSQL：没有 unix socket 时省略 `-k`，不创建 socket 目录
-- MongoDB：没有 fork 时由 marina detach
-- shims：Windows 生成 `.cmd`；`shellenv` 输出 PowerShell 语法
-- 依赖检查：`otool -L` / `ldd`；Windows 跳过
-- 登录自启：LaunchAgent、`systemd --user`、登录计划任务（`schtasks /SC ONLOGON`，任务 XML 写在 `%APPDATA%\marina`）
-
-Linux / Windows **尚未做真机端到端安装验证**。
+首批构建 MySQL 8.4.11、MariaDB 11.4.13、PostgreSQL 17.11、MongoDB 7.0.45、Redis 7.4.11 和 Memcached 1.6.45。Windows 使用 Redis 便携版及 Memcached 1.6.8 便携版。
 
 ---
 
@@ -303,7 +239,7 @@ export PATH="$PWD/bin:$PATH"
 | `marina remote <db> --installed` | 只列已安装 |
 | `marina remote --json` | 机器可读输出 |
 | `marina remote --refresh` | 强制重查索引 |
-| `marina install <db>[@ver]` | 下载/编译、初始化、写配置；默认切换 active |
+| `marina install <db>[@ver]` | 下载、校验、解压、初始化、写配置；默认切换 active |
 | `marina install <db> --port 6380` | 安装时指定端口 |
 | `marina install <db>@<ver> --file <pkg>` | 用本地包离线安装 |
 | `marina install <db>@<ver> --no-use` | 装完不切换 active |
@@ -368,11 +304,9 @@ export PATH="$PWD/bin:$PATH"
 | 变量 | 默认 | 作用 |
 |---|---|---|
 | `MARINA_HOME` | 仓库 `runtime/`（可写时）或 `~/.marina` | 运行时根目录 |
-| `MARINA_MIRROR` | 各引擎自带顺序（见第 4 节） | 索引/下载源顺序 |
 | `MARINA_INDEX_TTL` | `21600` | 索引缓存秒数 |
-| `MARINA_CATALOG_FILE` | — | 自建产物 overlay（本地 JSON） |
-| `MARINA_CATALOG_URL` | — | 自建产物 overlay（HTTP） |
-| `MARINA_BUILD_PATH` | — | 源码编译额外允许的工具目录（冒号分隔），默认只用系统工具链 |
+| `MARINA_CATALOG_FILE` | — | 覆盖默认 GitHub 清单（本地 JSON） |
+| `MARINA_CATALOG_URL` | — | 覆盖默认 GitHub 清单（HTTP） |
 | `MARINA_DEBUG` | — | CLI 打印完整错误栈 |
 
 ---
@@ -485,32 +419,12 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
 
 ## 11. 安装流程
 
-```
-远程索引 ──▶ cache/<db>/<ver>/*.tar.gz ──校验──▶ engines/<db>/<major>/<ver>/
-   （镜像/上游）                                    │
-                                                     │
- etc/<db>/<major>/*.conf ◀── 渲染（已存在不覆盖，--force 才重写）
- data/<db>/<major>/      ◀── 引擎初始化（mysqld --initialize-insecure / initdb / …）
- 首次启动 ─▶ 设置 root 密码 / 清匿名用户 / 删 test 库 ─▶ 停止
-```
+从清单选择版本，下载并校验归档，再解压至 `engines/<db>/<major>/<version>/`。Marina 初始化数据目录、完成首次启动及账号初始化后停止服务。安装成功会切换活动版本，`--no-use` 保留当前选择。
 
-- **major 深度**由 `src/install/catalog.js` 的 `majorDepth` 决定：
-  MySQL `8.4.11→8.4`，PostgreSQL `17.11→17`，Redis `7.4.11→7`。
-- **安装成功默认切换 active**，`--no-use` 保留原来的选择。同一版本线已有服务运行时，安装保留运行中的进程，两种版本可通过 `status` 区分。
-- **配置不覆盖**：`etc/` 下已有文件默认保留，方便你改参数；`--force` 可强制重写。
-- **离线安装**：`--file` 直接给本地包，仍然走解压/初始化/配置流程。
-- **overlay**：`MARINA_CATALOG_FILE/URL` 中匹配的版本可以独立解析。完整版本要求精确匹配。
-- **payload 自愈**：版本目录残缺（找不到 marker）时自动删除重解压；解压、重命名或源码编译失败会清理本次半成品，
-  不会残留成“已安装”；`--force` 强制重新解包。
-- **源码 vs 二进制**：PostgreSQL/Redis 本机编译；MySQL/MongoDB 解包官方二进制；
-  MariaDB/Memcached 在 macOS 上只列版本，安装会明确拒绝（没有可用的自动化构建）。
-- **环境隔离**：marina 起的子进程不继承你 shell 里其他工具留下的状态。
-  源码编译只用系统工具链（`PATH` 收窄为 `/usr/bin:/bin:/usr/sbin:/sbin`，清掉 `PKG_CONFIG*` / `CPPFLAGS` /
-  `LDFLAGS` / `DYLD_*` 等），产物不会把别处的头文件和库烙进去；需要额外的构建工具（比如 cmake）时用
-  `MARINA_BUILD_PATH=/some/bin` 显式加入。客户端与服务进程会去掉 `PGHOST` / `PGPORT` / `PGPASSWORD` /
-  `MYSQL_HOST` / `MYSQL_PWD` / `REDISCLI_AUTH` 等“选服务器/选凭据”的变量，并过滤常见动态库加载变量。
-- **自包含**：一个包只能依赖系统库和自身目录。`marina doctor` 的 `libs` 项会同时报告“找不到的库”和
-  “依赖了安装目录与系统之外的库”；`scripts/build-engine.sh` 打包前做同样的检查，不通过就不产出。
+- 主要版本目录决定数据和配置的路径，例如 MySQL `8.4.11→8.4`、PostgreSQL `17.11→17`、Redis `7.4.11→7`。
+- 已有配置默认保留。同一版本线已有服务运行时，安装保留运行中的进程，`status` 可区分已选择版本和正在运行版本。
+- 版本目录缺少可执行文件时重新解包。解包失败会清理暂存目录。`--force` 可重新解包。
+- 客户端与服务进程会过滤 `PGHOST`、`MYSQL_HOST`、`REDISCLI_AUTH` 和动态库加载等环境变量；`marina doctor` 可检查已安装二进制的依赖。
 
 ---
 
@@ -607,9 +521,9 @@ marina start --all
 | `degraded` | 有 pid 但探活失败：看 `marina logs`；常见是客户端二进制损坏、datadir 不可写、端口被别的东西占 |
 | 启动卡 30 秒后失败 | 先看日志；移动仓库前应先停止服务，重启时会使用新运行时路径 |
 | `port-busy` | 端口被非 marina 进程占用：`lsof -i :<port>`，或 `marina port <db> <新端口>` |
-| `dyld: Library not loaded` | 源码编译的二进制被搬家/删库；重装该版本（保留 datadir） |
+| `dyld: Library not loaded` | 引擎依赖缺失。检查 `marina doctor`，然后重装已发布的同版本。 |
 | `doctor` 的 `libs` 报 `(outside install)` | 这个包依赖了安装目录和系统之外的库，换一台机器就起不来：重装一个自包含的包（`scripts/build-engine.sh`） |
-| `index unavailable` / 403 | 镜像临时不可用；`--refresh` 重试，或 `MARINA_MIRROR=huawei` 换源 |
+| `engine catalog` / HTTP 错误 | 检查 GitHub 是否可访问并运行 `marina remote --refresh`。离线时可用 `--file` 安装已有归档。 |
 | 校验和不匹配 | 缓存损坏：删 `runtime/cache/<db>/<ver>/` 后重装 |
 | `Access denied` | `marina auth <db>` 看保存的凭据；MySQL 系可用正确密码重新设置 |
 | TUI 方向键不动 | 终端把方向键发成应用模式序列；用 `j/k` 代替 |
@@ -633,13 +547,12 @@ npm run marina -- remote   # 不装全局时直接跑
 
 测试覆盖：
 
-- 远程索引解析（镜像 HTML、MySQL tag feed、MongoDB JSON）
-- 版本排序、major 深度、平台过滤、overlay 归一化
+- 版本排序、major 深度、GitHub 清单缓存与平台过滤
 - 配置路径过期检测（INI / YAML / redis.conf 三种指令）、启动快速失败
 - 状态文件损坏归一化与 0600 权限、端口校验、下载完整性、Redis `requirepass`
 - pid 归属校验与 stop 终止确认（含搬家后的旧进程、pid 复用防误杀）
 - `state.json` 跨进程锁（3 进程并发自增不丢更新）、死锁/超时锁回收
-- payload 复用 / 残缺自愈 / 解压与编译失败清理、`stopCommand` 失败告警
+- payload 复用 / 残缺自愈 / 解压失败清理、`stopCommand` 失败告警
 - settings / doctor / shims / registry / platform / host / configcheck / ui 的隔离 `MARINA_HOME` 行为
 - TUI 按键、箭头导航、doctor、账号密码显示、端口/账号/密码输入
 - 各引擎 `account()` 契约
@@ -650,12 +563,20 @@ npm run marina -- remote   # 不装全局时直接跑
 |---|---|
 | `src/cli.js` | 唯一根模块：参数解析、命令分发、输出 |
 | `src/core/` | 路径、平台门面、环境、状态、注册表和项目配置 |
-| `src/install/` | 版本索引、下载、解包、编译、产物检查与安装 |
+| `src/install/` | 版本索引、下载、解包、产物检查与安装 |
 | `src/runtime/` | 生命周期、配置、账号端口、状态查看、自启与诊断 |
 | `src/host/` | 全系统宿主：进程、信号、路径、shell、登录自启 |
 | `src/engines/*.js` | 六个引擎的驱动 |
 | `src/tui/` | 全屏面板状态、绘制、按键与视图 |
 | `src/ui/` | CLI 颜色、表格、消息和交互输出 |
+
+### 构建和发布引擎
+
+1. 推送指向功能分支提交的 `engines-candidate-*` 标签，触发 `build-engines`。它在各目标平台打包引擎，把候选清单和归档发布到 GitHub Releases。
+2. 在 Actions 查看 30 项安装和生命周期验收。验证通过的运行会生成 `engine-validation-<attempt>`。
+3. 合并候选提交后，在 `main` 上运行 `promote-engines`，输入通过验收的运行 ID。工作流验证提交和归档摘要后更新 `engine-catalog`。回滚可还原该分支上的上一次发布提交。
+
+在目标环境可以用 `node scripts/package-engine.mjs redis 7.4.11 dist` 单独构建一个归档。macOS 的额外构建工具目录通过 `MARINA_BUILD_PATH` 指定。依赖检查会在搬动安装目录后执行。当版本提高时，同时更新构建矩阵和输入校验值。
 
 ### 加一个新引擎
 
@@ -677,24 +598,18 @@ export default {
 ```
 
 2. `src/core/registry.js` 注册，`CONF_NAMES` 加配置文件名。
-3. `src/install/catalog.js` 加元数据、`majorDepth`、平台、编译配方。
-4. `src/install/indexing.js` 加索引源（目录解析或自定义 refresh）。
-5. `test/` 加解析/驱动测试，跑 `npm test`。
+3. `src/install/catalog.js` 注册清单名和 `majorDepth`。
+4. 在 `scripts/engine-matrix.mjs` 登记版本，在 `scripts/engine-sources.mjs` 固定上游包及校验值。
+5. 运行 `npm test`，再用候选发布验证目标平台。
 
 ---
 
 ## 16. 已知限制
 
-- **MariaDB / Memcached 在 macOS 不自动安装**：镜像有源码，但没有 macOS 官方二进制，
-  自动编译（cmake + boost / libevent）尚未实现；可用 `MARINA_CATALOG_FILE` 提供自建产物。
-- **MySQL 8.4+ 国内镜像缺失**：版本号来自官方 tag feed，二进制来自 `cdn.mysql.com`，
-  国内下载可能较慢。
-- **校验和**：MySQL 只有官方 `.md5`（当前未消费）；Redis/Memcached 上游无 sha256。
-- **PostgreSQL 列表包含全部历史版本**（数百个），建议 `--major 17` 过滤。
-- **Windows / Linux 未真机验证**。
-- **自启是“登录时”**：macOS 用 LaunchAgent，Linux 用 `systemd --user`，Windows 用登录计划任务。
-  三个系统都还没有真机端到端验证。
-- **不做认证管理**：MongoDB 的 `--auth`、PostgreSQL 的 pg_hba 不自动改。
+- 某个版本能否安装取决于当前平台的已发布清单，可用 `marina remote <db>` 查看。
+- Windows Redis 与 Memcached 由 Marina 管理便携进程。
+- 登录自启使用 LaunchAgent、`systemd --user` 或 Windows 登录计划任务。
+- MongoDB 的 `--auth`、PostgreSQL 的 `pg_hba.conf` 由用户管理。
 
 ---
 
@@ -704,12 +619,12 @@ export default {
 - 账号密码以明文存于 `runtime/state.json`（文件按 `0600` 写入），并会显示在 TUI/`marina auth`/`marina status` 中；
   这些是**本机开发凭据**，不要复用生产密码。
 - MySQL 客户端参数里的 `-p<password>` 会出现在进程列表里（与官方客户端行为一致）。
-- 下载包会尽量做 sha256 校验；没有官方校验和的引擎只能保证传输/解压完整。
-- 安装脚本/编译在本机以当前用户权限执行，不调用 sudo。
+- GitHub 下载包在解压前校验清单中的字节数和 SHA-256。
+- 安装和服务进程均以当前用户权限运行。
 
 ---
 
 <p align="center">
-  <a href="https://gitee.com/zhqi9277/marina">Gitee</a> ·
+  <a href="https://github.com/zhqi9277/marina-db">GitHub</a> ·
   MIT License · © 2026 zhqi9277
 </p>

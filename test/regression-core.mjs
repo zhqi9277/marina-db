@@ -820,20 +820,6 @@ test('materializePayload rejects a binary payload without the engine marker', as
   assert.equal(fs.existsSync(fakeVersionDir('5', '5.0.0')), false, 'a marker-less payload must leave no dest');
 });
 
-test('materializePayload removes the dest when a source build fails', async (t) => {
-  if (process.platform === 'win32') return t.skip('POSIX tar fixture');
-  const tarball = tarballWith('payload-build', { 'src/hello.txt': 'hi' });
-  const target = {
-    tarball,
-    kind: 'source',
-    major: '4',
-    version: '4.0.0',
-    build: { steps: [[process.execPath, '-e', 'process.exit(1)']], bins: {} },
-  };
-  await assert.rejects(installer.materializePayload(target, FAKE_ENGINE()), /build step failed/);
-  assert.equal(fs.existsSync(fakeVersionDir('4', '4.0.0')), false, 'a failed source build must leave no payload');
-});
-
 test('redis config writes requirepass for the stored password', () => {
   const ctx = {
     port: 6379,
@@ -872,20 +858,15 @@ function serve(handler) {
 }
 
 test('downloadFile() rejects a truncated transfer instead of caching it', async () => {
-  // HEAD-ish range probe advertises 100 bytes, the body only delivers 10
+  // The catalog advertises 100 bytes. The server only delivers 10.
   const fixture = await serve((req, res) => {
-    if (req.headers.range) {
-      res.writeHead(206, { 'content-range': 'bytes 0-0/100', 'content-length': '1' });
-      res.end('x');
-      return;
-    }
     res.writeHead(200, { 'content-length': '10' });
     res.end('0123456789');
   });
   const dest = path.join(tmp('download-bad'), 'payload.bin');
   try {
     await assert.rejects(
-      download.downloadFile(fixture.url, dest, { label: 'payload.bin', retries: 0 }),
+      download.downloadFile(fixture.url, dest, { size: 100, label: 'payload.bin', retries: 0 }),
       /incomplete download for payload\.bin: received 10 of 100 bytes/,
     );
     assert.equal(fs.existsSync(dest), false, 'a truncated payload must not enter the cache');

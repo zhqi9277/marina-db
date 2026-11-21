@@ -12,7 +12,6 @@ import { readProject } from './core/project.js';
 import { changePort, changeAccount } from './runtime/settings.js';
 import * as autostart from './runtime/autostart.js';
 import { findBin } from './install/archive.js';
-import { OS_LABEL } from './core/platform.js';
 import { clientEnv } from './core/env.js';
 import { runDoctor } from './runtime/doctor.js';
 import * as state from './core/state.js';
@@ -70,10 +69,9 @@ FLAGS
 
 ENV
   MARINA_HOME            install root (default <repo>/runtime, ~/.marina if read-only)
-  MARINA_MIRROR          index/download source order, e.g. huawei,aliyun (default: per engine)
   MARINA_INDEX_TTL       version-index cache seconds (default 21600)
-  MARINA_CATALOG_FILE    optional self-built artifact overlay (JSON)
-  MARINA_CATALOG_URL     same, fetched over HTTP
+  MARINA_CATALOG_FILE    use a local build catalog (JSON)
+  MARINA_CATALOG_URL     override the GitHub build catalog URL
 
 HOMEPAGE
   https://gitee.com/zhqi9277/marina
@@ -155,15 +153,14 @@ async function cmdLs(flags) {
 async function cmdRemote(flags, args) {
   const engine = args[0] ? getEngine(args[0]) : null;
   const targets = engine ? [engine] : engineList;
-  const indexes = [];
-
-  for (const e of targets) {
+  const indexes = (await Promise.all(targets.map(async (e) => {
     try {
-      indexes.push({ ...(await listVersions(e.key, { refresh: !!flags.refresh })), engine: e });
+      return { ...(await listVersions(e.key, { refresh: !!flags.refresh })), engine: e };
     } catch (err) {
       warn(`${e.label}: ${err.message.split('\n')[0]}`);
+      return null;
     }
-  }
+  }))).filter(Boolean);
   if (!indexes.length) throw new Error('no version index is reachable — check the network, then: marina remote --refresh');
 
   if (flags.json) {
@@ -199,7 +196,7 @@ async function cmdRemote(flags, args) {
     });
     out(table(['DATABASE', 'VERSIONS', 'NEWEST', 'INSTALLED', 'INDEX'], rows));
     hint('full list: marina remote <db>   ·   refresh: marina remote --refresh');
-    hint('versions are discovered remotely (mirrors first, official upstream as fallback)');
+    hint('lists published builds for this operating system and architecture');
     return;
   }
 
@@ -233,20 +230,14 @@ async function cmdInstall(flags, args) {
   const tag = tagParts.join('@') || null;
 
   let target = ref;
-  if (!tag && !flags.file && !flags.version) {
+  if (!tag && !flags.file && !flags.version && isInteractive()) {
     const idx = await listVersions(engine.key);
-    const usable = idx.versions.filter((v) => v.supported);
-    const pool = usable.length ? usable : idx.versions;
-    if (!pool.length) throw new Error(`${engine.label}: the remote index returned no versions`);
-    if (!isInteractive()) {
-      const recommended = pool.find((v) => v.major === engine.defaultMajor) || pool[0];
-      target = `${engine.key}@${recommended.version}`;
-    } else {
+    if (idx.versions.length) {
       const { item } = await select(
         `${engine.label} — choose a version`,
-        pool.slice(0, 30).map((v) => ({
+        idx.versions.slice(0, 30).map((v) => ({
           label: v.version,
-          hint: `${v.kind} · ${v.source}${v.supported ? '' : ` · n/a on ${OS_LABEL}`}`,
+          hint: v.source,
         })),
       );
       target = `${engine.key}@${item.label}`;

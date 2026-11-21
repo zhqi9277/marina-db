@@ -13,7 +13,6 @@ process.env.MARINA_HOME = HOME;
 const { runDoctor } = await import('../src/runtime/doctor.js');
 const { OS_LABEL } = await import('../src/core/platform.js');
 const state = await import('../src/core/state.js');
-const versions = await import('../src/install/versions.js');
 
 const check = (checks, name) => {
   const item = checks.find((c) => c.name === name);
@@ -46,15 +45,13 @@ test('an empty home reports the expected check values', async () => {
 });
 
 test('a populated index cache turns the index check green', async () => {
-  const file = versions._internal.cacheFile('mysql');
+  const file = path.join(HOME, 'cache', 'index', 'catalog-' + 'a'.repeat(64) + '.json');
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(
     file,
     JSON.stringify({
-      engine: 'mysql',
-      source: 'fixture',
       fetchedAt: Date.now(),
-      versions: [{ version: '8.4.11', major: '8.4', kind: 'binary', urls: ['u'], platformKnown: true }],
+      artifacts: [{ key: 'mysql' }],
     }) + '\n',
   );
 

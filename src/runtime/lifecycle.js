@@ -194,7 +194,7 @@ function serverCommand(ctx) {
   if (ctx.engine.startCommand) return ctx.engine.startCommand(ctx);
   const bin = findBin(ctx.root, ctx.engine.serverBin || []);
   if (!bin) throw new Error(`cannot find ${ctx.engine.serverBin?.join('/')} under ${ctx.root}`);
-  return { cmd: bin, args: ctx.engine.startArgs(ctx), foreground: true };
+  return { cmd: bin, args: ctx.engine.startArgs(ctx), foreground: true, recordPid: ctx.engine.recordPid };
 }
 
 export function start(ctx, opts) {
@@ -259,6 +259,14 @@ async function startService(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
     child.unref();
     if (spawnError) throw new Error(`failed to start ${ctx.engine.label}: ${spawnError.message}`);
     spawnedPid = child.pid;
+    if (spec.recordPid) {
+      try {
+        fs.writeFileSync(ctx.pidFile, `${spawnedPid}\n`);
+      } catch (error) {
+        child.kill();
+        throw error;
+      }
+    }
   }
 
   // readiness = our own pid file is alive *and* the port accepts connections.

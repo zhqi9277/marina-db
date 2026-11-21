@@ -4,6 +4,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
+import { Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { progress, info, warn } from '../ui/console.js';
 
 const MAX_REDIRECTS = 6;
@@ -26,7 +28,7 @@ function request(url, opts = {}, redirects = 0) {
       }
       if (statusCode !== 200 && statusCode !== 206) {
         res.resume();
-        return reject(new Error(`HTTP ${statusCode} for ${url}`));
+        return reject(Object.assign(new Error(`HTTP ${statusCode} for ${url}`), { statusCode }));
       }
       resolve(res);
     });
@@ -77,12 +79,12 @@ export async function sha256File(file) {
  * Download `url` to `dest`, verifying sha256 (when provided).
  * Resumes a previous `.part` file when the server supports ranges.
  */
-export async function downloadFile(url, dest, { sha256, label = path.basename(dest), retries = 2 } = {}) {
+export async function downloadFile(url, dest, { sha256, size, label = path.basename(dest), retries = 2 } = {}) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
 
   if (fs.existsSync(dest) && sha256) {
     const got = await sha256File(dest);
-    if (got === sha256) {
+    if (got === sha256 && (size == null || fs.statSync(dest).size === size)) {
       info(`${label} already in cache (sha256 ok)`);
       return dest;
     }
@@ -94,26 +96,36 @@ export async function downloadFile(url, dest, { sha256, label = path.basename(de
   for (let attempt = 0; attempt <= retries; attempt++) {
     let start = fs.existsSync(part) ? fs.statSync(part).size : 0;
     try {
-      const total = (await headSize(url)) ?? 0;
+      if (size != null && start >= size) {
+        fs.rmSync(part, { force: true });
+        start = 0;
+      }
       const headers = start > 0 ? { Range: `bytes=${start}-` } : {};
       const res = await request(url, { headers });
-      const resumed = res.statusCode === 206 && start > 0;
+      const range = /^bytes (\d+)-\d+\/(\d+|\*)$/.exec(res.headers['content-range'] || '');
+      const resumed = res.statusCode === 206 && start > 0 && Number(range?.[1]) === start;
+      if (res.statusCode === 206 && !(resumed || (start === 0 && range?.[1] === '0'))) {
+        res.resume();
+        fs.rmSync(part, { force: true });
+        throw new Error(`invalid download range for ${label}`);
+      }
       if (!resumed) start = 0;
       const bytes = Number(res.headers['content-length'] || 0) || 0;
-      const totalBytes = total || (resumed ? start + bytes : bytes);
+      const totalBytes = size ?? (Number(range?.[2]) || (bytes ? start + bytes : 0));
       const bar = progress(label, totalBytes);
-      const stream = fs.createWriteStream(part, { flags: resumed ? 'a' : 'w' });
       let received = start;
-      for await (const chunk of res) {
-        received += chunk.length;
-        if (!stream.write(chunk)) await new Promise((r) => stream.once('drain', r));
-        bar.update(received);
+      try {
+        await pipeline(res, new Transform({
+          transform(chunk, _encoding, callback) {
+            received += chunk.length;
+            bar.update(received);
+            callback(null, chunk);
+          },
+        }), fs.createWriteStream(part, { flags: resumed ? 'a' : 'w' }));
+      } finally {
+        bar.done();
       }
-      await new Promise((resolve, reject) => stream.end((e) => (e ? reject(e) : resolve())));
-      bar.done();
 
-      // upstreams without an official sha256 are verified by size (README), so a
-      // silently truncated transfer must not be renamed into the cache
       if (totalBytes && received !== totalBytes) {
         fs.rmSync(part, { force: true });
         throw new Error(`incomplete download for ${label}: received ${received} of ${totalBytes} bytes`);
@@ -130,6 +142,7 @@ export async function downloadFile(url, dest, { sha256, label = path.basename(de
       return dest;
     } catch (e) {
       lastErr = e;
+      if (e.statusCode === 416) fs.rmSync(part, { force: true });
       if (attempt < retries) warn(`${label}: ${e.message} — retrying (${attempt + 2}/${retries + 1})`);
     }
   }

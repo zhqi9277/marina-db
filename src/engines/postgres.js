@@ -60,7 +60,7 @@ export default {
     if (!pgctl) throw new Error('pg_ctl not found in package');
     // keep postgres unix sockets in their own run subdir instead of run/
     const sockDir = path.join(ctx.runDir, 'postgres');
-    const socketFlag = host.capabilities.unixSocket ? `-k ${sockDir}` : '';
+    const socketFlag = host.capabilities.unixSocket ? `-k '${sockDir.replace(/'/g, "'\\''")}'` : '';
     if (host.capabilities.unixSocket) mkdirp(sockDir);
     return {
       cmd: pgctl,
