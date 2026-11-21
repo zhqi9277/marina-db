@@ -51,13 +51,15 @@ try {
     const layout = discoverRoot(root, engine.markers);
     if (!layout) throw new Error('upstream archive has an unrecognized ' + key + ' layout');
     root = layout;
-    if (key === 'mariadb' && process.platform === 'linux') {
-      // Galera clustering helpers depend on the upstream boost ABI.
-      fs.rmSync(path.join(root, 'bin', 'garbd'), { force: true });
-      fs.rmSync(path.join(root, 'lib', 'galera'), { recursive: true, force: true });
-    }
   } else {
     run('bash', ['scripts/build-engine.sh', key, inputs[0].file, root, ...inputs.slice(1).map(({ file }) => file)]);
+  }
+
+  if (key === 'mariadb') {
+    // Keep the standalone server distribution, excluding clustering and test tools.
+    for (const item of ['bin/garbd', 'lib/galera', 'mariadb-test', 'mysql-test']) {
+      fs.rmSync(path.join(root, item), { recursive: true, force: true });
+    }
   }
 
   if (key === 'mongodb') {

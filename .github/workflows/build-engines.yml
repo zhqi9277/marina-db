@@ -40,15 +40,18 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake bison patchelf libaio1 libncurses5 libncurses-dev libnuma1 liburing2
+          sudo apt-get install -y build-essential cmake bison patchelf libaio1 libncurses5 libncurses-dev libnuma1 liburing2 libssl-dev
       - name: Build tools (macOS MariaDB)
         if: runner.os == 'macOS' && matrix.engine == 'mariadb'
         run: |
           brew list --versions bison >/dev/null || brew install bison
+          ssl_root=$(brew --prefix openssl@3)
+          test -f "$ssl_root/lib/libssl.a" || brew install openssl@3
           mkdir -p "$RUNNER_TEMP/marina-tools"
           ln -s "$(command -v cmake)" "$RUNNER_TEMP/marina-tools/cmake"
           ln -s "$(brew --prefix bison)/bin/bison" "$RUNNER_TEMP/marina-tools/bison"
           echo "MARINA_BUILD_PATH=$RUNNER_TEMP/marina-tools" >> "$GITHUB_ENV"
+          echo "MARINA_OPENSSL_ROOT=$ssl_root" >> "$GITHUB_ENV"
       - name: Package for this platform
         run: node scripts/package-engine.mjs "${{ matrix.engine }}" "${{ matrix.version }}" dist
       - uses: actions/upload-artifact@v7
