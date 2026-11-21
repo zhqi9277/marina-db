@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildEnv, clientEnv, SYSTEM_PATH } from '../src/env.js';
-import { spawnAsync } from '../src/archive.js';
-import { IS_WIN } from '../src/platform.js';
+import { buildEnv, clientEnv, SYSTEM_PATH } from '../src/core/env.js';
+import { spawnAsync } from '../src/install/archive.js';
+import { IS_WIN } from '../src/core/platform.js';
 
 const shell = {
   HOME: '/home/dev',
@@ -17,12 +17,14 @@ const shell = {
   PKG_CONFIG: '/opt/other-stack/bin/pkg-config',
   CPPFLAGS: '-I/opt/other-stack/include',
   LDFLAGS: '-L/opt/other-stack/lib',
+  CC: '/opt/other-stack/bin/cc',
+  MAKEFLAGS: '-I/opt/other-stack/include',
   DYLD_LIBRARY_PATH: '/opt/other-stack/lib',
 };
 
 test('clientEnv drops server-selecting variables and keeps the rest', () => {
   const env = clientEnv(shell);
-  for (const name of ['PGHOST', 'PGPASSWORD', 'MYSQL_PWD', 'MYSQL_TCP_PORT', 'REDISCLI_AUTH']) {
+  for (const name of ['PGHOST', 'PGPASSWORD', 'MYSQL_PWD', 'MYSQL_TCP_PORT', 'REDISCLI_AUTH', 'DYLD_LIBRARY_PATH']) {
     assert.equal(name in env, false, name);
   }
   assert.equal(env.HOME, '/home/dev');
@@ -32,7 +34,7 @@ test('clientEnv drops server-selecting variables and keeps the rest', () => {
 
 test('buildEnv drops compiler/linker overrides and narrows PATH to the system toolchain', { skip: IS_WIN }, () => {
   const env = buildEnv(shell);
-  for (const name of ['PKG_CONFIG', 'CPPFLAGS', 'LDFLAGS', 'DYLD_LIBRARY_PATH', 'PGHOST']) {
+  for (const name of ['PKG_CONFIG', 'CPPFLAGS', 'LDFLAGS', 'CC', 'MAKEFLAGS', 'DYLD_LIBRARY_PATH', 'PGHOST']) {
     assert.equal(name in env, false, name);
   }
   assert.equal(env.PATH, SYSTEM_PATH.join(':'));

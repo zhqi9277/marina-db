@@ -1,8 +1,8 @@
 // Redis: no datadir bootstrap, config file drives everything (daemonize yes).
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnAsync, findBin } from '../archive.js';
-import { mkdirp } from '../paths.js';
+import { spawnAsync, findBin } from '../install/archive.js';
+import { mkdirp } from '../core/paths.js';
 
 /**
  * redis.conf quoting: bare words cannot contain spaces, quoted values accept

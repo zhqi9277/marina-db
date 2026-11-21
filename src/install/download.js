@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
-import { progress, info, warn } from './ui.js';
+import { progress, info, warn } from '../ui/console.js';
 
 const MAX_REDIRECTS = 6;
 // some mirrors (aliyun) answer 403 to non-browser user agents

@@ -5,7 +5,7 @@ import { dirs } from './paths.js';
 
 const FILE = path.join(dirs.root, 'state.json');
 const LOCK = path.join(dirs.root, 'state.lock');
-const DEFAULTS = { version: 1, active: {}, ports: {}, settings: { mysqlRootPassword: 'root', accounts: {}, autostart: [] } };
+const DEFAULTS = { version: 1, active: {}, selected: {}, ports: {}, settings: { mysqlRootPassword: 'root', accounts: {}, instanceAccounts: {}, autostart: [] } };
 
 function objectOf(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -124,11 +124,12 @@ export const ACCOUNT_DEFAULTS = {
 };
 
 /** pure resolver, also used by tests */
-export function resolveAccount(settings = {}, key) {
+export function resolveAccount(settings = {}, key, major) {
   const base = ACCOUNT_DEFAULTS[key] || { user: null, password: null };
-  const saved = settings.accounts?.[key] || {};
+  const instance = objectOf(settings.instanceAccounts?.[`${key}:${major}`]);
+  const saved = { ...settings.accounts?.[key], ...instance };
   let password = saved.password !== undefined ? saved.password : base.password;
-  if (password === null && (key === 'mysql' || key === 'mariadb')) {
+  if (password === null && !Object.hasOwn(instance, 'password') && (key === 'mysql' || key === 'mariadb')) {
     password = settings.mysqlRootPassword ?? 'root';
   }
   return { user: saved.user !== undefined ? saved.user : base.user, password };
@@ -157,11 +158,13 @@ export function load() {
     ...DEFAULTS,
     ...raw,
     active,
+    selected: Object.fromEntries(Object.entries(objectOf(raw.selected)).filter(([, value]) => typeof value === 'string' && value)),
     ports,
     settings: {
       ...DEFAULTS.settings,
       ...settings,
       accounts: objectOf(settings.accounts),
+      instanceAccounts: objectOf(settings.instanceAccounts),
       autostart: Array.isArray(settings.autostart) ? settings.autostart.filter((id) => typeof id === 'string') : [],
     },
   };
@@ -183,13 +186,17 @@ export function setActive(key, version) {
   });
 }
 
-export function accountOf(key) {
-  return resolveAccount(load().settings, key);
+export function accountOf(key, major) {
+  return resolveAccount(load().settings, key, major);
 }
 
-export function setAccount(key, patch) {
+export function setAccount(key, patch, major) {
   return mutate((s) => {
-    const next = { ...resolveAccount(s.settings, key), ...patch };
+    const next = { ...resolveAccount(s.settings, key, major), ...patch };
+    if (major !== undefined) {
+      s.settings.instanceAccounts[`${key}:${major}`] = next;
+      return;
+    }
     s.settings.accounts = { ...(s.settings.accounts || {}), [key]: next };
     if (key === 'mysql') s.settings.mysqlRootPassword = next.password;
   });
@@ -200,8 +207,12 @@ export function autostartList() {
 }
 
 export function setAutostart(ids) {
+  return updateAutostart(() => ids);
+}
+
+export function updateAutostart(update) {
   return mutate((s) => {
-    s.settings.autostart = [...new Set(ids)].sort();
+    s.settings.autostart = [...new Set(update(s.settings.autostart))].sort();
   });
 }
 
@@ -209,14 +220,38 @@ export function getActive(key) {
   return load().active[key] || null;
 }
 
+export function selectedVersion(key, major) {
+  return load().selected[`${key}:${major}`] || null;
+}
+
+export function selectVersion(key, major, version, { active = false, port = null } = {}) {
+  return mutate((s) => {
+    const id = `${key}:${major}`;
+    if (version) s.selected[id] = version;
+    else delete s.selected[id];
+    if (active) {
+      if (version) s.active[key] = version;
+      else delete s.active[key];
+    }
+    if (port !== null) s.ports[id] = validatePort(port);
+  });
+}
+
 export function portOf(key, major, fallback) {
   const s = load();
   return s.ports[`${key}:${major}`] ?? fallback;
 }
 
-export function setPort(key, major, port) {
+export function validatePort(port) {
   const value = Number(port);
-  if (!Number.isInteger(value) || value < 1 || value > 65535) throw new Error('port must be 1..65535');
+  if (!['number', 'string'].includes(typeof port) || !Number.isInteger(value) || value < 1 || value > 65535) {
+    throw new Error('port must be 1..65535');
+  }
+  return value;
+}
+
+export function setPort(key, major, port) {
+  const value = validatePort(port);
   return mutate((s) => {
     s.ports[`${key}:${major}`] = value;
   });

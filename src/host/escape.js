@@ -14,5 +14,6 @@ export function xmlEscape(value) {
  * uses this; unit metadata such as Description is unchanged.
  */
 export function systemdEscape(value) {
-  return String(value).replace(/%/g, '%%').replace(/\$/g, '$$$$');
+  return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')
+    .replace(/%/g, '%%').replace(/\$/g, '$$$$');
 }

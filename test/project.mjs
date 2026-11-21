@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
 
-import { PROJECT_FILE, findProjectFile, readProject } from '../src/project.js';
+import { PROJECT_FILE, findProjectFile, readProject } from '../src/core/project.js';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-project-'));
 const deep = path.join(root, 'a', 'b', 'c');

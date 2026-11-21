@@ -102,6 +102,7 @@ export function badge(state) {
     case 'degraded': return C.yellow('◐ degraded');
     case 'inactive': return C.gray('◌ inactive');
     case 'port-busy': return C.magenta('◑ port busy');
+    case 'unknown': return C.yellow('? unknown');
     case 'absent': return C.gray('· not installed');
     default: return C.gray('○ stopped');
   }
@@ -113,6 +114,7 @@ export function dot(state) {
     case 'degraded': return C.yellow('◐');
     case 'inactive': return C.gray('◌');
     case 'port-busy': return C.magenta('◑');
+    case 'unknown': return C.yellow('?');
     case 'absent': return C.grayDark('·');
     default: return C.gray('○');
   }

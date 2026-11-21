@@ -1,10 +1,10 @@
 // Engine capability metadata + build recipes.
 //
 // IMPORTANT: no version numbers and no download URLs live here. Versions are
-// discovered remotely by src/indexing.js (Chinese mirrors first, official
+// discovered remotely by src/install/indexing.js (Chinese mirrors first, official
 // upstream as fallback) and cached under runtime/cache/index/ as a result of
 // that query — never shipped as a list in the source tree.
-import { PLATFORM } from './platform.js';
+import { PLATFORM } from '../core/platform.js';
 
 export const CATALOG = {
   mysql: {

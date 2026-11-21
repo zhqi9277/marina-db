@@ -1,8 +1,8 @@
 // PostgreSQL: initdb for the cluster, pg_ctl to run it.
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnAsync, findBin } from '../archive.js';
-import { mkdirp } from '../paths.js';
+import { spawnAsync, findBin } from '../install/archive.js';
+import { mkdirp } from '../core/paths.js';
 import { host } from '../host/index.js';
 
 export default {
@@ -115,7 +115,7 @@ export default {
     try {
       const pid = parseInt(fs.readFileSync(file, 'utf8').split('\n')[0], 10);
       let alive = false;
-      if (Number.isFinite(pid)) {
+      if (Number.isSafeInteger(pid) && pid > 0) {
         try {
           process.kill(pid, 0);
           alive = true;

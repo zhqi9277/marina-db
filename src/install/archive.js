@@ -2,12 +2,12 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { mkdirp } from './paths.js';
-import { info } from './ui.js';
-import { host } from './host/index.js';
-import { tarArgs } from './platform.js';
-import { clientEnv } from './env.js';
-export { expandArchiveArgs } from './host/win32.js';
+import { mkdirp } from '../core/paths.js';
+import { info } from '../ui/console.js';
+import { host } from '../host/index.js';
+import { exe, IS_WIN, tarArgs } from '../core/platform.js';
+import { clientEnv } from '../core/env.js';
+export { expandArchiveArgs } from '../host/win32.js';
 
 export function spawnAsync(cmd, args, opts = {}) {
   return new Promise((resolve, reject) => {
@@ -16,7 +16,12 @@ export function spawnAsync(cmd, args, opts = {}) {
     let stderr = '';
     child.stdout?.on('data', (d) => (stdout += d));
     child.stderr?.on('data', (d) => (stderr += d));
-    if (opts.input) child.stdin.end(opts.input);
+    if (opts.input) {
+      child.stdin.on('error', (error) => {
+        if (error.code !== 'EPIPE') reject(error);
+      });
+      child.stdin.end(opts.input);
+    }
     child.on('error', reject);
     child.on('close', (code) => resolve({ code, stdout, stderr }));
   });
@@ -26,10 +31,13 @@ export async function extractTar(tarball, destDir) {
   mkdirp(destDir);
   info(`extracting ${path.basename(tarball)}`);
   const [flag] = tarArgs(tarball);
-  let res = await spawnAsync('tar', [flag, tarball, '-C', destDir]);
+  const fallback = host.zipExtractArgs(tarball, destDir);
+  let res = await spawnAsync('tar', [flag, tarball, '-C', destDir]).catch((err) => {
+    if (fallback && err.code === 'ENOENT') return { code: 1 };
+    throw err;
+  });
   // Windows without bsdtar: the host falls back to PowerShell for zip payloads
   if (res.code !== 0) {
-    const fallback = host.zipExtractArgs(tarball, destDir);
     if (fallback) res = await spawnAsync(fallback.cmd, fallback.args);
   }
   if (res.code !== 0) throw new Error(`tar failed (${res.code}): ${res.stderr.trim()}`);
@@ -43,10 +51,11 @@ export async function extractTar(tarball, destDir) {
  *   8.4.11/bin/mysqld   (versioned root)  and  bin/redis-server  (flat root)
  */
 export function discoverRoot(dir, markers) {
+  const names = IS_WIN ? markers.flatMap((marker) => [marker, executableName(marker)]) : markers;
   const queue = [{ dir, depth: 0 }];
   while (queue.length) {
     const { dir: cur, depth } = queue.shift();
-    for (const marker of markers) {
+    for (const marker of names) {
       if (fs.existsSync(path.join(cur, marker))) return cur;
     }
     if (depth >= 3) continue;
@@ -62,6 +71,10 @@ export function discoverRoot(dir, markers) {
 }
 
 const BIN_DIRS = ['bin', 'sbin', 'scripts', 'libexec', 'lib'];
+
+function executableName(name) {
+  return /\.(?:exe|cmd|bat)$/i.test(name) ? name : exe(name);
+}
 
 /** macOS sprinkles .DS_Store / ._* into extracted trees; they break "single top dir" logic */
 function stripJunk(dir, depth = 0) {
@@ -84,13 +97,14 @@ function stripJunk(dir, depth = 0) {
 
 export function findBin(root, names) {
   if (!root) return null;
+  const candidates = IS_WIN ? names.flatMap((name) => [executableName(name), name]) : names;
   // 1) the usual suspects, in order — covers bin/, sbin/ and scripts/ payloads
   for (const dir of BIN_DIRS) {
-    for (const name of names) {
+    for (const name of candidates) {
       const p = path.join(root, dir, name);
       try {
         const st = fs.statSync(p);
-        if (st.isFile() && st.mode & 0o111) return p;
+        if (st.isFile() && (IS_WIN || st.mode & 0o111)) return p;
       } catch {}
     }
   }
@@ -108,9 +122,10 @@ export function findBin(root, names) {
       const p = path.join(dir, e.name);
       if (e.isDirectory() && depth < 4 && !e.name.startsWith('.')) {
         queue.push({ dir: p, depth: depth + 1 });
-      } else if (names.includes(e.name)) {
+      } else if (candidates.includes(e.name)) {
         try {
-          if (fs.statSync(p).mode & 0o111) return p;
+          const st = fs.statSync(p);
+          if (st.isFile() && (IS_WIN || st.mode & 0o111)) return p;
         } catch {}
       }
     }

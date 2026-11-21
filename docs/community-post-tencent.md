@@ -289,9 +289,9 @@ export default {
 
 | 想改什么 | 从哪里开始 |
 |---|---|
-| 加一个数据库引擎 | `src/engines/` + `src/registry.js` + `src/catalog.js` + `src/indexing.js` |
-| 改安装/下载/编译流程 | `src/installer.js`、`src/versions.js` |
-| 改启动/停止/探活 | `src/lifecycle.js` |
+| 加一个数据库引擎 | `src/engines/` + `src/core/registry.js` + `src/install/catalog.js` + `src/install/indexing.js` |
+| 改安装/下载/编译流程 | `src/install/installer.js`、`src/install/versions.js` |
+| 改启动/停止/探活 | `src/runtime/lifecycle.js` |
 | 改跨平台行为 | `src/host/`（`linux` / `darwin` / `win32`） |
 | 改全屏面板 | `src/tui/` |
 

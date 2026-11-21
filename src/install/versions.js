@@ -4,8 +4,8 @@
 // It is not a shipped version list and can be deleted at any time.
 import fs from 'node:fs';
 import path from 'node:path';
-import { dirs, mkdirp } from './paths.js';
-import { PLATFORM, OS_LABEL } from './platform.js';
+import { dirs, mkdirp } from '../core/paths.js';
+import { PLATFORM, OS_LABEL } from '../core/platform.js';
 import { refreshIndex, mysqlUpstreamCandidates } from './indexing.js';
 import { CATALOG, majorOf, platformProblem } from './catalog.js';
 import { fetchText } from './download.js';
@@ -88,11 +88,11 @@ export async function listVersions(key, opts) {
  * full version wins; otherwise the newest entry inside the major line.
  */
 export function pickEntry(engineKey, versions, tag) {
-  if (!tag) return versions[0] || null;
+  if (!tag || tag === 'latest') return versions[0] || null;
   const exact = versions.find((v) => v.version === tag);
   if (exact) return exact;
-  const major = majorOf(engineKey, tag);
-  return versions.find((v) => v.major === major || v.major === tag) || null;
+  if (majorOf(engineKey, tag) !== tag) return null;
+  return versions.find((v) => v.major === tag) || null;
 }
 
 /** Find a version by full version, major line, or "latest". */
@@ -104,7 +104,8 @@ export async function resolveVersion(engine, tag) {
   const supported = versions.filter((v) => v.supported);
   const pool = supported.length ? supported : versions;
 
-  const hit = pickEntry(engine.key, pool, tag) || (tag ? pickEntry(engine.key, versions, tag) : null);
+  const hit = (tag && versions.find((v) => v.version === tag)) ||
+    pickEntry(engine.key, pool, tag) || pickEntry(engine.key, versions, tag);
   if (hit) return { ...hit, indexSource: index.source, stale: index.stale };
 
   const have = versions.slice(0, 8).map((v) => v.version).join(', ');

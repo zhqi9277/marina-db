@@ -2,7 +2,8 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { libInspector } from './platform.js';
+import { libInspector } from '../core/platform.js';
+import { clientEnv } from '../core/env.js';
 
 const SYSTEM_LIB_DIRS = ['/usr/lib', '/usr/lib64', '/lib', '/lib64', '/System/Library', '/Library/Apple'];
 
@@ -34,8 +35,10 @@ export function foreignDeps(deps, root) {
 export function depsOf(bin) {
   const insp = libInspector();
   if (!insp || !bin) return { skipped: true, deps: [], missing: [] };
-  const res = spawnSync(insp.cmd, [...insp.args, bin], { encoding: 'utf8' });
-  if (res.status !== 0 || !res.stdout) return { skipped: true, deps: [], missing: [] };
+  const res = spawnSync(insp.cmd, [...insp.args, bin], { encoding: 'utf8', env: clientEnv(), timeout: 5000 });
+  if (res.status !== 0 || !res.stdout || /is not an object file/i.test(res.stdout)) {
+    return { skipped: true, deps: [], missing: [] };
+  }
 
   const deps = [];
   const missing = [];

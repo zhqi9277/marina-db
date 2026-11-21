@@ -1,9 +1,9 @@
 // Offline tests for version selection and platform decoration.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { pickEntry, _internal } from '../src/versions.js';
-import { majorOf, platformProblem } from '../src/catalog.js';
-import { normalizeOs } from '../src/overlay.js';
+import { pickEntry, _internal } from '../src/install/versions.js';
+import { majorOf, platformProblem } from '../src/install/catalog.js';
+import { normalizeOs } from '../src/install/overlay.js';
 
 const list = [
   { version: '8.4.11', major: '8.4', kind: 'binary', supported: true, urls: ['u1'] },

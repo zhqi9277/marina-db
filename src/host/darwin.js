@@ -30,7 +30,8 @@ export const darwin = defineHost({
     const dir = process.env.MARINA_LAUNCHD_DIR || path.join(os.homedir(), 'Library', 'LaunchAgents');
     return { manager: 'launchd', dir, file: path.join(dir, `${LABEL}.plist`) };
   },
-  renderUnit(_ids, _target, { node, cli, log }) {
+  renderUnit(_ids, _target, { node, cli, log, home }) {
+    const homeArgument = home ? `    <string>${xmlEscape(`--runtime-home=${home}`)}</string>\n` : '';
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -40,7 +41,7 @@ export const darwin = defineHost({
   <array>
     <string>${xmlEscape(node)}</string>
     <string>${xmlEscape(cli)}</string>
-    <string>start</string>
+${homeArgument}    <string>start</string>
     <string>--autostart</string>
   </array>
   <key>RunAtLoad</key><true/>

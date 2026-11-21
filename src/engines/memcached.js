@@ -1,6 +1,6 @@
 // Memcached: no config file, no datadir — flags only.
 import fs from 'node:fs';
-import { mkdirp } from '../paths.js';
+import { mkdirp } from '../core/paths.js';
 
 export default {
   key: 'memcached',

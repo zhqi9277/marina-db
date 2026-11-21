@@ -24,7 +24,11 @@ const BUILD_VARS = [
   'CPPFLAGS', 'CFLAGS', 'CXXFLAGS', 'LDFLAGS', 'LIBS',
   'CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'LIBRARY_PATH',
   'CMAKE_PREFIX_PATH', 'CMAKE_INCLUDE_PATH', 'CMAKE_LIBRARY_PATH', 'ACLOCAL_PATH',
-  'LD_LIBRARY_PATH', 'LD_PRELOAD', 'DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH', 'DYLD_INSERT_LIBRARIES',
+  'CC', 'CXX', 'AR', 'AS', 'LD', 'NM', 'RANLIB', 'MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES', 'CONFIG_SITE',
+];
+
+const LOADER_VARS = [
+  'LD_LIBRARY_PATH', 'LD_PRELOAD', 'LD_AUDIT', 'DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH', 'DYLD_INSERT_LIBRARIES',
 ];
 
 export const SYSTEM_PATH = ['/usr/bin', '/bin', '/usr/sbin', '/sbin'];
@@ -37,7 +41,7 @@ function without(base, names) {
 
 /** Environment for running a client or helper against a marina-managed server. */
 export function clientEnv(base = process.env) {
-  return without(base, CONNECTION_VARS);
+  return without(base, [...CONNECTION_VARS, ...LOADER_VARS]);
 }
 
 /**
@@ -47,7 +51,7 @@ export function clientEnv(base = process.env) {
  * MARINA_BUILD_PATH.
  */
 export function buildEnv(base = process.env) {
-  const env = without(base, [...CONNECTION_VARS, ...BUILD_VARS]);
+  const env = without(base, [...CONNECTION_VARS, ...BUILD_VARS, ...LOADER_VARS]);
   if (IS_WIN) return env;
   const extra = String(base.MARINA_BUILD_PATH || '').split(':').filter(Boolean);
   env.PATH = [...extra, ...SYSTEM_PATH].join(':');

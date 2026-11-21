@@ -9,11 +9,11 @@ import test, { after } from 'node:test';
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-shims-'));
 process.env.MARINA_HOME = HOME;
 
-const { engines } = await import('../src/registry.js');
-const state = await import('../src/state.js');
-const { dirs } = await import('../src/paths.js');
-const { shimScript, installShims, resolveBin, shellenv } = await import('../src/shims.js');
-const { IS_WIN } = await import('../src/platform.js');
+const { engines } = await import('../src/core/registry.js');
+const state = await import('../src/core/state.js');
+const { dirs } = await import('../src/core/paths.js');
+const { shimScript, installShims, resolveBin, shellenv } = await import('../src/runtime/shims.js');
+const { IS_WIN } = await import('../src/core/platform.js');
 
 const root = path.join(HOME, 'engines', 'redis', '7', '7.4.11');
 fs.mkdirSync(path.join(root, 'bin'), { recursive: true });

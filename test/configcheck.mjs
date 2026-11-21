@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { staleConfigReferences } from '../src/configcheck.js';
-import { HOME } from '../src/paths.js';
+import { staleConfigReferences } from '../src/runtime/configcheck.js';
+import { HOME } from '../src/core/paths.js';
 
 function conf(text) {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'marina-conf-')), 'my.cnf');

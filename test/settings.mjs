@@ -1,8 +1,8 @@
 // Per-engine account resolution and settings validation.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolveAccount } from '../src/state.js';
-import { validatePort } from '../src/settings.js';
+import { resolveAccount } from '../src/core/state.js';
+import { validatePort } from '../src/runtime/settings.js';
 
 test('default accounts per engine', () => {
   assert.deepEqual(resolveAccount({ mysqlRootPassword: 'root' }, 'mysql'), { user: 'root', password: 'root' });

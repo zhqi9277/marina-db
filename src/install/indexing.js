@@ -11,7 +11,7 @@
 //   mysql       aliyun + huawei directories (<= 8.0.x) + github tags (8.4+)
 //   mongodb     downloads.mongodb.org full.json + fastdl
 import { fetchText } from './download.js';
-import { PLATFORM, arch } from './platform.js';
+import { PLATFORM, arch } from '../core/platform.js';
 import { CATALOG, majorOf } from './catalog.js';
 
 const ALIYUN = 'https://mirrors.aliyun.com';

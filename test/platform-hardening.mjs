@@ -10,10 +10,10 @@ import test, { after } from 'node:test';
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-hardening-'));
 process.env.MARINA_HOME = HOME;
 
-const registry = await import('../src/registry.js');
-const { expandArchiveArgs } = await import('../src/archive.js');
-const { renderUnit, systemdEscape, xmlEscape, CLI, NODE } = await import('../src/autostart.js');
-const { linkDir, linkFile, IS_WIN } = await import('../src/platform.js');
+const registry = await import('../src/core/registry.js');
+const { expandArchiveArgs } = await import('../src/install/archive.js');
+const { renderUnit, systemdEscape, xmlEscape, CLI, NODE } = await import('../src/runtime/autostart.js');
+const { linkDir, linkFile, IS_WIN } = await import('../src/core/platform.js');
 
 const { engines } = registry;
 
@@ -95,7 +95,7 @@ test('systemd ExecStart escapes NODE and CLI and keeps the start command', () =>
   const unit = renderUnit(['redis:7', 'mysql:8.4'], target);
   const exec = unit.split('\n').find((line) => line.startsWith('ExecStart='));
   assert.ok(exec, 'missing ExecStart');
-  assert.equal(exec, `ExecStart="${systemdEscape(NODE)}" "${systemdEscape(CLI)}" start --autostart`);
+  assert.equal(exec, `ExecStart="${systemdEscape(NODE)}" "${systemdEscape(CLI)}" "${systemdEscape(`--runtime-home=${path.resolve(HOME)}`)}" start --autostart`);
   assert.match(unit, /Description=marina autostart databases \(redis:7, mysql:8\.4\)/);
   // no bare % or $ survives in ExecStart: only doubled forms remain
   for (let i = 0; i < exec.length; i += 1) {

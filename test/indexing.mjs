@@ -11,7 +11,7 @@ import {
   mongoVersionEntries,
   PROFILES,
   sortVersionsDesc,
-} from '../src/indexing.js';
+} from '../src/install/indexing.js';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => fs.readFileSync(path.join(DIR, 'fixtures', name), 'utf8');

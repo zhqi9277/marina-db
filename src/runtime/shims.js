@@ -2,10 +2,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dirs, ensureDirs } from './paths.js';
-import { engineList, activeCtx } from './registry.js';
-import { findBin } from './archive.js';
-import { host } from './host/index.js';
+import { dirs, ensureDirs } from '../core/paths.js';
+import { engineList, activeCtx } from '../core/registry.js';
+import { findBin } from '../install/archive.js';
+import { host } from '../host/index.js';
 
 const CLI = fileURLToPath(new URL('../bin/marina.js', import.meta.url));
 

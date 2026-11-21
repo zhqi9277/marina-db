@@ -11,9 +11,9 @@
 // an engine the upstreams do not publish for this platform: build once in CI,
 // publish the tarballs, point marina at the manifest.
 import fs from 'node:fs';
-import { PLATFORM, env } from './platform.js';
+import { PLATFORM, env } from '../core/platform.js';
 import { fetchJson } from './download.js';
-import { warn } from './ui.js';
+import { warn } from '../ui/console.js';
 
 let cache = null;
 
@@ -49,7 +49,8 @@ export async function loadOverlay() {
   }
   try {
     const raw = file ? JSON.parse(fs.readFileSync(file, 'utf8')) : await fetchJson(url);
-    cache = Array.isArray(raw) ? raw : raw.artifacts || raw.packages || [];
+    const artifacts = Array.isArray(raw) ? raw : raw?.artifacts || raw?.packages;
+    cache = Array.isArray(artifacts) ? artifacts : [];
   } catch (e) {
     warn(`catalog overlay unavailable (${e.message.split('\n')[0]})`);
     cache = [];
@@ -57,17 +58,9 @@ export async function loadOverlay() {
   return cache;
 }
 
-export async function findArtifact({ manifestName, version }) {
+export async function overlayArtifacts(manifestName) {
   const list = await loadOverlay();
-  if (!list.length) return null;
-  const wantArch = archToken();
-  return (
-    list.find(
-      (a) =>
-        a.name === manifestName &&
-        String(a.version) === String(version) &&
-        normalizeOs(a.os) === PLATFORM &&
-        normalizeArch(a.arch) === normalizeArch(wantArch),
-    ) || null
-  );
+  const wantArch = normalizeArch(archToken());
+  return list.filter((a) => a?.name === manifestName && /^\d+(?:\.\d+){1,2}$/.test(a.version) &&
+    typeof a.url === 'string' && a.url && normalizeOs(a.os) === PLATFORM && normalizeArch(a.arch) === wantArch);
 }

@@ -141,7 +141,7 @@ runtime/
   data/<db>/<major>/                datadir，升级不覆盖
   etc/<db>/<major>/                 生成的配置（my.cnf / redis.conf / mongod.conf …）
   logs/<db>/<major>.log
-  run/<db>-<major>.pid|.sock
+  run/<db>-<major>.pid|.sock|.service.json  进程、套接字与实际运行版本
   cache/<db>/<version>/*.tar.gz     已校验的下载缓存
   cache/index/<engine>.<os>.<arch>.json  远程版本索引缓存
   shims/<bin>                       PATH shims
@@ -155,20 +155,22 @@ runtime/
 {
   "version": 1,
   "active": { "mysql": "8.4.11", "redis": "7.4.11" },
+  "selected": { "mysql:8.4": "8.4.11", "redis:7": "7.4.11" },
   "ports": { "mysql:8.4": 3306, "redis:7": 6379 },
   "settings": {
     "mysqlRootPassword": "root",
-    "accounts": {
-      "mysql": { "user": "root", "password": "root" },
-      "postgres": { "user": "postgres", "password": null }
+    "instanceAccounts": {
+      "mysql:8.4": { "user": "root", "password": "root" },
+      "postgres:17": { "user": "postgres", "password": null }
     }
   }
 }
 ```
 
-- `active`：每个引擎当前激活的版本。
+- `active`：每个引擎在未指定版本时使用的默认版本。
+- `selected`：每条 `engine:major` 版本线选择的版本，对应 `current`。正在运行的版本由运行记录和进程信息确定。
 - `ports`：按 `engine:major` 存端口，同一 major 的多个小版本共用一个端口。
-- `settings.accounts`：按引擎存账号密码；`mysqlRootPassword` 是旧字段，保留兼容。
+- `settings.instanceAccounts`：按 `engine:major` 存账号密码。旧版的 `settings.accounts` 和 `mysqlRootPassword` 继续作为兼容默认值。
 - 删除 `state.json` 不会删数据，但会丢失激活版本、端口和凭据设置。
 - 写入用 `runtime/state.lock` 目录锁 + 临时文件 rename 原子替换：两个 marina 进程同时改端口/自启不会互相覆盖；
   进程崩溃遗留的锁按 pid 与锁龄自动回收。
@@ -243,7 +245,7 @@ MARINA_CATALOG_URL=https://example.test/manifest.json marina install ...
 | MariaDB | ⚠️ 可列版本，本机不自动编译 | ⚠️ 同上 | ❌ |
 | Memcached | ⚠️ 可列版本，本机不自动编译 | ⚠️ 同上 | ❌ |
 
-平台差异集中在 `src/host/`（`linux` / `darwin` / `win32` 三个后端）。`src/platform.js` 仍是对外门面：包名里的架构 token、macOS SDK 标签、tar 参数留在这里，因为它们描述的是**所有平台的安装包**，不是当前正在跑的系统。引擎和生命周期只问宿主的能力（unix socket、fork、POSIX 信号），不再自己判断操作系统。
+平台差异集中在 `src/host/`（`linux` / `darwin` / `win32` 三个后端）。`src/core/platform.js` 仍是对外门面：包名里的架构 token、macOS SDK 标签、tar 参数留在这里，因为它们描述的是**所有平台的安装包**，不是当前正在跑的系统。引擎和生命周期只问宿主的能力（unix socket、fork、POSIX 信号），不再自己判断操作系统。
 
 - 包名/架构：darwin `…-macos15-arm64.tar.gz`、linux `…-linux-glibc2.28-aarch64.tar.xz`、win32 `…-winx64.zip`
 - 解压：`.tar.gz/.tgz/.tar.xz/.zip` 按后缀选参数；Windows 无 bsdtar 时退回 PowerShell
@@ -323,8 +325,8 @@ export PATH="$PWD/bin:$PATH"
 
 | 命令 | 说明 |
 |---|---|
-| `marina start <db>[@ver]` | 启动；`--all` / `marina up --all` 全部 |
-| `marina stop <db>[@ver]` | 停止；`--all` 全部 |
+| `marina start <db>[@ver]` | 启动；`--all` 启动各引擎的默认版本 |
+| `marina stop <db>[@ver]` | 停止；省略完整版本时操作当前实例实际运行的版本，`--all` 覆盖所有已装版本线 |
 | `marina restart <db>[@ver]` | 重启 |
 | `marina status [db...]` | 一个或多个；`--json` 含 `auth` |
 | `marina logs <db> --lines 200` | 日志尾部 |
@@ -432,7 +434,7 @@ TTY 下 `marina` 进入面板；非 TTY 打印帮助，避免 CI 卡住。状态
 
 ## 9. 端口 / 账号 / 密码
 
-每个引擎的凭据按 engine key 存在 `state.json → settings.accounts`，
+每个实例的凭据按 `engine:major` 存在 `state.json → settings.instanceAccounts`，
 `marina status`、面板 DETAIL、`marina auth` 都读同一份。
 
 | 引擎 | 默认账号 | 默认密码 | 修改密码时的行为 |
@@ -448,8 +450,8 @@ TTY 下 `marina` 进入面板；非 TTY 打印帮助，避免 CI 卡住。状态
 
 - **MySQL / MariaDB / PostgreSQL 停止时拒绝改密码**：服务端没运行就无法 `ALTER`，
   强行保存会让 marina 用新密码去探活/停止，反而更糟。先 `start`，再改。
-- 改端口会：校验端口 → 停止（如果运行中）→ 写 state → 重写配置 → 重新启动。
-- 改密码/账号会先保存，再尽量同步服务端；失败会在消息里给出原因。
+- 改端口会校验端口，重写配置，并在需要时重启实例。成功后保存端口，失败时尝试恢复原配置和进程。
+- MySQL 系和 PostgreSQL 的服务端更新成功后保存凭据。Redis 在写入配置以及必要的重启成功后保存。
 - 密码以**明文**存在 `state.json`，也会在 TUI/CLI 里显示 —— 这是本机开发工具，别用它管生产库。
 
 ---
@@ -497,12 +499,12 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
  首次启动 ─▶ 设置 root 密码 / 清匿名用户 / 删 test 库 ─▶ 停止
 ```
 
-- **major 深度**由 `src/catalog.js` 的 `majorDepth` 决定：
+- **major 深度**由 `src/install/catalog.js` 的 `majorDepth` 决定：
   MySQL `8.4.11→8.4`，PostgreSQL `17.11→17`，Redis `7.4.11→7`。
-- **安装成功默认切换 active**，`--no-use` 可关。
+- **安装成功默认切换 active**，`--no-use` 保留原来的选择。同一版本线已有服务运行时，安装保留运行中的进程，两种版本可通过 `status` 区分。
 - **配置不覆盖**：`etc/` 下已有文件默认保留，方便你改参数；`--force` / `reconfig` 才重写。
 - **离线安装**：`--file` 直接给本地包，仍然走解压/初始化/配置流程。
-- **overlay**：`MARINA_CATALOG_FILE/URL` 命中时优先于远程索引。
+- **overlay**：`MARINA_CATALOG_FILE/URL` 中匹配的版本可以独立解析。完整版本要求精确匹配。
 - **payload 自愈**：版本目录残缺（找不到 marker）时自动删除重解压；解压、重命名或源码编译失败会清理本次半成品，
   不会残留成“已安装”；`--force` 强制重新解包。
 - **源码 vs 二进制**：PostgreSQL/Redis 本机编译；MySQL/MongoDB 解包官方二进制；
@@ -511,7 +513,7 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
   源码编译只用系统工具链（`PATH` 收窄为 `/usr/bin:/bin:/usr/sbin:/sbin`，清掉 `PKG_CONFIG*` / `CPPFLAGS` /
   `LDFLAGS` / `DYLD_*` 等），产物不会把别处的头文件和库烙进去；需要额外的构建工具（比如 cmake）时用
   `MARINA_BUILD_PATH=/some/bin` 显式加入。客户端与服务进程会去掉 `PGHOST` / `PGPORT` / `PGPASSWORD` /
-  `MYSQL_HOST` / `MYSQL_PWD` / `REDISCLI_AUTH` 等“选服务器/选凭据”的变量，所以 `marina exec` 永远连的是 marina 自己的实例。
+  `MYSQL_HOST` / `MYSQL_PWD` / `REDISCLI_AUTH` 等“选服务器/选凭据”的变量，并过滤常见动态库加载变量。
 - **自包含**：一个包只能依赖系统库和自身目录。`marina doctor` 的 `libs` 项会同时报告“找不到的库”和
   “依赖了安装目录与系统之外的库”；`scripts/build-engine.sh` 打包前做同样的检查，不通过就不产出。
 
@@ -659,20 +661,14 @@ npm run marina -- remote   # 不装全局时直接跑
 
 | 文件 | 职责 |
 |---|---|
-| `src/cli.js` | 参数解析、命令分发、输出 |
-| `src/catalog.js` | 引擎元数据 + 编译配方（不含版本号/URL） |
-| `src/indexing.js` | 各引擎索引源与解析（目录 / tag feed / JSON） |
-| `src/versions.js` | 索引缓存、平台过滤、版本选择、HEAD、校验和 |
-| `src/installer.js` | 解析目标 → 下载/编译 → 配置 → 初始化 → 激活 |
+| `src/cli.js` | 唯一根模块：参数解析、命令分发、输出 |
+| `src/core/` | 路径、平台门面、环境、状态、注册表和项目配置 |
+| `src/install/` | 版本索引、下载、解包、编译、产物检查与安装 |
+| `src/runtime/` | 生命周期、配置、账号端口、状态查看、自启与诊断 |
 | `src/host/` | 全系统宿主：进程、信号、路径、shell、登录自启 |
-| `src/platform.js` | 宿主门面，以及安装包的架构 token / tar 参数 |
-| `src/lifecycle.js` | start/stop/status、探活、超时、启动前检查 |
-| `src/settings.js` | 改端口/账号/密码与服务端同步 |
-| `src/registry.js` | 引擎注册、版本发现、`buildCtx` |
 | `src/engines/*.js` | 六个引擎的驱动 |
-| `src/tui/*` | 全屏面板、绘制、按键 |
-| `src/state.js` | `state.json` 读写、账号解析 |
-| `src/overlay.js` | 自建产物 overlay |
+| `src/tui/` | 全屏面板状态、绘制、按键与视图 |
+| `src/ui/` | CLI 颜色、表格、消息和交互输出 |
 
 ### 加一个新引擎
 
@@ -693,9 +689,9 @@ export default {
 };
 ```
 
-2. `src/registry.js` 注册，`CONF_NAMES` 加配置文件名。
-3. `src/catalog.js` 加元数据、`majorDepth`、平台、编译配方。
-4. `src/indexing.js` 加索引源（目录解析或自定义 refresh）。
+2. `src/core/registry.js` 注册，`CONF_NAMES` 加配置文件名。
+3. `src/install/catalog.js` 加元数据、`majorDepth`、平台、编译配方。
+4. `src/install/indexing.js` 加索引源（目录解析或自定义 refresh）。
 5. `test/` 加解析/驱动测试，跑 `npm test`。
 
 ---

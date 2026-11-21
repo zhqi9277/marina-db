@@ -42,7 +42,9 @@ export function posixProcessDetails(pid, { proc = false } = {}) {
     const fromProc = readProc(pid);
     if (fromProc) return fromProc;
   }
-  return readPs(pid) || readLsof(pid);
+  const command = readPs(pid)?.command || null;
+  const cwd = readLsof(pid)?.cwd || null;
+  return command || cwd ? { command, cwd } : null;
 }
 
 export function signalTerminate(pid, mode) {

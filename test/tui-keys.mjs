@@ -30,13 +30,13 @@ function fakeEngine(key, label, state) {
 test('readKeys emits the key names the app compares against', () => {
   const keys = [];
   const off = readKeys((k) => keys.push(k));
-  for (const s of ['\x1b[A', '\x1b[B', '\x1b[C', '\r', 'j', 'k', '?', 'q']) {
+  for (const s of ['\x1b[A', '\x1b[B', '\x1b[C', '\r', '\x15', 'j', 'k', '?', 'q']) {
     process.stdin.emit('data', Buffer.from(s));
   }
   off();
   process.stdin.pause();
   process.stdin.unref?.();
-  assert.deepEqual(keys, ['esc:A', 'esc:B', 'esc:C', 'enter', 'j', 'k', '?', 'q']);
+  assert.deepEqual(keys, ['esc:A', 'esc:B', 'esc:C', 'enter', 'ctrl-u', 'j', 'k', '?', 'q']);
 });
 
 test('arrow keys move the database selection', async () => {

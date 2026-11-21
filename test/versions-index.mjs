@@ -10,8 +10,8 @@ const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-versions-'));
 process.env.MARINA_HOME = HOME;
 process.env.MARINA_INDEX_TTL = '21600'; // 6h, so fresh fixtures are always reused
 
-const versions = await import('../src/versions.js');
-const { engines } = await import('../src/registry.js');
+const versions = await import('../src/install/versions.js');
+const { engines } = await import('../src/core/registry.js');
 
 const { readCache, writeCache, cacheFile } = versions._internal;
 const INDEX_DIR = path.join(HOME, 'cache', 'index');
@@ -74,6 +74,11 @@ test('resolveVersion honours exact versions, major lines and the supported pool'
   // to the newest usable version inside the line
   const major = await versions.resolveVersion(engines.mysql, '8.0');
   assert.equal(major.version, '8.0.29');
+
+  const unsupportedExact = await versions.resolveVersion(engines.mysql, '8.0.25');
+  assert.equal(unsupportedExact.version, '8.0.25');
+  assert.equal(unsupportedExact.supported, false);
+  await assert.rejects(versions.resolveVersion(engines.mysql, '8.0.99'), /8\.0\.99 is not in the remote index/);
 
   await assert.rejects(versions.resolveVersion(engines.mysql, '9.9'), (e) => {
     assert.match(e.message, /MySQL 9\.9 is not in the remote index/);

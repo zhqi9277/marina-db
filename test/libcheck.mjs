@@ -6,8 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
 
-import { depsOf, foreignDeps } from '../src/libcheck.js';
-import { libInspector } from '../src/platform.js';
+import { depsOf, foreignDeps } from '../src/install/libcheck.js';
+import { libInspector } from '../src/core/platform.js';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-libcheck-'));
 const originalPath = process.env.PATH;

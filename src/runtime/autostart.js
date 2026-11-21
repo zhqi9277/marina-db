@@ -4,10 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { dirs, ensureDirs } from './paths.js';
-import { darwin, host, linux, win32 } from './host/index.js';
-import { systemdEscape, xmlEscape } from './host/escape.js';
-import * as state from './state.js';
+import { dirs, ensureDirs } from '../core/paths.js';
+import { darwin, host, linux, win32 } from '../host/index.js';
+import { systemdEscape, xmlEscape } from '../host/escape.js';
+import * as state from '../core/state.js';
 
 const BY_MANAGER = { launchd: darwin, systemd: linux, schtasks: win32 };
 
@@ -33,7 +33,7 @@ export function renderUnit(ids, target = unitTarget()) {
   const backend = backendFor(target);
   if (!target || !backend) throw new Error('autostart is only implemented for macOS and Linux');
   const log = path.join(dirs.root, 'logs', 'autostart.log');
-  return backend.renderUnit(ids, target, { node: NODE, cli: CLI, log });
+  return backend.renderUnit(ids, target, { node: NODE, cli: CLI, log, home: path.resolve(dirs.root) });
 }
 
 function run(cmd, args) {
@@ -77,7 +77,9 @@ export function sync() {
 
   ensureDirs();
   fs.mkdirSync(target.dir, { recursive: true });
-  fs.writeFileSync(target.file, renderUnit(ids, target));
+  const unit = renderUnit(ids, target);
+  if (target.manager === 'schtasks') fs.writeFileSync(target.file, `\uFEFF${unit}`, 'utf16le');
+  else fs.writeFileSync(target.file, unit);
   const results = load(target);
   const warnings = results
     .filter((r) => r && !r.ok && !r.skipped)
@@ -86,20 +88,18 @@ export function sync() {
 }
 
 export function enable(ctxs) {
-  const ids = [...state.autostartList(), ...ctxs.map(idOf)];
-  state.setAutostart(ids);
+  state.updateAutostart((ids) => [...ids, ...ctxs.map(idOf)]);
   return sync();
 }
 
 export function disable(ctxs) {
   const remove = new Set(ctxs.map(idOf));
-  state.setAutostart(state.autostartList().filter((id) => !remove.has(id)));
+  state.updateAutostart((ids) => ids.filter((id) => !remove.has(id)));
   return sync();
 }
 
 export function enableAll(ctxs) {
-  state.setAutostart([...state.autostartList(), ...ctxs.map(idOf)]);
-  return sync();
+  return enable(ctxs);
 }
 
 export function disableAll() {

@@ -1,7 +1,7 @@
 // MongoDB: no datadir bootstrap; mongod --fork writes the pid file itself.
 import fs from 'node:fs';
-import { spawnAsync, findBin } from '../archive.js';
-import { mkdirp } from '../paths.js';
+import { spawnAsync, findBin } from '../install/archive.js';
+import { mkdirp } from '../core/paths.js';
 import { host } from '../host/index.js';
 
 export default {

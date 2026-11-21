@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { start } from '../src/lifecycle.js';
+import { start } from '../src/runtime/lifecycle.js';
 
 test('start() refuses a stale config immediately', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-life-'));

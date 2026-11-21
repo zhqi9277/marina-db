@@ -2,25 +2,25 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { dirs, engineDir, versionDir, currentDir, etcDir, dataDir, logDir, runFile, mkdirp } from './paths.js';
-import { discoverRoot } from './archive.js';
+import { discoverRoot } from '../install/archive.js';
 import { linkDir } from './platform.js';
 import * as state from './state.js';
-import mysql from './engines/mysql.js';
-import mariadb from './engines/mariadb.js';
-import postgres from './engines/postgres.js';
-import mongodb from './engines/mongodb.js';
-import redis from './engines/redis.js';
-import memcached from './engines/memcached.js';
+import mysql from '../engines/mysql.js';
+import mariadb from '../engines/mariadb.js';
+import postgres from '../engines/postgres.js';
+import mongodb from '../engines/mongodb.js';
+import redis from '../engines/redis.js';
+import memcached from '../engines/memcached.js';
 
 export const engines = { mysql, mariadb, postgres, mongodb, redis, memcached };
 export const engineList = Object.values(engines);
 
 export function getEngine(key) {
-  const engine = engines[String(key || '').toLowerCase()];
-  if (!engine) {
+  const normalized = String(key || '').toLowerCase();
+  if (!Object.hasOwn(engines, normalized)) {
     throw new Error(`unknown database "${key}" (known: ${Object.keys(engines).join(', ')})`);
   }
-  return engine;
+  return engines[normalized];
 }
 
 /** "mysql@8.4" -> { engine, tag: "8.4" } */
@@ -58,6 +58,7 @@ export function installedVersions(engine) {
   const rows = [];
   for (const major of versionDirs(base)) {
     for (const version of versionDirs(path.join(base, major))) {
+      if (fs.existsSync(pendingInstallFile(engine, major, version))) continue;
       rows.push({ major, version, dir: path.join(base, major, version) });
     }
   }
@@ -68,7 +69,17 @@ export function installedVersions(engine) {
 }
 
 export function isInstalled(engine, major, version) {
-  return fs.existsSync(versionDir(engine.key, major, version));
+  return fs.existsSync(versionDir(engine.key, major, version)) && !fs.existsSync(pendingInstallFile(engine, major, version));
+}
+
+export function pendingInstallFile(engine, major, version) {
+  return path.join(engineDir(engine.key, major), `.pending-${version}`);
+}
+
+export function majorPick(engine, major, rows = installedVersions(engine)) {
+  const sameMajor = rows.filter((row) => row.major === major);
+  const selected = state.selectedVersion(engine.key, major) || state.getActive(engine.key);
+  return sameMajor.find((row) => row.version === selected) || sameMajor.at(-1) || null;
 }
 
 /** Choose a version for a tag: exact ("8.4.11"), major ("8.4"), or active/latest. */
@@ -85,23 +96,17 @@ export function pickVersion(engine, tag) {
   }
   const exact = rows.find((r) => r.version === tag);
   if (exact) return exact;
-  const sameMajor = rows.filter((r) => r.major === tag);
-  if (sameMajor.length) {
-    // "mysql@8.4" means the major line; prefer the active version inside it
-    const active = state.getActive(engine.key);
-    const hit = sameMajor.find((r) => r.version === active);
-    return hit || sameMajor[sameMajor.length - 1];
-  }
+  const sameMajor = majorPick(engine, tag, rows);
+  if (sameMajor) return sameMajor;
   const prefix = rows.filter((r) => r.version.startsWith(`${tag}.`));
   if (prefix.length) return prefix[prefix.length - 1];
   return null;
 }
 
-export function buildCtx(engine, { major, version, port }) {
+export function buildCtx(engine, { major, version, port, account = state.accountOf(engine.key, major) }) {
   const root = discoverRoot(versionDir(engine.key, major, version), engine.markers);
   const p = port ?? state.portOf(engine.key, major, engine.defaultPort);
   const confName = CONF_NAMES[engine.key];
-  const account = state.accountOf(engine.key);
   return {
     engine,
     key: engine.key,
@@ -121,6 +126,7 @@ export function buildCtx(engine, { major, version, port }) {
     logDir: logDir(engine.key),
     tmpDir: dirs.tmp,
     pidFile: runFile(engine.key, major, 'pid'),
+    runtimeFile: runFile(engine.key, major, 'service.json'),
     sockFile: runFile(engine.key, major, 'sock'),
     confFile: confName ? path.join(etcDir(engine.key, major), confName) : null,
     logFile: path.join(logDir(engine.key), `${major}.log`),
@@ -145,6 +151,12 @@ export function activeCtx(engine) {
   const pick = pickVersion(engine, null);
   if (!pick) return null;
   return buildCtx(engine, pick);
+}
+
+export function instanceContexts(engine) {
+  const rows = installedVersions(engine);
+  const majors = new Set(rows.map((row) => row.major));
+  return [...majors].map((major) => buildCtx(engine, majorPick(engine, major, rows)));
 }
 
 /** Point engines/<db>/<major>/current at the selected version. */

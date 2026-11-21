@@ -120,7 +120,10 @@ test('Windows matches an install layout with either slash and any case', () => {
     ),
     false,
   );
-  assert.equal(win32.matchesInstall({ command: null, cwd: null }, ctx), true);
+  assert.equal(win32.matchesInstall({ command: null, cwd: null }, ctx), false);
+  const elsewhere = { command: 'D:\\other\\engines\\redis\\7\\7.2.5\\bin\\redis-server.exe', cwd: null };
+  assert.equal(win32.matchesInstall(elsewhere, ctx, { allowLayout: false }), false);
+  assert.equal(win32.matchesInstall(elsewhere, ctx, { allowLayout: false, extraPaths: ['D:\\other\\engines\\redis\\7'] }), true);
 });
 
 test('POSIX matching still rejects a system binary', () => {

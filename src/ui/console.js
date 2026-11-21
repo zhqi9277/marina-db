@@ -77,7 +77,7 @@ export function progress(label, total) {
 }
 
 export async function spinner(label, fn) {
-  if (!tty) return fn();
+  if (!tty || quietMode) return fn();
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   let i = 0;
   const t = setInterval(() => {

@@ -9,6 +9,10 @@ import { signalTerminate } from './posix.js';
 
 const TASK_NAME = 'marina-autostart';
 
+function quoteArgument(value) {
+  return `"${value.replace(/(\\*)"/g, '$1$1\\"').replace(/\\+$/, '$&$&')}"`;
+}
+
 /** PowerShell Expand-Archive arguments. Single-quoted strings are literal, so only `'` is doubled. */
 export function expandArchiveArgs(tarball, destDir) {
   const quote = (value) => `'${String(value).replace(/'/g, "''")}'`;
@@ -96,8 +100,9 @@ export const win32 = defineHost({
     const dir = process.env.MARINA_SCHTASKS_DIR || path.join(os.homedir(), 'AppData', 'Roaming', 'marina');
     return { manager: 'schtasks', taskName: TASK_NAME, dir, file: path.join(dir, 'marina-autostart.xml') };
   },
-  renderUnit(ids, _target, { node, cli }) {
-    const argumentsText = `"${cli}" start --autostart`;
+  renderUnit(ids, _target, { node, cli, home }) {
+    const homeArgument = home ? ` ${quoteArgument(`--runtime-home=${home}`)}` : '';
+    const argumentsText = `${quoteArgument(cli)}${homeArgument} start --autostart`;
     return `<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>

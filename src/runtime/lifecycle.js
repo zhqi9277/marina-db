@@ -3,13 +3,15 @@ import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { spawnAsync, findBin } from './archive.js';
-import { host } from './host/index.js';
-import { ensureDirs } from './paths.js';
+import { spawnAsync, findBin } from '../install/archive.js';
+import { host } from '../host/index.js';
+import { installPaths } from '../host/match.js';
+import { ensureDirs } from '../core/paths.js';
 import { staleConfigReferences } from './configcheck.js';
-import { clientEnv } from './env.js';
-import { ok, warn, info, color } from './ui.js';
-import * as state from './state.js';
+import { clientEnv } from '../core/env.js';
+import { ok, warn, info, color } from '../ui/console.js';
+import { buildCtx, majorPick } from '../core/registry.js';
+import { withInstanceLock } from './instance-lock.js';
 
 export function tcpProbe(port, host = '127.0.0.1', timeout = 700) {
   return new Promise((resolve) => {
@@ -26,7 +28,7 @@ export function tcpProbe(port, host = '127.0.0.1', timeout = 700) {
 }
 
 export function pidAlive(pid) {
-  if (!pid || !Number.isFinite(pid)) return false;
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
     return true;
@@ -54,11 +56,39 @@ export function processDetails(pid) {
  * `details` is injectable so tests can simulate an identity without exec'ing ps.
  */
 export function pidOwnedBy(pid, ctx, details = processDetails(pid)) {
-  if (!Number.isFinite(pid) || !pidAlive(pid)) return false;
-  // if the process cannot be inspected, keep the old pid-file trust instead of
-  // leaving a service running that the user asked to stop
-  if (!details) return true;
-  return host.matchesInstall(details, ctx);
+  return !!details && pidAlive(pid) && matchesService(details, ctx, readServiceRecord(ctx, pid));
+}
+
+function readServiceRecord(ctx, pid) {
+  if (!ctx.runtimeFile) return null;
+  try {
+    const saved = JSON.parse(fs.readFileSync(ctx.runtimeFile, 'utf8'));
+    if (saved.pid === pid && typeof saved.version === 'string') return saved;
+  } catch {}
+  return null;
+}
+
+function matchesService(details, ctx, record) {
+  // Real instances use their exact runtime paths, including recorded paths from before a move.
+  if (host.matchesInstall(details, ctx, { allowLayout: !ctx.runtimeFile })) return true;
+  const recordedPaths = Array.isArray(record?.paths) ? record.paths.filter((entry) => typeof entry === 'string') : [];
+  const extraPaths = [...recordedPaths, ...staleConfigReferences(ctx)];
+  return extraPaths.length > 0 && host.matchesInstall(details, ctx, { allowLayout: false, extraPaths });
+}
+
+export function inspectService(ctx) {
+  const pid = readPid(ctx);
+  const alive = pidAlive(pid);
+  if (!alive) return { pid, alive, owned: false, unknown: false, runningVersion: null };
+  const details = processDetails(pid);
+  const unknown = !details?.command && !details?.cwd;
+  const record = readServiceRecord(ctx, pid);
+  const owned = !unknown && matchesService(details, ctx, record);
+  const runningVersion = owned
+    ? host.installVersion(details, ctx) || record?.version ||
+      (ctx.runtimeFile && majorPick(ctx.engine, ctx.major)?.version) || ctx.version
+    : null;
+  return { pid, alive, owned, unknown, runningVersion };
 }
 
 /**
@@ -86,19 +116,20 @@ async function engineAnswers(ctx) {
 
 /**
  * Full runtime picture for one ctx: `state` is one of running / degraded /
- * port-busy / stopped, `pid` is only set for a process marina can account for.
+ * inactive / unknown / port-busy / stopped. `pid` is set for the verified process.
  */
-export async function probeState(ctx) {
-  const pid = readPid(ctx);
-  const alive = pidAlive(pid);
-  const owned = alive && pidOwnedBy(pid, ctx);
+export async function probeState(ctx, { instance = false } = {}) {
+  const service = inspectService(ctx);
+  const { pid, owned, unknown, runningVersion } = service;
   const portOpen = await tcpProbe(ctx.port);
-  const answered = owned && portOpen ? await engineAnswers(ctx) : false;
+  const otherVersion = owned && runningVersion !== ctx.version;
+  const inactive = otherVersion && !instance;
+  const probeCtx = otherVersion && instance ? contextForRunningVersion(ctx, runningVersion) : ctx;
+  const answered = owned && !inactive && portOpen ? await engineAnswers(probeCtx) : false;
   return {
-    state: serviceState({ owned, answered, portOpen }),
-    pid: owned ? pid : null,
-    alive,
-    owned,
+    ...service,
+    state: unknown ? 'unknown' : inactive ? 'inactive' : serviceState({ owned, answered, portOpen }),
+    pid: owned && !inactive ? pid : null,
     portOpen,
   };
 }
@@ -111,8 +142,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function bootReady(ctx) {
   const pid = readPid(ctx);
-  if (!pid || !pidAlive(pid)) return false;
-  return tcpProbe(ctx.port);
+  return pidAlive(pid) && await tcpProbe(ctx.port) && pidOwnedBy(pid, ctx);
 }
 
 async function waitFor(fn, timeoutMs, interval = 300) {
@@ -133,7 +163,7 @@ function readPid(ctx) {
 }
 
 function cleanRuntimeFiles(ctx) {
-  for (const f of [ctx.pidFile, ctx.sockFile, `${ctx.sockFile}.lock`]) {
+  for (const f of [ctx.pidFile, ctx.runtimeFile, ctx.sockFile, ctx.sockFile && `${ctx.sockFile}.lock`]) {
     if (f && fs.existsSync(f)) {
       try {
         fs.rmSync(f, { force: true });
@@ -184,7 +214,11 @@ function serverCommand(ctx) {
   return { cmd: bin, args: ctx.engine.startArgs(ctx), foreground: true };
 }
 
-export async function start(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
+export function start(ctx, opts) {
+  return withInstanceLock(ctx, () => startService(ctx, opts));
+}
+
+async function startService(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
   ensureDirs();
   if (!ctx.root) throw new Error(`package payload for ${ctx.key}@${ctx.version} is missing (reinstall)`);
 
@@ -199,6 +233,10 @@ export async function start(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
   }
 
   const current = await probeState(ctx);
+  if (current.state === 'unknown') throw new Error(`cannot verify ${ctx.key}@${ctx.major} process ownership`);
+  if (current.state === 'inactive') {
+    throw new Error(`${ctx.key}@${current.runningVersion} is running for this instance — stop it before starting ${ctx.version}`);
+  }
   if (current.state === 'running') {
     if (!quiet) ok(`${ctx.engine.label} ${ctx.version} is already running on port ${ctx.port}`);
     return { already: true, pid: current.pid };
@@ -256,20 +294,25 @@ export async function start(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
   if (!up) {
     // do not leak the process we just started: a server that never becomes
     // ready keeps holding the port/datadir, and the retry would fail
-    for (const candidate of new Set([readPid(ctx), spawnedPid])) {
+    const pid = readPid(ctx);
+    for (const candidate of new Set([pid, spawnedPid])) {
       if (pidAlive(candidate) && pidOwnedBy(candidate, ctx)) {
         host.terminate(candidate, 'kill');
         await waitFor(() => !pidAlive(candidate), 3000);
       }
     }
     const tail = tailLog(ctx);
-    cleanRuntimeFiles(ctx);
+    if (!pidAlive(pid) && !pidAlive(spawnedPid)) cleanRuntimeFiles(ctx);
     throw new Error(
       `${ctx.engine.label} did not become ready within ${Math.round(timeoutMs / 1000)}s\n` +
       (tail ? `--- last log lines (${ctx.logFile}) ---\n${tail}` : `(no log at ${ctx.logFile})`),
     );
   }
   const newPid = readPid(ctx);
+  if (ctx.runtimeFile) {
+    const record = { pid: newPid, version: ctx.version, paths: installPaths(ctx).map((entry) => path.resolve(entry)) };
+    fs.writeFileSync(ctx.runtimeFile, JSON.stringify(record), { mode: 0o600 });
+  }
   if (!quiet) {
     const secs = ((Date.now() - startedAt) / 1000).toFixed(1);
     ok(`${ctx.engine.label} ${ctx.version} up on port ${ctx.port}${newPid ? ` (pid ${newPid})` : ''} in ${secs}s`);
@@ -278,10 +321,22 @@ export async function start(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
   return { started: true, pid: newPid, seconds: (Date.now() - startedAt) / 1000 };
 }
 
-export async function stop(ctx, { quiet = false } = {}) {
-  const pid = readPid(ctx);
-  const alive = pidAlive(pid);
-  const owned = alive && pidOwnedBy(pid, ctx);
+export function stop(ctx, opts) {
+  return withInstanceLock(ctx, () => stopService(ctx, opts));
+}
+
+function contextForRunningVersion(ctx, version) {
+  return buildCtx(ctx.engine, { major: ctx.major, version, port: ctx.port, account: ctx.account });
+}
+
+async function stopService(ctx, { quiet = false, instance = false } = {}) {
+  const { pid, alive, owned, unknown, runningVersion } = inspectService(ctx);
+  if (unknown) throw new Error(`cannot verify ${ctx.key}@${ctx.major} process ownership`);
+  if (owned && runningVersion !== ctx.version && !instance) {
+    if (!quiet) info(`${ctx.key}@${runningVersion} is running for this instance`);
+    return { already: true, stopped: false, runningVersion };
+  }
+  if (owned && runningVersion !== ctx.version) ctx = contextForRunningVersion(ctx, runningVersion);
   const portOpen = await tcpProbe(ctx.port);
 
   // Nothing marina recorded is alive. A port that still answers therefore
@@ -346,11 +401,11 @@ export async function stop(ctx, { quiet = false } = {}) {
 
   let stopped = gracefulOk ? await waitFor(() => !pidAlive(pid), 15000) : false;
   if (!stopped) {
-    host.terminate(pid, 'term');
+    if (pidOwnedBy(pid, ctx)) host.terminate(pid, 'term');
     stopped = await waitFor(() => !pidAlive(pid), 10000);
     if (!stopped) {
       if (!quiet) warn(`graceful stop timed out — sending ${host.forceVerb}`);
-      host.terminate(pid, 'kill');
+      if (pidOwnedBy(pid, ctx)) host.terminate(pid, 'kill');
       stopped = await waitFor(() => !pidAlive(pid), 5000);
     }
   }
@@ -368,12 +423,14 @@ export async function stop(ctx, { quiet = false } = {}) {
 }
 
 export async function restart(ctx, opts = {}) {
-  await stop(ctx, opts);
-  return start(ctx, opts);
+  return withInstanceLock(ctx, async () => {
+    await stopService(ctx, opts);
+    return startService(ctx, opts);
+  });
 }
 
-export async function status(ctx) {
-  const probe = await probeState(ctx);
+export async function status(ctx, opts) {
+  const probe = await probeState(ctx, opts);
 
   return {
     key: ctx.key,
@@ -382,6 +439,7 @@ export async function status(ctx) {
     version: ctx.version,
     port: ctx.port,
     pid: probe.pid,
+    runningVersion: probe.runningVersion,
     state: probe.state,
     healthy: probe.state === 'running',
   };
@@ -393,6 +451,7 @@ export function stateBadge(code) {
     case 'degraded': return color.yellow('◐ degraded');
     case 'inactive': return color.gray('◌ not active');
     case 'port-busy': return color.magenta('◑ port busy');
+    case 'unknown': return color.yellow('? unknown');
     default: return color.gray('○ stopped');
   }
 }

@@ -9,8 +9,8 @@ import test, { after } from 'node:test';
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-registry-'));
 process.env.MARINA_HOME = HOME;
 
-const registry = await import('../src/registry.js');
-const state = await import('../src/state.js');
+const registry = await import('../src/core/registry.js');
+const state = await import('../src/core/state.js');
 const { engines, engineList } = registry;
 
 const versionPath = (key, major, version) => path.join(HOME, 'engines', key, major, version);

@@ -1,7 +1,7 @@
 // Facade over the OS host. Download-name tables (arch, SDK tags, tar flags) stay
 // here because they describe packages for every platform, not just the one we
 // are running on. Process, links, and library inspection go through the host.
-import { host } from './host/index.js';
+import { host } from '../host/index.js';
 
 export { host };
 export const IS_MAC = host.id === 'darwin';

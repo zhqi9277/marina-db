@@ -9,7 +9,7 @@ import test, { after } from 'node:test';
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-configcheck-'));
 process.env.MARINA_HOME = HOME;
 
-const { staleConfigReferences } = await import('../src/configcheck.js');
+const { staleConfigReferences } = await import('../src/runtime/configcheck.js');
 
 after(() => fs.rmSync(HOME, { recursive: true, force: true }));
 

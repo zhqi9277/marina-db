@@ -4,7 +4,7 @@
 // timeout before failing with a misleading error.
 import fs from 'node:fs';
 import path from 'node:path';
-import { HOME } from './paths.js';
+import { HOME } from '../core/paths.js';
 
 // `key = /abs` (ini/my.cnf), `key: /abs` (mongod.yaml) and `key /abs`
 // (redis.conf) all show up in the configs marina generates.

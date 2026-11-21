@@ -24,20 +24,20 @@ function tmp(prefix) {
 }
 
 // paths.js/state.js capture MARINA_HOME at import time, so import after setting it
-const lifecycle = await import('../src/lifecycle.js');
-const state = await import('../src/state.js');
-const installer = await import('../src/installer.js');
-const download = await import('../src/download.js');
-const autostart = await import('../src/autostart.js');
+const lifecycle = await import('../src/runtime/lifecycle.js');
+const state = await import('../src/core/state.js');
+const installer = await import('../src/install/installer.js');
+const download = await import('../src/install/download.js');
+const autostart = await import('../src/runtime/autostart.js');
 const redisEngine = (await import('../src/engines/redis.js')).default;
 const mariaEngine = (await import('../src/engines/mariadb.js')).default;
 const mysqlEngine = (await import('../src/engines/mysql.js')).default;
-const shims = await import('../src/shims.js');
-const configcheck = await import('../src/configcheck.js');
-const settings = await import('../src/settings.js');
-const project = await import('../src/project.js');
-const registry = await import('../src/registry.js');
-const ui = await import('../src/ui.js');
+const shims = await import('../src/runtime/shims.js');
+const configcheck = await import('../src/runtime/configcheck.js');
+const settings = await import('../src/runtime/settings.js');
+const project = await import('../src/core/project.js');
+const registry = await import('../src/core/registry.js');
+const ui = await import('../src/ui/console.js');
 
 ui.setQuiet(true);
 
@@ -611,7 +611,7 @@ test('state.mutate serializes concurrent read-modify-write across processes', as
   state.mutate((s) => {
     s.counter = 0;
   });
-  const stateUrl = new URL('../src/state.js', import.meta.url).href;
+  const stateUrl = new URL('../src/core/state.js', import.meta.url).href;
   const childScript = [
     `const state = await import(${JSON.stringify(stateUrl)});`,
     'for (let i = 0; i < 15; i++) state.mutate((s) => { s.counter = (s.counter || 0) + 1; });',
@@ -995,7 +995,7 @@ test('changeAccount keeps the old mysql credentials when the server ALTER fails'
     assert.deepEqual(result.account, { user: 'root', password: 'oldpass' });
     assert.deepEqual(result.applied, []);
     assert.match(result.notes.join(' '), /server password NOT changed/);
-    assert.deepEqual(state.accountOf('mysql'), { user: 'root', password: 'oldpass' });
+    assert.deepEqual(state.accountOf('mysql', '8.4'), { user: 'root', password: 'oldpass' });
   } finally {
     await live.close();
     try { process.kill(owner.pid, 'SIGKILL'); } catch {}
@@ -1020,7 +1020,8 @@ test('changeAccount persists the mysql password only after a successful ALTER', 
 
     assert.deepEqual(result.account, { user: 'root', password: 'newpass' });
     assert.deepEqual(result.applied, ['server']);
-    assert.deepEqual(state.accountOf('mysql'), { user: 'root', password: 'newpass' });
+    assert.deepEqual(state.accountOf('mysql', '8.4'), { user: 'root', password: 'newpass' });
+    assert.deepEqual(state.accountOf('mysql', '8.0'), { user: 'root', password: 'oldpass' });
   } finally {
     await live.close();
     try { process.kill(owner.pid, 'SIGKILL'); } catch {}
@@ -1047,7 +1048,7 @@ test('changeAccount keeps the old postgres password when ALTER ROLE fails', asyn
     assert.deepEqual(result.account, { user: 'postgres', password: 'oldpass' });
     assert.deepEqual(result.applied, []);
     assert.match(result.notes.join(' '), /server password NOT changed/);
-    assert.deepEqual(state.accountOf('postgres'), { user: 'postgres', password: 'oldpass' });
+    assert.deepEqual(state.accountOf('postgres', '17'), { user: 'postgres', password: 'oldpass' });
   } finally {
     await live.close();
     try { process.kill(owner.pid, 'SIGKILL'); } catch {}
@@ -1085,7 +1086,7 @@ test('changeAccount rolls redis state back when the config cannot be rewritten',
   };
 
   await assert.rejects(settings.changeAccount(ctx, { password: 'newpass' }), /boom while rendering/);
-  assert.equal(state.accountOf('redis').password, 'oldpass', 'state must be rolled back');
+  assert.equal(state.accountOf('redis', '7').password, 'oldpass', 'state must be rolled back');
 });
 
 // --------------------------------------------------------------- project ----

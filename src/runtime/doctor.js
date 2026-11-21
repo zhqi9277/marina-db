@@ -2,13 +2,13 @@
 // Local checks only: no network, no index refresh.
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { dirs, ensureDirs } from './paths.js';
-import { OS_LABEL, host } from './platform.js';
-import { engineList, activeCtx } from './registry.js';
+import { dirs, ensureDirs } from '../core/paths.js';
+import { OS_LABEL, host } from '../core/platform.js';
+import { engineList, activeCtx } from '../core/registry.js';
 import { status, tcpProbe } from './lifecycle.js';
-import { findBin } from './archive.js';
-import { depsOf, foreignDeps } from './libcheck.js';
-import { indexCacheInfo } from './versions.js';
+import { findBin } from '../install/archive.js';
+import { depsOf, foreignDeps } from '../install/libcheck.js';
+import { indexCacheInfo } from '../install/versions.js';
 
 /**
  * @returns {Promise<Array<{name:string, value:string, ok:boolean}>>}
@@ -44,12 +44,15 @@ export async function runDoctor() {
   const libProblems = [];
   let inspected = 0;
   for (const engine of engineList) {
+    if (!host.libInspector()) break;
     const ctx = activeCtx(engine);
-    if (!ctx || !ctx.root) continue;
+    if (!ctx) continue;
     const bin = findBin(ctx.root, engine.serverBin || []);
-    if (!bin) continue;
     const deps = depsOf(bin);
-    if (deps.skipped) continue;
+    if (deps.skipped) {
+      libProblems.push(`${engine.key}: could not inspect the server binary`);
+      continue;
+    }
     inspected++;
     for (const dep of deps.missing) libProblems.push(`${engine.key}: ${dep} (missing)`);
     for (const dep of foreignDeps(deps.deps.filter((d) => !deps.missing.includes(d)), ctx.root)) {
@@ -61,7 +64,7 @@ export async function runDoctor() {
     value: host.libInspector()
       ? libProblems.length
         ? libProblems.join(', ')
-        : `all engine libraries are self-contained (${inspected} checked)`
+        : inspected ? `all inspected engine libraries are self-contained (${inspected} checked)` : 'no installed engine binaries to inspect'
       : 'skipped on Windows (no otool/ldd)',
     ok: !host.libInspector() || libProblems.length === 0,
   });
