@@ -139,6 +139,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake bison patchelf libaio1 libncurses5 libncurses-dev libnuma1 liburing2 libssl-dev
+      - name: Oracle Linux RPM extractor
+        if: matrix.engine == 'mysql' && runner.os == 'Linux' && matrix.arch == 'arm64'
+        run: sudo apt-get install -y libarchive-tools
       - name: Build tools (macOS MariaDB)
         if: runner.os == 'macOS' && matrix.engine == 'mariadb'
         run: |
