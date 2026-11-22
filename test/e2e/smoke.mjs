@@ -64,6 +64,17 @@ function sql(ref, text) {
     : command(ref, '-N', '-B', '-e', text);
 }
 
+async function readVersion(ref, port) {
+  switch (engine) {
+    case 'mysql':
+    case 'mariadb': return sql(ref, 'SELECT VERSION();');
+    case 'postgres': return sql(ref, 'SHOW server_version;');
+    case 'mongodb': return command(ref, '--quiet', '--norc', '--eval', 'db.version()');
+    case 'redis': return command(ref, 'info').match(/^redis_version:(.+)$/m)?.[1];
+    case 'memcached': return (await memcached(port, 'version\r\n')).trim().replace(/^VERSION /, '');
+  }
+}
+
 async function write(ref, port) {
   switch (engine) {
     case 'mysql':
@@ -131,6 +142,9 @@ try {
   cli('start', ref);
   const status = JSON.parse(cli('status', ref, '--json'));
   assert.ok((Array.isArray(status) ? status[0] : status)?.healthy, 'engine did not become healthy');
+  const actual = await readVersion(ref, port);
+  assert.ok(actual?.match(/\d+\.\d+(?:\.\d+)?/g)?.includes(version),
+    'expected server version ' + version + ', received ' + actual);
   await write(ref, port);
   await read(ref, port, false);
   cli('restart', ref);

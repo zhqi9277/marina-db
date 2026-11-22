@@ -56,7 +56,7 @@ jobs:
         run: node scripts/package-engine.mjs "${{ matrix.engine }}" "${{ matrix.version }}" dist
       - uses: actions/upload-artifact@v7
         with:
-          name: engine-${{ matrix.engine }}-${{ matrix.os }}-${{ matrix.arch }}
+          name: engine-${{ matrix.engine }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/*
           compression-level: 0
           retention-days: 7
@@ -87,7 +87,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           base="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG"
-          node scripts/make-manifest.mjs generate dist "$base" > dist/manifest.json
+          node scripts/make-manifest.mjs generate dist "$base" "$TAG" > dist/manifest.json
           if ! gh release view "$TAG" --json isDraft > release-state.json; then
             gh release create "$TAG" --verify-tag --draft --prerelease --latest=false \
               --title "Marina engine candidate $TAG" --notes "Engine bundles for candidate $GITHUB_SHA"
@@ -98,7 +98,7 @@ jobs:
             gh release edit "$TAG" --draft=false --prerelease --latest=false
           fi
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > release.json
-          digest=$(node scripts/make-manifest.mjs verify dist/manifest.json release.json "$base")
+          digest=$(node scripts/make-manifest.mjs verify dist/manifest.json release.json "$base" "$TAG")
           echo "url=$base/manifest.json" >> "$GITHUB_OUTPUT"
           echo "sha256=$digest" >> "$GITHUB_OUTPUT"
 
@@ -120,16 +120,18 @@ jobs:
       - run: npm run smoke:e2e -- "${{ matrix.engine }}" "${{ matrix.version }}"
 
   validated:
-    needs: [smoke, candidate]
+    needs: [matrix, smoke, candidate]
     runs-on: ubuntu-22.04
     steps:
       - name: Record acceptance
         env:
           CATALOG_SHA256: ${{ needs.candidate.outputs.sha256 }}
+          COMBINATIONS: ${{ needs.matrix.outputs.combos }}
         run: |
+          passed=$(jq '.include | length' <<< "$COMBINATIONS")
           jq -n --arg tag "$GITHUB_REF_NAME" --arg sha "$GITHUB_SHA" --arg manifest "$CATALOG_SHA256" \
-            '{tag: $tag, sha: $sha, manifest: $manifest, passed: 30}' > engine-validation.json
-          echo "All 30 engine builds passed. Catalog SHA-256: $CATALOG_SHA256" >> "$GITHUB_STEP_SUMMARY"
+            --argjson passed "$passed" '{tag: $tag, sha: $sha, manifest: $manifest, passed: $passed}' > engine-validation.json
+          echo "All $passed engine builds passed. Catalog SHA-256: $CATALOG_SHA256" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
           name: engine-validation-${{ github.run_attempt }}

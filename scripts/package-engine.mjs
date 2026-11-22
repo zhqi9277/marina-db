@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { getEngine } from '../src/core/registry.js';
 import { discoverRoot, findBin } from '../src/install/archive.js';
 import { downloadFile, sha256File } from '../src/install/download.js';
-import { artifactId, matrix } from './engine-matrix.mjs';
+import { artifactId, readBuildMatrix } from './engine-matrix.mjs';
 import { sourcesFor } from './engine-sources.mjs';
 import { relocate, verifyLibraries } from './portable-libraries.mjs';
 
@@ -18,12 +18,12 @@ function run(command, args, options = {}) {
 
 async function fetch(input, dir) {
   const file = path.join(dir, path.basename(new URL(input.url).pathname));
-  await downloadFile(input.url, file, { sha256: input.sha256 });
+  await downloadFile(input.url, file, { sha256: input.sha256, size: input.size });
   return { file, url: input.url, sha256: await sha256File(file) };
 }
 
 const [key, version, outputDir = 'dist'] = process.argv.slice(2);
-const target = matrix.find((row) =>
+const target = readBuildMatrix(process.env.GITHUB_REF_NAME).find((row) =>
   row.engine === key && row.version === version && row.os === process.platform && row.arch === process.arch);
 if (!target) throw new Error('usage: node scripts/package-engine.mjs <engine> <matrix version> [output dir] on a target runner');
 const engine = getEngine(key);
