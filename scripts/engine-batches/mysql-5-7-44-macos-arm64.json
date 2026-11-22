@@ -1,0 +1,28 @@
+[
+  {
+    "engine": "mysql",
+    "version": "5.7.44",
+    "os": "darwin",
+    "arch": "arm64",
+    "inputs": {
+      "binary": {
+        "url": "https://ghcr.io/v2/homebrew/core/mysql/5.7/blobs/sha256:ca2e5c8b98bd92843578ffeae0e6280d3066afc33c814cb1ba49299fe9285f50",
+        "sha256": "ca2e5c8b98bd92843578ffeae0e6280d3066afc33c814cb1ba49299fe9285f50",
+        "size": 74514054
+      },
+      "additional": [
+        {
+          "url": "https://ghcr.io/v2/homebrew/core/openssl/1.1/blobs/sha256:00fe912a43983918e60fa5b009e81347c7775c6bfbcd89ee067dc293f35547f9",
+          "sha256": "00fe912a43983918e60fa5b009e81347c7775c6bfbcd89ee067dc293f35547f9",
+          "size": 5328540
+        }
+      ],
+      "sourceCode": [
+        "https://cdn.mysql.com/Downloads/MySQL-5.7/mysql-boost-5.7.44.tar.gz",
+        "https://github.com/Homebrew/homebrew-core/blob/6c907880b95a3702348c1fcce1c661fcc03336e5/Formula/m/mysql%405.7.rb",
+        "https://github.com/openssl/openssl/releases/tag/OpenSSL_1_1_1w",
+        "https://github.com/Homebrew/homebrew-core/blob/a8b1e84754fa32029fa0ef015ac072a877348287/Formula/o/openssl%401.1.rb"
+      ]
+    }
+  }
+]
