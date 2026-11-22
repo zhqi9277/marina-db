@@ -172,6 +172,20 @@ jobs:
       - name: Oracle Linux RPM extractor
         if: matrix.engine == 'mysql' && runner.os == 'Linux' && matrix.arch == 'arm64'
         run: sudo apt-get install -y libarchive-tools
+      - name: MySQL 5.6 runtime (Windows)
+        if: runner.os == 'Windows' && matrix.engine == 'mysql' && startsWith(matrix.version, '5.6.')
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "vcredist-2010-x64.exe"
+          $url = "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe"
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne "f3b7a76d84d23f91957aa18456a14b4e90609e4ce8194c5653384ed38dada6f3") {
+            throw "Visual C++ 2010 x64 installer SHA-256 mismatch"
+          }
+          $install = Start-Process $installer -ArgumentList "/q", "/norestart" -Wait -PassThru
+          if ($install.ExitCode -notin 0, 3010) {
+            throw "Visual C++ 2010 x64 install exited with $($install.ExitCode)"
+          }
       - name: Build tools (macOS MariaDB)
         if: runner.os == 'macOS' && matrix.engine == 'mariadb'
         run: |

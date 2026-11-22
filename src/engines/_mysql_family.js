@@ -50,6 +50,13 @@ async function initializeMysql56(ctx) {
     if (host.id === 'win32') {
       const seed = path.join(ctx.root, 'data');
       if (!fs.existsSync(path.join(seed, 'mysql', 'user.frm'))) throw new Error('MySQL 5.6 package is missing its initial grant tables');
+      const mysqld = findBin(ctx.root, ['mysqld']);
+      if (!mysqld) throw new Error('cannot find mysqld for MySQL 5.6');
+      const probe = await spawnAsync(mysqld, ['--no-defaults', '--version'], { cwd: ctx.root, windowsHide: true });
+      if ((probe.code >>> 0) === 0xC0000135) {
+        throw new Error('MySQL 5.6 on Windows requires Microsoft Visual C++ 2010 SP1 Redistributable (x64). Download it at https://www.microsoft.com/en-us/download/details.aspx?id=26999');
+      }
+      if (probe.code !== 0) throw new Error(probe.stderr.trim() || `mysqld --version exited with ${probe.code}`);
       fs.cpSync(seed, dataDir, { recursive: true });
     } else {
       const installer = findBin(ctx.root, ['mysql_install_db']);
