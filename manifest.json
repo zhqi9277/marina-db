@@ -1936,6 +1936,17 @@
       "size": 140511832,
       "sha256": "118a36a569475cd3f3b0e443146d5984bd6f30df1dac3d4ba94c2dbe508ff903",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-6.0.29-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "5.6.51",
+      "major": "5.6",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mysql-5.6.51-linux-x64.tar.gz",
+      "size": 343295605,
+      "sha256": "c5a4d01222cd8efee48609876d216e5e1d620507e9e7b2d37d54821affd56a46",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.6.51-linux-x64.tar.gz"
     }
   ]
 }
