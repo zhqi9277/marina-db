@@ -164,8 +164,9 @@ async function mysqlInput(version, os, arch) {
   } else {
     const libc = ['2.28', '2.17', '2.12'];
     const stems = libc.map((abi) => 'linux-glibc' + abi + '-' + cpu);
-    suffixes = [...stems.map((stem) => stem + '-minimal.tar.xz'),
-      ...stems.map((stem) => stem + '.tar.xz'), ...stems.map((stem) => stem + '.tar.gz'),
+    // Prefer the newer compatible build even if it lacks a minimal archive.
+    // Older ARM64 builds can link optional modules to OpenSSL 1.0.
+    suffixes = [...stems.flatMap((stem) => [stem + '-minimal.tar.xz', stem + '.tar.xz', stem + '.tar.gz']),
       'linux-' + cpu + '.tar.gz'];
   }
   const official = suffixes.flatMap((name) => [archive, current].map((url) => url + prefix + '-' + name));
