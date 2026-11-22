@@ -2002,6 +2002,17 @@
       "size": 87645285,
       "sha256": "04b18aa9918409a5efee2f47894840506ebd4128d8ec93d346320603ff1aafb1",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-10.6.28-windows-x64.zip"
+    },
+    {
+      "name": "mysql",
+      "version": "5.6.51",
+      "major": "5.6",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mysql-5.6.51-windows-x64.zip",
+      "size": 450092808,
+      "sha256": "73d0d19ab8f77f85f78485b5230a4132c441bd0e1b897bf751f35627c3c211f7",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.6.51-windows-x64.zip"
     }
   ]
 }
