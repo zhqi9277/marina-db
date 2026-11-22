@@ -748,6 +748,61 @@
       "size": 546237503,
       "sha256": "2a0e0925de18fb2e20a5f53e961d375b72dda84cf5ca6a59e0a5227f76893d53",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987092108/mysql-8.0.37-linux-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "16.16",
+      "major": "16",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "postgres-16.16-darwin-x64.tar.gz",
+      "size": 9226155,
+      "sha256": "e5ede8d32c8105613a8953cb7212e38add06f370bddbd77287ba961381703416",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-darwin-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "16.16",
+      "major": "16",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "postgres-16.16-darwin-arm64.tar.gz",
+      "size": 8809709,
+      "sha256": "a028636cea2cdef8e29743a87e2985731f5c1bb283230f6fe95fad92f3b05332",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "16.16",
+      "major": "16",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "postgres-16.16-linux-x64.tar.gz",
+      "size": 10312743,
+      "sha256": "0de5f4ab793f46f27eaa7f0a6d83cb1a73a0eaf7ab0d0fb92ab9fe2856b8e95e",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-linux-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "16.16",
+      "major": "16",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "postgres-16.16-linux-arm64.tar.gz",
+      "size": 10197226,
+      "sha256": "a59038e262fe660bb68e4fb3fb25aca417164b315bf0ea0f8b7592bc48f6d639",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-linux-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "16.16",
+      "major": "16",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "postgres-16.16-windows-x64.zip",
+      "size": 372215680,
+      "sha256": "42f432db8c3c58023fc92dbd84b02dda0c57fc0a2daed095c36be5c2f8438955",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-windows-x64.zip"
     }
   ]
 }
