@@ -113,7 +113,8 @@ function elfDeps(file, env) {
 async function relocateLinux(root) {
   const files = nativeFiles(root).filter(dynamicElf);
   const libraries = path.join(root, 'lib', 'marina');
-  const env = { ...process.env, LD_LIBRARY_PATH: ['lib', 'lib64', 'lib/private', 'lib/mariadb'].map((dir) => path.join(root, dir)).join(':') };
+  const vendorLibraries = ['lib', 'lib64', 'lib/private', 'lib/mariadb'].map((dir) => path.join(root, dir));
+  const env = { ...process.env, LD_LIBRARY_PATH: vendorLibraries.join(':') };
   const added = new Map();
   const missing = new Set();
   for (const file of files) {
@@ -140,7 +141,7 @@ async function relocateLinux(root) {
   for (const file of [...files, ...[...added.keys()].map((name) => path.join(libraries, name))]) {
     const previous = command('patchelf', ['--print-rpath', file]).trim();
     const keep = previous.split(':').filter((ref) => /^\$\{?ORIGIN\}?($|\/)/.test(ref));
-    const own = [libraries, path.join(root, 'lib'), path.join(root, 'lib64')].filter(fs.existsSync)
+    const own = [libraries, ...vendorLibraries].filter(fs.existsSync)
       .map((dir) => '$ORIGIN/' + (path.relative(path.dirname(file), dir) || '.'));
     const rpath = [...new Set([...keep, ...own])].join(':');
     if (rpath !== previous) command('patchelf', ['--set-rpath', rpath, file]);
