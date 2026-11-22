@@ -1837,6 +1837,28 @@
       "size": 106365567,
       "sha256": "23ba78ec768ec489d0b89e917b547d361edccbd8eef6db2ea9818e3efa60269d",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-12.3.4-windows-x64.zip"
+    },
+    {
+      "name": "mongodb",
+      "version": "9.0.8",
+      "major": "9.0",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mongodb-9.0.8-darwin-x64.tar.gz",
+      "size": 272234370,
+      "sha256": "3d6fd80f315bf4fecbb62caa4b03fee8a8920ceb8a850f6aa520e002393a669c",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-9.0.8-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "9.0.8",
+      "major": "9.0",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mongodb-9.0.8-darwin-arm64.tar.gz",
+      "size": 261990863,
+      "sha256": "68d361712c80bbec1f23b123038dcb9c9e6241acc55302c4dff74df4f5e2eacc",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-9.0.8-darwin-arm64.tar.gz"
     }
   ]
 }
