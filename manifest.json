@@ -1001,6 +1001,50 @@
       "size": 93894305,
       "sha256": "941bc91abeba2e5c5c00f0c320eb45de7a6ba7c73a2677e47967d56aa1dc7518",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300878/mariadb-10.11.20-windows-x64.zip"
+    },
+    {
+      "name": "memcached",
+      "version": "1.5.22",
+      "major": "1",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "memcached-1.5.22-darwin-x64.tar.gz",
+      "size": 156749,
+      "sha256": "baaed82f024647953f5180b08e4f93b83ef55bda1e9a7f05bba93e6c7b7aec7f",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44989711315/memcached-1.5.22-darwin-x64.tar.gz"
+    },
+    {
+      "name": "memcached",
+      "version": "1.5.22",
+      "major": "1",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "memcached-1.5.22-darwin-arm64.tar.gz",
+      "size": 145616,
+      "sha256": "2b20d1f3757d77ed04ac47df11f0c1b875cb8cde77ce23cd50f394dff5824c9c",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44989711315/memcached-1.5.22-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "memcached",
+      "version": "1.5.22",
+      "major": "1",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "memcached-1.5.22-linux-x64.tar.gz",
+      "size": 311309,
+      "sha256": "8efdbb8e4a8869539b8e45ec7101a464a6fb8c71892ca24b5098781dee7b053e",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44989711315/memcached-1.5.22-linux-x64.tar.gz"
+    },
+    {
+      "name": "memcached",
+      "version": "1.5.22",
+      "major": "1",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "memcached-1.5.22-linux-arm64.tar.gz",
+      "size": 312949,
+      "sha256": "63d2647f5a0e1fbcf19beff020fd22ac12a637b4d09af7d27d291ba940bfe7ee",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44989711315/memcached-1.5.22-linux-arm64.tar.gz"
     }
   ]
 }
