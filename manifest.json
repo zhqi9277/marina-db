@@ -32,7 +32,7 @@
       "fileName": "postgres-17.11-darwin-x64.tar.gz",
       "size": 9854230,
       "sha256": "12b9591159636ce23a83b6fe272d0a3ac7361942bd65328da57cc18706e24b2b",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/postgres-17.11-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.11-darwin-x64.tar.gz"
     },
     {
       "name": "mongodb",
@@ -98,7 +98,7 @@
       "fileName": "postgres-17.11-darwin-arm64.tar.gz",
       "size": 9408680,
       "sha256": "6c81fc885fa2a7ea0329832d4780aed83845410ddd44ccf8fab8a1ab59389de4",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/postgres-17.11-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.11-darwin-arm64.tar.gz"
     },
     {
       "name": "mongodb",
@@ -164,7 +164,7 @@
       "fileName": "postgres-17.11-linux-x64.tar.gz",
       "size": 10972747,
       "sha256": "ed7d7e008535a5cce369e505c7245affc0a38dc5e398d59cfa4ee06c25dfe5a5",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/postgres-17.11-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.11-linux-x64.tar.gz"
     },
     {
       "name": "mongodb",
@@ -230,7 +230,7 @@
       "fileName": "postgres-17.11-linux-arm64.tar.gz",
       "size": 10856674,
       "sha256": "1dd9af496614e2df2f69f5591bce6fd63ecd457b2738cb8e86de2897161b50aa",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/postgres-17.11-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.11-linux-arm64.tar.gz"
     },
     {
       "name": "mongodb",
@@ -296,7 +296,7 @@
       "fileName": "postgres-17.11-windows-x64.zip",
       "size": 335540821,
       "sha256": "abf93ac66e869e170e337152f0b88f329987c63a8524fdca2eb910a7304c7391",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/postgres-17.11-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.11-windows-x64.zip"
     },
     {
       "name": "mongodb",
@@ -538,7 +538,7 @@
       "fileName": "postgres-17.10-darwin-x64.tar.gz",
       "size": 9831221,
       "sha256": "2a6984a74eacb8b803a8d2b121eab231ec9e31e17459065214276b6f25b30a5a",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.10-darwin-x64.tar.gz"
     },
     {
       "name": "postgresql",
@@ -549,7 +549,7 @@
       "fileName": "postgres-17.10-darwin-arm64.tar.gz",
       "size": 9386518,
       "sha256": "58033c53f4e0adfe94b802fc2027c33e9ad969f6c12d9c4a40d58ed8a735496e",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.10-darwin-arm64.tar.gz"
     },
     {
       "name": "postgresql",
@@ -560,7 +560,7 @@
       "fileName": "postgres-17.10-linux-x64.tar.gz",
       "size": 10957575,
       "sha256": "39617f0cc1eeb3366ac0fd23b7da3579f6a7afe3c4cb38e917c6900f41c2e493",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.10-linux-x64.tar.gz"
     },
     {
       "name": "postgresql",
@@ -571,7 +571,7 @@
       "fileName": "postgres-17.10-linux-arm64.tar.gz",
       "size": 10838852,
       "sha256": "55483fbb00b5099d4e03696a26cdaa46caf9d16a2c70867d1e43e1d8748246bb",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.10-linux-arm64.tar.gz"
     },
     {
       "name": "postgresql",
@@ -582,7 +582,7 @@
       "fileName": "postgres-17.10-windows-x64.zip",
       "size": 334066741,
       "sha256": "14491e86bd7349145784413a9956ac4b504356b11b07d813c28f9313200c83a3",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.10-windows-x64.zip"
     },
     {
       "name": "mariadb",
@@ -758,7 +758,7 @@
       "fileName": "postgres-16.16-darwin-x64.tar.gz",
       "size": 9226155,
       "sha256": "e5ede8d32c8105613a8953cb7212e38add06f370bddbd77287ba961381703416",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-16.16-darwin-x64.tar.gz"
     },
     {
       "name": "postgresql",
@@ -769,7 +769,7 @@
       "fileName": "postgres-16.16-darwin-arm64.tar.gz",
       "size": 8809709,
       "sha256": "a028636cea2cdef8e29743a87e2985731f5c1bb283230f6fe95fad92f3b05332",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-16.16-darwin-arm64.tar.gz"
     },
     {
       "name": "postgresql",
@@ -780,7 +780,7 @@
       "fileName": "postgres-16.16-linux-x64.tar.gz",
       "size": 10312743,
       "sha256": "0de5f4ab793f46f27eaa7f0a6d83cb1a73a0eaf7ab0d0fb92ab9fe2856b8e95e",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-16.16-linux-x64.tar.gz"
     },
     {
       "name": "postgresql",
@@ -791,7 +791,7 @@
       "fileName": "postgres-16.16-linux-arm64.tar.gz",
       "size": 10197226,
       "sha256": "a59038e262fe660bb68e4fb3fb25aca417164b315bf0ea0f8b7592bc48f6d639",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-16.16-linux-arm64.tar.gz"
     },
     {
       "name": "postgresql",
@@ -802,7 +802,7 @@
       "fileName": "postgres-16.16-windows-x64.zip",
       "size": 372215680,
       "sha256": "42f432db8c3c58023fc92dbd84b02dda0c57fc0a2daed095c36be5c2f8438955",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-16.16-windows-x64.zip"
     },
     {
       "name": "mongodb",
