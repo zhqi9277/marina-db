@@ -671,6 +671,61 @@
       "size": 242272957,
       "sha256": "492c0a09fd031ecb30ca0a815e7edf443148e5f0736bcafd2ea85ecc7d76115a",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44979134158/mysql-8.0.37-windows-x64.zip"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.10",
+      "major": "11.4",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mariadb-11.4.10-darwin-x64.tar.gz",
+      "size": 99624324,
+      "sha256": "1a73fdabaedf2a3fc7bbf75aedfbd1752b74ad375a57d5de0e2b5bb4768e9aa0",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44978689741/mariadb-11.4.10-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.10",
+      "major": "11.4",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mariadb-11.4.10-darwin-arm64.tar.gz",
+      "size": 104525125,
+      "sha256": "c071f04db249af69c7637dbe6bbda186553e2817674715e079f279140c5ecb64",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44978689741/mariadb-11.4.10-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.10",
+      "major": "11.4",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mariadb-11.4.10-linux-x64.tar.gz",
+      "size": 350687003,
+      "sha256": "0eb383824f630ceed9f4c343c3d86889342d93e770592ea7aa4de0a98f2a1241",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44978689741/mariadb-11.4.10-linux-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.10",
+      "major": "11.4",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mariadb-11.4.10-linux-arm64.tar.gz",
+      "size": 63546896,
+      "sha256": "d5b2542efbc118e076973c0248127950e197ab063acd5963d197c7266da225e7",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44978689741/mariadb-11.4.10-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.10",
+      "major": "11.4",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mariadb-11.4.10-windows-x64.zip",
+      "size": 94746570,
+      "sha256": "a778805bbb60b632abeb5f0645692898c5b7358fc173760e8ba5f2bacf46fb2a",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44978689741/mariadb-11.4.10-windows-x64.zip"
     }
   ]
 }
