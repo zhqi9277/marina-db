@@ -1,60 +1,80 @@
-// Turn a directory of build artifacts into a marina manifest.
-//
-// Naming convention (what the CI matrix produces):
-//   <engine>-<version>-<os>-<arch>.<ext>
-//   redis-7.4.11-darwin-arm64.tar.gz
-//   mysql-8.4.11-windows-x64.zip
-//
-// usage: node scripts/make-manifest.mjs dist/ > manifest.json
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { CATALOG, majorOf } from '../src/install/catalog.js';
+import { sha256File } from '../src/install/download.js';
+import { parseCatalog } from '../src/install/overlay.js';
+import { artifactId, matrix } from './engine-matrix.mjs';
 
-const NAME = /^([a-z0-9]+)-(\d+\.\d+(?:\.\d+)?(?:-[A-Za-z0-9.]+)?)-(darwin|linux|windows)-(arm64|x64|x86_64|aarch64)\.(tar\.gz|tgz|zip|tar\.xz)$/;
+const MAX_ASSET_SIZE = 2 * 1024 ** 3;
+const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+const print = (artifacts) => console.log(JSON.stringify({ schema: 1, artifacts }, null, 2));
+const nameOf = (row) => artifactId(row) + (row.os === 'win32' ? '.zip' : '.tar.gz');
+const keyOf = (row) => [row.key, row.os, row.arch, row.version].join('/');
+const expected = new Map(matrix.map((row) => [nameOf(row), row]));
 
-export function sha256(file) {
-  return new Promise((resolve, reject) => {
-    const h = crypto.createHash('sha256');
-    fs.createReadStream(file).on('data', (d) => h.update(d)).on('end', () => resolve(h.digest('hex'))).on('error', reject);
-  });
+function requireAssetNames(names) {
+  const missing = [...expected.keys()].filter((name) => !names.includes(name));
+  if (missing.length || names.length !== expected.size) {
+    throw new Error('expected ' + expected.size + ' archives, found ' + names.length + ', missing: ' + missing.join(', '));
+  }
 }
 
-export async function scan(dir, baseUrl) {
-  const out = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-    const m = entry.name.match(NAME);
-    if (!m) continue;
-    const [, engine, version, osToken, arch, ext] = m;
-    // node platform names: windows -> win32 (overlay compares these)
-    const os = osToken === 'windows' ? 'win32' : osToken;
-    const file = path.join(dir, entry.name);
-    const stat = fs.statSync(file);
-    out.push({
-      name: engine,
-      version,
-      major: version.split('.').slice(0, 2).join('.'),
-      os,
-      arch,
-      fileName: entry.name,
-      size: stat.size,
-      sha256: await sha256(file),
-      url: `${baseUrl.replace(/\/+$/, '')}/${entry.name}`,
+async function generate(dir, base) {
+  const files = fs.readdirSync(dir).filter((name) => name !== 'manifest.json');
+  requireAssetNames(files);
+  const artifacts = [];
+  for (const [fileName, row] of expected) {
+    const file = path.join(dir, fileName);
+    const { size } = fs.statSync(file);
+    if (size <= 0 || size >= MAX_ASSET_SIZE) throw new Error(fileName + ' must be smaller than 2 GiB');
+    const { engine, version, os, arch } = row;
+    artifacts.push({
+      name: CATALOG[engine].manifestName,
+      version, major: majorOf(engine, version), os, arch, fileName, size,
+      sha256: await sha256File(file),
+      url: base + '/' + fileName,
     });
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version) || a.os.localeCompare(b.os));
+  print(artifacts);
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
-if (isMain) {
-  const dir = process.argv[2] || 'dist';
-  const base = process.env.MARINA_RELEASE_BASE || 'https://github.com/OWNER/REPO/releases/download/engines';
-  const artifacts = await scan(dir, base);
-  const manifest = {
-    schema: 1,
-    generatedAt: new Date().toISOString(),
-    artifacts,
-  };
-  process.stdout.write(JSON.stringify(manifest, null, 2) + '\n');
-  console.error(`[ok] ${artifacts.length} artifacts from ${dir}`);
+async function verify(file, releaseFile, base) {
+  const artifacts = parseCatalog(read(file), { requireSize: true });
+  requireAssetNames(artifacts.map((row) => row.fileName));
+  const { draft, prerelease, assets } = read(releaseFile);
+  if (draft || !prerelease || assets.length !== expected.size + 1) throw new Error('candidate release attachments are incomplete');
+  const byName = new Map(assets.map((asset) => [asset.name, asset]));
+  for (const row of artifacts) {
+    const asset = byName.get(row.fileName);
+    const target = expected.get(row.fileName);
+    const url = base + '/' + row.fileName;
+    if (keyOf(row) !== keyOf({ ...target, key: target.engine }) || row.url !== url ||
+        !asset || asset.state !== 'uploaded' || asset.browser_download_url !== url ||
+        asset.size !== row.size || asset.digest !== 'sha256:' + row.sha256) {
+      throw new Error('release metadata does not match catalog for ' + row.fileName);
+    }
+  }
+  const digest = await sha256File(file);
+  const manifest = byName.get('manifest.json');
+  if (manifest?.state !== 'uploaded' || manifest?.digest !== 'sha256:' + digest) {
+    throw new Error('released manifest checksum mismatch');
+  }
+  console.log(digest);
 }
+
+function merge(previous, candidate) {
+  const artifacts = new Map(parseCatalog(read(previous), { requireSize: true }).map((row) => [keyOf(row), row]));
+  for (const row of parseCatalog(read(candidate), { requireSize: true })) {
+    const id = keyOf(row);
+    const existing = artifacts.get(id);
+    if (existing && existing.sha256 !== row.sha256) throw new Error('published binaries cannot be replaced in place: ' + id);
+    if (!existing) artifacts.set(id, row);
+  }
+  print([...artifacts.values()].map(({ key, ...row }) => row));
+}
+
+const [command, ...args] = process.argv.slice(2);
+if (command === 'generate') await generate(...args);
+else if (command === 'verify') await verify(...args);
+else if (command === 'merge') merge(...args);
+else throw new Error('usage: make-manifest.mjs generate <directory> <release base> | verify <manifest> <release JSON> <release base> | merge <stable> <candidate>');

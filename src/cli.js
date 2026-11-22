@@ -1,22 +1,23 @@
 // marina CLI: argument parsing, commands, rendering.
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
-import { dirs } from './paths.js';
-import { engineList, getEngine, installedVersions, buildCtx, activeCtx, resolveRef, pickVersion, syncCurrentSymlink } from './registry.js';
-import { status, start, stop, restart, stateBadge } from './lifecycle.js';
-import { install, remove, use, renderConfig } from './installer.js';
-import { listVersions } from './versions.js';
-import { installShims, resolveBin, shellenv } from './shims.js';
-import { readProject } from './project.js';
-import { changePort, changeAccount } from './settings.js';
-import * as autostart from './autostart.js';
-import { findBin } from './archive.js';
-import { OS_LABEL } from './platform.js';
-import { runDoctor } from './doctor.js';
-import * as state from './state.js';
+import { dirs } from './core/paths.js';
+import { engineList, getEngine, installedVersions, activeCtx, instanceContexts, resolveRef, pickVersion } from './core/registry.js';
+import { collectRows, versionStatus } from './runtime/inventory.js';
+import { status, start, stop, restart, stateBadge } from './runtime/lifecycle.js';
+import { install, remove, use } from './install/installer.js';
+import { listVersions } from './install/versions.js';
+import { installShims, resolveBin, shellenv } from './runtime/shims.js';
+import { readProject } from './core/project.js';
+import { changePort, changeAccount } from './runtime/settings.js';
+import * as autostart from './runtime/autostart.js';
+import { findBin } from './install/archive.js';
+import { clientEnv } from './core/env.js';
+import { runDoctor } from './runtime/doctor.js';
+import * as state from './core/state.js';
 import {
-  out, info, ok, warn, fail, hint, table, jsonOut, color, isInteractive, select,
-} from './ui.js';
+  out, info, ok, warn, fail, hint, table, jsonOut, color, isInteractive, select, isQuiet, setQuiet,
+} from './ui/console.js';
 
 const HELP = `marina — multi-engine database manager (version switch + service lifecycle)
 
@@ -55,7 +56,6 @@ TOOLS
   marina which mysql                          resolve a client binary
   marina shims                                install shims into the runtime dir
   marina shellenv                             eval "$(marina shellenv)"
-  marina reconfig [<db[@ver]>|--all]  rewrite generated config + current symlink
   marina rm <db[@ver]> [--purge]
   marina doctor
   marina            (no args, TTY) full-screen dashboard
@@ -69,13 +69,12 @@ FLAGS
 
 ENV
   MARINA_HOME            install root (default <repo>/runtime, ~/.marina if read-only)
-  MARINA_MIRROR          index/download source order, e.g. huawei,aliyun (default: per engine)
   MARINA_INDEX_TTL       version-index cache seconds (default 21600)
-  MARINA_CATALOG_FILE    optional self-built artifact overlay (JSON)
-  MARINA_CATALOG_URL     same, fetched over HTTP
+  MARINA_CATALOG_FILE    use a local build catalog (JSON)
+  MARINA_CATALOG_URL     override the GitHub build catalog URL
 
 HOMEPAGE
-  https://gitee.com/zhqi9277/marina
+  https://github.com/zhqi9277/marina-db
 `;
 
 const VALUE_FLAGS = new Set(['port', 'file', 'version', 'lines', 'bin', 'major', 'user', 'password']);
@@ -132,44 +131,11 @@ function renderServices(rows) {
   );
 }
 
-// Only one version per major line can run (same socket/port/config), so runtime
-// state is probed once per major and other versions are reported as inactive.
-async function versionStatus(engine, v, activePick) {
-  const anotherActiveInMajor = activePick && activePick.major === v.major && activePick.version !== v.version;
-  if (anotherActiveInMajor) {
-    const activeStat = await status(buildCtx(engine, activePick));
-    return {
-      ...activeStat,
-      version: v.version,
-      active: false,
-      pid: null,
-      state: activeStat.state === 'running' || activeStat.state === 'degraded' ? 'inactive' : activeStat.state,
-    };
-  }
-  const st = await status(buildCtx(engine, v));
-  return { ...st, version: v.version, active: !!(activePick && activePick.version === v.version) };
-}
-
-async function collectRows() {
-  const rows = [];
-  for (const engine of engineList) {
-    const versions = installedVersions(engine);
-    if (!versions.length) continue;
-    const activeVersion = state.getActive(engine.key);
-    const activePick = activeVersion ? versions.find((v) => v.version === activeVersion) : versions[versions.length - 1];
-    for (const v of versions) {
-      const st = await versionStatus(engine, v, activePick);
-      rows.push({ ...st, label: engine.label, major: v.major, ctx: buildCtx(engine, v) });
-    }
-  }
-  return rows;
-}
-
 // ---------------------------------------------------------------- commands --
 async function cmdLs(flags) {
   const rows = await collectRows();
   if (flags.json) {
-    return jsonOut(rows.map(({ ctx, ...r }) => ({ ...r, auth: ctx.engine.account?.(ctx) || null })));
+    return jsonOut(rows.map(({ ctx, engine, ...r }) => ({ ...r, auth: engine.account?.(ctx) || null })));
   }
   if (!rows.length) {
     info('nothing installed yet');
@@ -187,15 +153,14 @@ async function cmdLs(flags) {
 async function cmdRemote(flags, args) {
   const engine = args[0] ? getEngine(args[0]) : null;
   const targets = engine ? [engine] : engineList;
-  const indexes = [];
-
-  for (const e of targets) {
+  const indexes = (await Promise.all(targets.map(async (e) => {
     try {
-      indexes.push({ ...(await listVersions(e.key, { refresh: !!flags.refresh })), engine: e });
+      return { ...(await listVersions(e.key, { refresh: !!flags.refresh })), engine: e };
     } catch (err) {
       warn(`${e.label}: ${err.message.split('\n')[0]}`);
+      return null;
     }
-  }
+  }))).filter(Boolean);
   if (!indexes.length) throw new Error('no version index is reachable — check the network, then: marina remote --refresh');
 
   if (flags.json) {
@@ -231,7 +196,7 @@ async function cmdRemote(flags, args) {
     });
     out(table(['DATABASE', 'VERSIONS', 'NEWEST', 'INSTALLED', 'INDEX'], rows));
     hint('full list: marina remote <db>   ·   refresh: marina remote --refresh');
-    hint('versions are discovered remotely (mirrors first, official upstream as fallback)');
+    hint('lists published builds for this operating system and architecture');
     return;
   }
 
@@ -265,28 +230,22 @@ async function cmdInstall(flags, args) {
   const tag = tagParts.join('@') || null;
 
   let target = ref;
-  if (!tag && !flags.file) {
+  if (!tag && !flags.file && !flags.version && isInteractive()) {
     const idx = await listVersions(engine.key);
-    const usable = idx.versions.filter((v) => v.supported);
-    const pool = usable.length ? usable : idx.versions;
-    if (!pool.length) throw new Error(`${engine.label}: the remote index returned no versions`);
-    if (!isInteractive()) {
-      throw new Error(
-        `missing version — e.g. marina install ${engine.key}@${pool[0].version}\n  (run in a TTY to pick from ${pool.length} versions)`,
+    if (idx.versions.length) {
+      const { item } = await select(
+        `${engine.label} — choose a version`,
+        idx.versions.slice(0, 30).map((v) => ({
+          label: v.version,
+          hint: v.source,
+        })),
       );
+      target = `${engine.key}@${item.label}`;
     }
-    const { item } = await select(
-      `${engine.label} — choose a version`,
-      pool.slice(0, 30).map((v) => ({
-        label: v.version,
-        hint: `${v.kind} · ${v.source}${v.supported ? '' : ` · n/a on ${OS_LABEL}`}`,
-      })),
-    );
-    target = `${engine.key}@${item.label}`;
   }
 
   const summary = await install(target, {
-    port: flags.port ? Number(flags.port) : null,
+    port: flags.port ?? null,
     force: !!flags.force,
     file: flags.file || null,
     version: flags.version || null,
@@ -324,7 +283,7 @@ async function cmdUse(flags, args) {
   if (flags.json) return jsonOut({ key: res.engine.key, version: res.version, previous: res.previous });
   ok(`active ${res.engine.key} -> ${res.version}`);
   if (res.previous && res.previous !== res.version && !flags.restart) {
-    hint(`was ${res.previous} — restart to apply: marina restart ${res.engine.key}@${res.version.split('.').slice(0, 2).join('.')}`);
+    hint(`was ${res.previous} — restart to apply: marina restart ${res.engine.key}@${res.ctx.major}`);
   }
 }
 
@@ -349,7 +308,7 @@ async function cmdCurrent(flags) {
 async function lifecycleMany(flags, action, args) {
   let targets = [];
   if (flags.autostart) {
-    targets = autostart.autostartList()
+    targets = state.autostartList()
       .map((id) => {
         try {
           return resolveRef(id.replace(':', '@')).ctx;
@@ -359,18 +318,20 @@ async function lifecycleMany(flags, action, args) {
       })
       .filter(Boolean);
     if (!targets.length) {
+      if (flags.json) return jsonOut([]);
       warn('no autostart entries — marina autostart mysql@8.4');
       return;
     }
   } else if (flags.all) {
-    targets = engineList
-      .map((e) => activeCtx(e))
-      .filter(Boolean);
+    targets = action === 'stop' ? engineList.flatMap(instanceContexts) : engineList.map(activeCtx).filter(Boolean);
   } else {
     // accept one or more refs: marina start mysql redis@7 postgres
     const refs = args.length ? args : [requireRef(args, flags)];
     const seen = new Set();
-    targets = refs.map((ref) => resolveRef(ref).ctx).filter((ctx) => {
+    targets = refs.map((ref) => {
+      const { ctx } = resolveRef(ref);
+      return { ...ctx, exactVersion: ref.split('@')[1] === ctx.version };
+    }).filter((ctx) => {
       const id = `${ctx.key}:${ctx.major}`;
       if (seen.has(id)) return false;
       seen.add(id);
@@ -378,6 +339,7 @@ async function lifecycleMany(flags, action, args) {
     });
   }
   if (!targets.length) {
+    if (flags.json) return jsonOut([]);
     warn('nothing installed — marina install mysql@8.4');
     return;
   }
@@ -386,7 +348,8 @@ async function lifecycleMany(flags, action, args) {
   const failures = [];
   for (const ctx of targets) {
     try {
-      await (action === 'start' ? start(ctx) : action === 'stop' ? stop(ctx) : restart(ctx));
+      const opts = { instance: !ctx.exactVersion };
+      await (action === 'start' ? start(ctx) : action === 'stop' ? stop(ctx, opts) : restart(ctx, opts));
       const st = await status(ctx);
       results.push({ ...st, label: ctx.engine.label });
     } catch (e) {
@@ -396,11 +359,12 @@ async function lifecycleMany(flags, action, args) {
   }
 
   if (flags.json) {
+    if (failures.length) process.exitCode = 1;
     return jsonOut(failures.length ? { results, failures } : results);
   }
   if (results.length) {
     out('');
-    out(renderServices(results.map((r) => ({ ...r, active: true }))));
+    out(renderServices(results.map((r) => ({ ...r, active: activeCtx(getEngine(r.key))?.version === r.version }))));
   }
   if (failures.length) {
     throw new Error(`${failures.length} of ${targets.length} ${action} target(s) failed`);
@@ -427,7 +391,7 @@ async function cmdAutostart(flags, args) {
       : engineList.map((e) => activeCtx(e)).filter(Boolean);
     if (!ctxs.length) return warn('nothing installed');
 
-    const before = autostart.autostartList();
+    const before = info.ids;
     const result = off
       ? (flags.all ? autostart.disableAll() : autostart.disable(ctxs))
       : (flags.all ? autostart.enableAll(ctxs) : autostart.enable(ctxs));
@@ -486,7 +450,7 @@ async function cmdStatus(flags, args) {
   }
   const rows = await collectRows();
   if (flags.json) {
-    return jsonOut(rows.map(({ ctx, ...r }) => ({ ...r, auth: ctx.engine.account?.(ctx) || null })));
+    return jsonOut(rows.map(({ ctx, engine, ...r }) => ({ ...r, auth: engine.account?.(ctx) || null })));
   }
   if (!rows.length) return info('nothing installed yet');
   out(renderServices(rows));
@@ -511,8 +475,8 @@ async function cmdConfig(flags, args) {
 async function cmdPort(flags, args) {
   const ref = requireRef(args, flags);
   const { engine, ctx } = resolveRef(ref);
-  if (args[1] !== undefined || (flags.port && flags.port !== true)) {
-    const result = await changePort(ctx, Number(args[1] ?? flags.port));
+  if (args[1] !== undefined || flags.port !== undefined) {
+    const result = await changePort(ctx, args[1] ?? flags.port);
     if (flags.json) return jsonOut(result);
     if (result.same) return info(`port ${ctx.key}@${ctx.major} already ${result.port}`);
     ok(`port ${ctx.key}@${ctx.major} -> ${result.port}${result.restarted ? ' (restarted)' : ''}`);
@@ -531,6 +495,10 @@ async function cmdAuth(flags, args) {
 
   if (Object.keys(patch).length) {
     const result = await changeAccount(ctx, patch);
+    if (result.error) {
+      if (!flags.json) throw new Error(result.error);
+      process.exitCode = 1;
+    }
     if (flags.json) return jsonOut(result);
     const a = result.account;
     ok(`saved ${ctx.key} account ${a.user || '—'}${a.password ? ` / ${a.password}` : '  (no password)'}`);
@@ -538,28 +506,11 @@ async function cmdAuth(flags, args) {
     return;
   }
 
-  const a = ctx.engine.account?.(ctx) || { ...state.accountOf(ctx.key), mode: 'unknown' };
+  const a = ctx.engine.account?.(ctx) || { ...ctx.account, mode: 'unknown' };
   if (flags.json) return jsonOut({ key: ctx.key, ...a });
   out(table(['DATABASE', 'ACCOUNT', 'PASSWORD', 'MODE'], [[
     `${ctx.key}@${ctx.major}`, a.user || '—', a.password || '—', a.mode || '—',
   ]]));
-}
-
-async function cmdReconfig(flags, args) {
-  const targets = flags.all
-    ? engineList.map((e) => activeCtx(e)).filter(Boolean)
-    : [resolveRef(requireRef(args, flags)).ctx];
-  if (!targets.length) return warn('nothing installed');
-  const done = [];
-  for (const ctx of targets) {
-    const active = state.getActive(ctx.engine.key) || ctx.version;
-    syncCurrentSymlink(ctx.engine, ctx.major, active);
-    const r = renderConfig(ctx, { force: true });
-    done.push({ key: ctx.key, version: ctx.version, confFile: r.path || null });
-  }
-  if (flags.json) return jsonOut(done);
-  done.forEach((d) => ok(`${d.key} ${d.version}${d.confFile ? ` -> ${d.confFile}` : ''}`));
-  hint('restart running services to pick up new paths: marina restart <db>');
 }
 
 async function cmdRm(flags, args) {
@@ -592,7 +543,7 @@ function cmdExec(flags, args, tail) {
   }
   const isServer = (engine.serverBin || []).includes(binName);
   const prefix = !isServer && engine.clientArgs ? engine.clientArgs(ctx) : [];
-  const child = spawn(bin, [...prefix, ...pass], { stdio: 'inherit' });
+  const child = spawn(bin, [...prefix, ...pass], { stdio: 'inherit', env: clientEnv() });
   return new Promise((resolve, reject) => {
     child.on('error', reject);
     child.on('exit', (code, signal) => {
@@ -613,7 +564,7 @@ function cmdShimExec(args, tail) {
   }
   const isServer = (found.engine.serverBin || []).includes(bin);
   const prefix = !isServer && found.engine.clientArgs ? found.engine.clientArgs(found.ctx) : [];
-  const child = spawn(found.path, [...prefix, ...pass], { stdio: 'inherit' });
+  const child = spawn(found.path, [...prefix, ...pass], { stdio: 'inherit', env: clientEnv() });
   child.on('exit', (code, signal) => {
     if (signal) process.kill(process.pid, signal);
     else process.exit(code ?? 0);
@@ -653,6 +604,16 @@ async function cmdMenu() {
 export async function main(argv) {
   const { head, tail } = splitArgv(argv);
   const { flags, rest } = parseFlags(head);
+  const wasQuiet = isQuiet();
+  if (flags.json) setQuiet(true);
+  try {
+    return await dispatch(flags, rest, tail);
+  } finally {
+    setQuiet(wasQuiet);
+  }
+}
+
+async function dispatch(flags, rest, tail) {
   if (flags.help && !rest.length) return out(HELP);
   if (flags.version && !rest.length) return out('marina 0.1.0');
 
@@ -689,8 +650,6 @@ export async function main(argv) {
     case 'autostart':
     case 'boot': return cmdAutostart(flags, args);
     case 'auth': return cmdAuth(flags, args);
-    case 'reconfig':
-      return cmdReconfig(flags, args);
     case 'rm':
     case 'uninstall':
     case 'remove': return cmdRm(flags, args);
@@ -707,6 +666,7 @@ export async function main(argv) {
     case '--version':
       return out('marina 0.1.0');
     default:
+      process.exitCode = 1;
       fail(`unknown command "${command}"`);
       out('');
       return out(HELP);

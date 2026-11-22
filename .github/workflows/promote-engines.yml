@@ -1,0 +1,84 @@
+name: promote-engines
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful build-engines run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: engine-catalog
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Verify the workflow run
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          data=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          echo "$data" | jq -e '.path == ".github/workflows/build-engines.yml" and .event == "push" and .conclusion == "success"' > /dev/null
+          echo "attempt=$(jq -r .run_attempt <<< "$data")" >> "$GITHUB_OUTPUT"
+          echo "sha=$(jq -r .head_sha <<< "$data")" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v8
+        with:
+          name: engine-validation-${{ steps.run.outputs.attempt }}
+          path: evidence
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Update the stable catalog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ steps.run.outputs.sha }}
+        run: |
+          evidence=evidence/engine-validation.json
+          jq -e --arg sha "$EXPECTED_SHA" '.passed == 30 and .sha == $sha' "$evidence" > /dev/null
+          tag=$(jq -er .tag "$evidence")
+          [[ "$tag" =~ ^engines-candidate-[A-Za-z0-9._-]+$ ]]
+          git fetch origin "refs/tags/$tag:refs/tags/$tag" main
+          [[ $(git rev-parse "$tag^{commit}") == "$EXPECTED_SHA" ]]
+          git merge-base --is-ancestor "$EXPECTED_SHA" origin/main
+
+          base="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$tag"
+          curl --fail --location --retry 3 "$base/manifest.json" -o candidate.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" > release.json
+          digest=$(node scripts/make-manifest.mjs verify candidate.json release.json "$base")
+          [[ "$digest" == "$(jq -er .manifest "$evidence")" ]]
+
+          parent=()
+          stable_ref=refs/heads/engine-catalog
+          if [[ -n $(git ls-remote origin "$stable_ref") ]]; then
+            git fetch origin "$stable_ref"
+            parent=(-p FETCH_HEAD)
+            git show FETCH_HEAD:manifest.json > previous.json
+            node scripts/make-manifest.mjs merge previous.json candidate.json > manifest.json
+          else
+            cp candidate.json manifest.json
+          fi
+          blob=$(git hash-object -w manifest.json)
+          tree=$(printf '100644 blob %s\tmanifest.json\n' "$blob" | git mktree)
+          if (("${#parent[@]}" > 0)) && [[ "$tree" == "$(git rev-parse 'FETCH_HEAD^{tree}')" ]]; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          commit=$(git commit-tree "$tree" "${parent[@]}" -m "Promote engine catalog from $tag")
+          git push origin "$commit:$stable_ref"

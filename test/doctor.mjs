@@ -1,7 +1,7 @@
 // Local self-check contract (no network).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { runDoctor } from '../src/doctor.js';
+import { runDoctor } from '../src/runtime/doctor.js';
 
 test('doctor returns named checks with boolean verdicts', async () => {
   const checks = await runDoctor();

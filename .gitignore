@@ -1,5 +1,5 @@
 # installed engines, datadirs, caches — all machine-local state
-runtime/
+/runtime/
 
 # deps
 node_modules/
@@ -7,7 +7,7 @@ node_modules/
 # os noise
 .DS_Store
 
-# build artifacts
+# engine build artifacts (scripts/build-engine.sh)
 dist/
 
 # npm publish cache

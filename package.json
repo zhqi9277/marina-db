@@ -1,10 +1,10 @@
 {
   "name": "marina-db",
   "version": "0.1.0",
-  "homepage": "https://gitee.com/zhqi9277/marina",
+  "homepage": "https://github.com/zhqi9277/marina-db",
   "repository": {
     "type": "git",
-    "url": "git+https://gitee.com/zhqi9277/marina.git"
+    "url": "git+https://github.com/zhqi9277/marina-db.git"
   },
   "description": "Marina — install, switch and run local database engines: one CLI, remote version index, isolated runtime",
   "type": "module",
@@ -16,7 +16,8 @@
   },
   "scripts": {
     "marina": "node bin/marina.js",
-    "test": "node --test test/*.mjs"
+    "test": "node --test test/*.mjs",
+    "smoke:e2e": "node test/e2e/smoke.mjs"
   },
   "keywords": [
     "cli",

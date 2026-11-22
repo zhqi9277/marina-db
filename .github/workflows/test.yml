@@ -1,0 +1,28 @@
+name: test
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, node: 18.17.0 }
+          - { os: ubuntu-22.04, node: 24 }
+          - { os: macos-15, node: 18.17.0 }
+          - { os: macos-15, node: 24 }
+          - { os: windows-2022, node: 24 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test

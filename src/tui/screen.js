@@ -71,6 +71,7 @@ export function readKeys(onKey) {
       else if (ch === '\t') onKey('tab');
       else if (ch === '\x7f') onKey('backspace');
       else if (ch === '\x03') onKey('ctrl-c');
+      else if (ch === '\x15') onKey('ctrl-u');
       else if (ch === '\x1b') onKey('esc');
       else onKey(ch);
       i += 1;

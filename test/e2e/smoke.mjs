@@ -1,0 +1,153 @@
+// Verify one published matrix entry on a fresh runner with a disposable home.
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { tcpProbe } from '../../src/runtime/lifecycle.js';
+
+const [engine, version] = process.argv.slice(2);
+const catalogUrl = process.env.MARINA_CATALOG_URL;
+assert.ok(engine && version, 'usage: npm run smoke:e2e -- <engine> <version>');
+assert.ok(catalogUrl || process.env.MARINA_CATALOG_FILE, 'a candidate catalog is required');
+const windows = process.platform === 'win32';
+const home = fs.mkdtempSync(path.join(windows ? os.tmpdir() : '/tmp', 'marina test-'));
+const bin = fileURLToPath(new URL('../../bin/marina.js', import.meta.url));
+const env = { ...process.env, MARINA_HOME: home };
+for (const key of Object.keys(env)) {
+  if (key.toUpperCase() === 'PATH') delete env[key];
+}
+const system = process.env.SystemRoot || 'C:\\Windows';
+env.PATH = windows
+  ? [path.join(system, 'System32'), path.join(system, 'System32', 'WindowsPowerShell', 'v1.0'), system].join(';')
+  : '/usr/bin:/bin:/usr/sbin:/sbin';
+
+function cli(...args) {
+  const result = spawnSync(process.execPath, [bin, ...args], {
+    cwd: home, env, encoding: 'utf8', timeout: 600000, maxBuffer: 8 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, 'marina ' + args.join(' ') + '\n' + result.stderr + '\n' + result.stdout);
+  return result.stdout.trim();
+}
+
+function command(ref, ...args) {
+  return cli('exec', ref, '--', ...args);
+}
+
+async function freePort() {
+  const server = net.createServer();
+  await new Promise((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  return port;
+}
+
+function memcached(port, request) {
+  return new Promise((resolve, reject) => {
+    const socket = net.connect(port, '127.0.0.1', () => socket.write(request + 'quit\r\n'));
+    let response = '';
+    socket.setEncoding('utf8');
+    socket.setTimeout(3000, () => socket.destroy(new Error('Memcached request timed out')));
+    socket.on('data', (data) => { response += data; });
+    socket.on('end', () => resolve(response));
+    socket.on('error', reject);
+  });
+}
+
+function sql(ref, text) {
+  return engine === 'postgres'
+    ? command(ref, '-Atc', text)
+    : command(ref, '-N', '-B', '-e', text);
+}
+
+async function write(ref, port) {
+  switch (engine) {
+    case 'mysql':
+    case 'mariadb':
+      sql(ref, 'CREATE DATABASE smoke; CREATE TABLE smoke.marina (value INTEGER); INSERT INTO smoke.marina VALUES (42);');
+      break;
+    case 'postgres':
+      sql(ref, 'CREATE TABLE marina (value INTEGER); INSERT INTO marina VALUES (42);');
+      break;
+    case 'redis':
+      assert.equal(command(ref, 'set', 'marina', '42'), 'OK');
+      break;
+    case 'mongodb':
+      assert.equal(command(ref, '--quiet', '--norc', '--eval',
+        'db.getSiblingDB("marina").smoke.insertOne({_id:"row", value:42}).acknowledged'), 'true');
+      break;
+    case 'memcached':
+      assert.equal(await memcached(port, 'set marina 0 0 2\r\n42\r\n'), 'STORED\r\n');
+      break;
+    default:
+      throw new Error('unknown engine ' + engine);
+  }
+}
+
+async function read(ref, port, restarted) {
+  switch (engine) {
+    case 'mysql':
+    case 'mariadb':
+      assert.equal(sql(ref, 'SELECT value FROM smoke.marina;'), '42');
+      break;
+    case 'postgres':
+      assert.equal(sql(ref, 'SELECT value FROM marina;'), '42');
+      break;
+    case 'redis':
+      assert.equal(command(ref, 'get', 'marina'), '42');
+      break;
+    case 'mongodb':
+      assert.equal(command(ref, '--quiet', '--norc', '--eval',
+        'db.getSiblingDB("marina").smoke.findOne({_id:"row"}).value'), '42');
+      break;
+    case 'memcached':
+      assert.equal(await memcached(port, 'get marina\r\n'), restarted ? 'END\r\n' : 'VALUE marina 0 2\r\n42\r\nEND\r\n');
+      break;
+  }
+}
+
+let ref = engine + '@' + version;
+let failure;
+try {
+  const expected = process.env.MARINA_CATALOG_SHA256;
+  if (expected) {
+    const response = await fetch(catalogUrl, { signal: AbortSignal.timeout(30000) });
+    assert.ok(response.ok, 'candidate catalog returned HTTP ' + response.status);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), expected);
+    env.MARINA_CATALOG_FILE = path.join(home, 'candidate.json');
+    fs.writeFileSync(env.MARINA_CATALOG_FILE, bytes);
+  }
+
+  const port = await freePort();
+  const index = JSON.parse(cli('remote', engine, '--json'));
+  assert.ok(index.versions.some((row) => row.version === version && row.supported), 'missing build for this host');
+  assert.equal(JSON.parse(cli('install', ref, '--port', String(port), '--json')).version, version);
+  assert.equal(await tcpProbe(port), false, 'installation left the engine running');
+  cli('start', ref);
+  const status = JSON.parse(cli('status', ref, '--json'));
+  assert.ok((Array.isArray(status) ? status[0] : status)?.healthy, 'engine did not become healthy');
+  await write(ref, port);
+  await read(ref, port, false);
+  cli('restart', ref);
+  await read(ref, port, true);
+  cli('stop', ref);
+  assert.equal(await tcpProbe(port), false, 'stop left the listener open');
+  console.log('[ok] ' + ref + ' ' + process.platform + '/' + process.arch);
+} catch (error) {
+  failure = error;
+  throw error;
+} finally {
+  try {
+    cli('stop', ref);
+  } catch (error) {
+    if (failure) console.error('Cleanup:', error.message);
+    else throw error;
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true, maxRetries: 4, retryDelay: 200 });
+  }
+}

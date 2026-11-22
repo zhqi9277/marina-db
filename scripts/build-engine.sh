@@ -1,103 +1,71 @@
 #!/usr/bin/env bash
-# Build one engine from source and package it with marina's naming convention.
-#
-#   scripts/build-engine.sh <engine> <version> <outdir>
-#   scripts/build-engine.sh redis 7.4.11 dist
-#
-# Output: <outdir>/<engine>-<version>-<os>-<arch>.tar.gz
-#   os   = darwin | linux | windows
-#   arch = arm64 | x86_64 (linux) | x64 (windows)
-#
-# This is what the CI matrix runs; it also works locally so you can produce a
-# prebuilt artifact for a platform that has no upstream binary.
+# Compile the verified source archive into the requested prefix.
 set -euo pipefail
 
-ENGINE=${1:?usage: build-engine.sh <engine> <version> <outdir>}
-VERSION=${2:?missing version}
-OUT=${3:-dist}
-mkdir -p "$OUT"
+# Keep compiler/library lookup separate from the runner's other toolchains.
+export PATH="${MARINA_BUILD_PATH:+$MARINA_BUILD_PATH:}/usr/bin:/bin:/usr/sbin:/sbin"
+unset PKG_CONFIG_PATH PKG_CONFIG_LIBDIR PKG_CONFIG_SYSROOT_DIR \
+      CPPFLAGS CFLAGS CXXFLAGS LDFLAGS LIBS CPATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH LIBRARY_PATH \
+      CMAKE_PREFIX_PATH CMAKE_INCLUDE_PATH CMAKE_LIBRARY_PATH ACLOCAL_PATH \
+      CC CXX AR AS LD NM RANLIB MAKEFLAGS MFLAGS MAKEOVERRIDES CONFIG_SITE \
+      LD_LIBRARY_PATH LD_PRELOAD LD_AUDIT DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH DYLD_INSERT_LIBRARIES
+
+ENGINE=$1
+ARCHIVE=$2
+PREFIX=$3
+LIBEVENT_ARCHIVE=${4:-}
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-case "$OS" in
-  darwin) OS=darwin ;;
-  linux) OS=linux ;;
-  mingw*|msys*|cygwin*) OS=windows ;;
-  *) echo "unsupported OS: $OS" >&2; exit 1 ;;
-esac
-
-case "$(uname -m)" in
-  arm64|aarch64) ARCH=$([ "$OS" = windows ] && echo arm64 || echo arm64) ;;
-  *) ARCH=$([ "$OS" = windows ] && echo x64 || echo x86_64) ;;
-esac
-# linux packages use the GNU triple token
-[ "$OS" = linux ] && ARCH=$([ "$(uname -m)" = "aarch64" ] && echo aarch64 || echo x86_64)
-
 JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
 SRC="$WORK/src"
-PREFIX="$WORK/prefix"
 mkdir -p "$SRC" "$PREFIX"
-
-fetch() { # <url> <file>
-  echo "→ fetch $1"
-  curl -fsSL --retry 3 "$1" -o "$2"
-}
+tar -xf "$ARCHIVE" -C "$SRC" --strip-components=1
 
 case "$ENGINE" in
   redis)
-    fetch "https://download.redis.io/releases/redis-${VERSION}.tar.gz" "$WORK/redis.tar.gz"
-    tar -xzf "$WORK/redis.tar.gz" -C "$SRC" --strip-components=1
-    ( cd "$SRC" && make -j"$JOBS" MALLOC=libc )
-    mkdir -p "$PREFIX/bin"
-    for b in redis-server redis-cli redis-benchmark redis-check-aof redis-check-rdb redis-sentinel; do
-      cp "$SRC/src/$b" "$PREFIX/bin/"
-    done
+    ( cd "$SRC" && make -j"$JOBS" MALLOC=libc PREFIX="$PREFIX" install )
     ;;
-
   memcached)
-    LIBEVENT=2.1.12-stable
-    fetch "https://github.com/libevent/libevent/releases/download/release-${LIBEVENT}/libevent-${LIBEVENT}.tar.gz" "$WORK/libevent.tar.gz"
-    mkdir -p "$WORK/libevent" && tar -xzf "$WORK/libevent.tar.gz" -C "$WORK/libevent" --strip-components=1
+    mkdir -p "$WORK/libevent"
+    tar -xf "$LIBEVENT_ARCHIVE" -C "$WORK/libevent" --strip-components=1
     ( cd "$WORK/libevent" && ./configure --prefix="$WORK/libevent-prefix" --disable-openssl --disable-shared \
         && make -j"$JOBS" && make install )
-    fetch "https://memcached.org/files/memcached-${VERSION}.tar.gz" "$WORK/memcached.tar.gz"
-    tar -xzf "$WORK/memcached.tar.gz" -C "$SRC" --strip-components=1
-    ( cd "$SRC" && ./configure --prefix="$PREFIX" \
-        --with-libevent="$WORK/libevent-prefix" --disable-tls \
+    ( cd "$SRC" && ./configure --prefix="$PREFIX" --with-libevent="$WORK/libevent-prefix" --disable-tls \
         && make -j"$JOBS" && make install )
+    cp "$WORK/libevent/LICENSE" "$PREFIX/LICENSE-libevent"
     ;;
-
   postgres)
-    fetch "https://ftp.postgresql.org/pub/source/v${VERSION}/postgresql-${VERSION}.tar.gz" "$WORK/pg.tar.gz"
-    tar -xzf "$WORK/pg.tar.gz" -C "$SRC" --strip-components=1
     ( cd "$SRC" && ./configure --prefix="$PREFIX" --without-readline --without-zlib --without-icu \
         && make -j"$JOBS" && make install )
     ;;
-
   mariadb)
-    fetch "https://archive.mariadb.org/mariadb-${VERSION}/source/mariadb-${VERSION}.tar.gz" "$WORK/maria.tar.gz"
-    tar -xzf "$WORK/maria.tar.gz" -C "$SRC" --strip-components=1
+    maria_args=(-DWITH_SSL=system)
+    if [ "$(uname -s)" = Darwin ]; then
+      ssl=${MARINA_OPENSSL_ROOT:?set MARINA_OPENSSL_ROOT to the OpenSSL 3 development prefix}
+      sdk=$(xcrun --sdk macosx --show-sdk-path)
+      maria_args=("-DCMAKE_OSX_SYSROOT=$sdk" "-DCMAKE_C_COMPILER=$(xcrun --sdk macosx --find clang)" \
+        "-DCMAKE_CXX_COMPILER=$(xcrun --sdk macosx --find clang++)" -DWITH_ZLIB=bundled \
+        '-DCMAKE_IGNORE_PREFIX_PATH=/opt/homebrew;/usr/local' \
+        "-DWITH_SSL=$ssl" "-DOPENSSL_INCLUDE_DIR=$ssl/include" \
+        "-DOPENSSL_SSL_LIBRARY=$ssl/lib/libssl.a" "-DOPENSSL_CRYPTO_LIBRARY=$ssl/lib/libcrypto.a")
+    fi
     cmake -S "$SRC" -B "$WORK/build" -DCMAKE_INSTALL_PREFIX="$PREFIX" \
-      -DWITH_UNIT_TESTS=OFF -DWITHOUT_TOKUDB=ON -DPLUGIN_COLUMNSTORE=NO -DPLUGIN_S3=NO
-    cmake --build "$WORK/build" -j"$JOBS"
+      -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_NAME_DIR=@rpath -DCMAKE_MACOSX_RPATH=ON \
+      -DWITH_UNIT_TESTS=OFF -DCONC_WITH_SSL=OPENSSL -DWITH_PCRE=bundled "${maria_args[@]}" \
+      -DPLUGIN_COLUMNSTORE=NO -DPLUGIN_S3=NO -DPLUGIN_MROONGA=NO -DPLUGIN_CONNECT=NO \
+      -DPLUGIN_ROCKSDB=NO -DPLUGIN_TOKUDB=NO -DWITH_WSREP=OFF
+    cmake --build "$WORK/build" --parallel "$JOBS"
     cmake --install "$WORK/build"
+    if [ -n "${ssl:-}" ] && [ -f "$ssl/LICENSE.txt" ]; then
+      cp "$ssl/LICENSE.txt" "$PREFIX/LICENSE-OpenSSL"
+    fi
     ;;
-
   *)
-    echo "unknown engine: $ENGINE" >&2
+    echo "no source build for $ENGINE" >&2
     exit 1
     ;;
 esac
 
-# strip build-host paths that would otherwise leak into the artifact
-find "$PREFIX" -type f \( -name '*.la' -o -name '*.a' \) -delete 2>/dev/null || true
-
-NAME="${ENGINE}-${VERSION}-${OS}-${ARCH}"
-if [ "$OS" = windows ]; then
-  ( cd "$PREFIX" && zip -qr "$OUT/$NAME.zip" . )
-  echo "$OUT/$NAME.zip"
-else
-  tar -C "$PREFIX" -czf "$OUT/$NAME.tar.gz" .
-  echo "$OUT/$NAME.tar.gz"
-fi
+for name in LICENSE LICENSE.txt COPYING COPYING.txt COPYRIGHT NOTICE; do
+  if [ -f "$SRC/$name" ]; then cp "$SRC/$name" "$PREFIX/$name"; fi
+done

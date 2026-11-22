@@ -9,11 +9,11 @@ import test, { after } from 'node:test';
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-shims-'));
 process.env.MARINA_HOME = HOME;
 
-const { engines } = await import('../src/registry.js');
-const state = await import('../src/state.js');
-const { dirs } = await import('../src/paths.js');
-const { shimScript, installShims, resolveBin, shellenv } = await import('../src/shims.js');
-const { IS_WIN } = await import('../src/platform.js');
+const { engines } = await import('../src/core/registry.js');
+const state = await import('../src/core/state.js');
+const { dirs } = await import('../src/core/paths.js');
+const { shimScript, installShims, resolveBin, shellenv } = await import('../src/runtime/shims.js');
+const { IS_WIN } = await import('../src/core/platform.js');
 
 const root = path.join(HOME, 'engines', 'redis', '7', '7.4.11');
 fs.mkdirSync(path.join(root, 'bin'), { recursive: true });
@@ -43,8 +43,12 @@ test('resolveBin maps a client binary to the active engine root', () => {
 });
 
 test('installShims writes executable shims for the active clients', () => {
+  const stale = path.join(dirs.shims, posix ? 'mariadb' : 'mariadb.cmd');
+  fs.mkdirSync(dirs.shims, { recursive: true });
+  fs.writeFileSync(stale, 'stale');
   const created = installShims();
   assert.deepEqual(created, [{ bin: 'redis-cli', target: path.join(root, 'bin', 'redis-cli') }]);
+  assert.equal(fs.existsSync(stale), false, 'shim for an inactive engine is removed');
 
   const dest = path.join(dirs.shims, posix ? 'redis-cli' : 'redis-cli.cmd');
   assert.equal(fs.existsSync(dest), true);
@@ -59,7 +63,7 @@ test('installShims writes executable shims for the active clients', () => {
 test('shimScript embeds the node binary, CLI path and the forwarded argv', () => {
   const script = shimScript('redis-cli');
   assert.ok(script.includes(process.execPath), 'should invoke the running node binary');
-  assert.ok(script.includes('bin/marina.js'), 'should point at the marina CLI');
+  assert.ok(script.includes(path.join('bin', 'marina.js')), 'should point at the marina CLI');
   assert.ok(script.includes('shim-exec'));
   assert.ok(script.includes('redis-cli'));
   if (posix) assert.match(script, /^#!\/bin\/sh/);

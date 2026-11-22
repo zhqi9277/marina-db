@@ -10,10 +10,9 @@ import test, { after } from 'node:test';
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-doctor-'));
 process.env.MARINA_HOME = HOME;
 
-const { runDoctor } = await import('../src/doctor.js');
-const { OS_LABEL } = await import('../src/platform.js');
-const state = await import('../src/state.js');
-const versions = await import('../src/versions.js');
+const { runDoctor } = await import('../src/runtime/doctor.js');
+const { OS_LABEL } = await import('../src/core/platform.js');
+const state = await import('../src/core/state.js');
 
 const check = (checks, name) => {
   const item = checks.find((c) => c.name === name);
@@ -40,21 +39,19 @@ test('an empty home reports the expected check values', async () => {
     value: 'not fetched yet — run: marina remote --refresh',
     ok: false,
   });
-  assert.match(check(checks, 'libs').value, /checked/);
+  assert.match(check(checks, 'libs').value, /no installed engine binaries to inspect|skipped on Windows/);
   assert.equal(check(checks, 'libs').ok, true);
   assert.deepEqual(check(checks, 'ports'), { name: 'ports', value: 'no foreign listeners', ok: true });
 });
 
 test('a populated index cache turns the index check green', async () => {
-  const file = versions._internal.cacheFile('mysql');
+  const file = path.join(HOME, 'cache', 'index', 'catalog-' + 'a'.repeat(64) + '.json');
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(
     file,
     JSON.stringify({
-      engine: 'mysql',
-      source: 'fixture',
       fetchedAt: Date.now(),
-      versions: [{ version: '8.4.11', major: '8.4', kind: 'binary', urls: ['u'], platformKnown: true }],
+      artifacts: [{ key: 'mysql' }],
     }) + '\n',
   );
 
@@ -85,8 +82,11 @@ test('a foreign listener on an installed engine port is reported as a conflict',
     const ports = check(checks, 'ports');
     assert.equal(ports.ok, false);
     assert.equal(ports.value, `postgres port ${port}`);
-    // the fake package still inspects cleanly
-    assert.equal(check(checks, 'libs').ok, true);
+    // The fixture is a shell script, so it cannot be inspected as a database binary.
+    if (process.platform !== 'win32') {
+      assert.equal(check(checks, 'libs').ok, false);
+      assert.match(check(checks, 'libs').value, /could not inspect the server binary/);
+    }
   } finally {
     await new Promise((resolve) => srv.close(resolve));
   }
