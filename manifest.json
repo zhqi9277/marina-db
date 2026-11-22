@@ -1100,6 +1100,61 @@
       "size": 352504988,
       "sha256": "80f0717bd0f534be203d8ec9de199d5910ad911f63f3b35985e87525832dc8bf",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644869/mysql-5.7.44-windows-x64.zip"
+    },
+    {
+      "name": "mysql",
+      "version": "8.4.10",
+      "major": "8.4",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mysql-8.4.10-darwin-x64.tar.gz",
+      "size": 173048532,
+      "sha256": "8b8dd5c319a7265717ef0f7795a72f3d76f39c3a96176b86f4aa78fb931979fe",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.4.10",
+      "major": "8.4",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mysql-8.4.10-darwin-arm64.tar.gz",
+      "size": 168852070,
+      "sha256": "e630c2be47a4c221ab35d29ff6e56e6f0ed845d44500aee0985ead6ed94fa988",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.4.10",
+      "major": "8.4",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mysql-8.4.10-linux-x64.tar.gz",
+      "size": 142400742,
+      "sha256": "fbf40d2ed59940a727860ee14af04913758e1bbaa45db7d8e095f32f2b3d4d29",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-linux-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.4.10",
+      "major": "8.4",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mysql-8.4.10-linux-arm64.tar.gz",
+      "size": 906530512,
+      "sha256": "a2bb3b211f36ff16117766110139bda36373954f44b2637bf0c9a72c785fd070",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.4.10",
+      "major": "8.4",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mysql-8.4.10-windows-x64.zip",
+      "size": 279908347,
+      "sha256": "ec723a6623882803ed3ae574e8b846763e65209576bdc66039967242a6295496",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-windows-x64.zip"
     }
   ]
 }
