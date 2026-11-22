@@ -26,7 +26,7 @@ USAGE
   marina                          interactive menu (TTY only)
 
 DATABASES
-  mysql, mariadb, postgres, mongodb, redis, memcached
+  ${engineList.map(({ key }) => key).join(', ')}
 
 INSTALL / SWITCH
   marina remote                   fetch the published builds for this host
@@ -524,6 +524,7 @@ function cmdExec(flags, args, tail) {
   const pass = [...args.slice(1), ...tail];
   const { engine, ctx } = resolveRef(ref);
   const binName = flags.bin || engine.primaryClient;
+  if (!binName && engine.endpoint) throw new Error(`Connect to ${engine.label} at ${engine.endpoint(ctx)}`);
   const bin = findBin(ctx.root, [binName]);
   if (!bin) {
     throw new Error(`${engine.label} ${ctx.version} has no "${binName}" client binary\n  hint: try --bin ${(engine.clientBins || []).join(' | ')}`);

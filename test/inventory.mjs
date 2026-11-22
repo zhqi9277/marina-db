@@ -95,7 +95,7 @@ test('collectRows returns one enriched row per installed version', async () => {
 
 test('collectEngines aggregates one row per engine and reports absent engines', async () => {
   const rows = await collectEngines();
-  assert.equal(rows.length, 6);
+  assert.deepEqual(rows.map(({ key }) => key), Object.keys(engines));
 
   const mysql = rows.find((r) => r.key === 'mysql');
   assert.deepEqual(mysql.installed, ['8.0.29', '8.4.9', '8.4.11']);

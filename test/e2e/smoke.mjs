@@ -66,6 +66,18 @@ function sql(ref, text) {
     : command(ref, '-N', '-B', '-e', text);
 }
 
+async function vectorRequest(port, endpoint, method = 'GET', payload) {
+  const response = await fetch(`http://127.0.0.1:${port}${endpoint}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', Connection: 'close' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(60000),
+  });
+  const text = await response.text();
+  assert.ok(response.ok, `${method} ${endpoint}: HTTP ${response.status} ${text}`);
+  return JSON.parse(text);
+}
+
 async function readVersion(ref, port) {
   switch (engine) {
     case 'mysql':
@@ -74,6 +86,7 @@ async function readVersion(ref, port) {
     case 'mongodb': return command(ref, '--quiet', '--norc', '--eval', 'db.version()');
     case 'redis': return command(ref, 'info').match(/^redis_version:(.+)$/m)?.[1];
     case 'memcached': return (await memcached(port, 'version\r\n')).trim().replace(/^VERSION /, '');
+    case 'qdrant': return (await vectorRequest(port, '/')).version;
   }
 }
 
@@ -95,6 +108,12 @@ async function write(ref, port) {
       break;
     case 'memcached':
       assert.equal(await memcached(port, 'set marina 0 0 2\r\n42\r\n'), 'STORED\r\n');
+      break;
+    case 'qdrant':
+      await vectorRequest(port, '/collections/marina', 'PUT', { vectors: { size: 3, distance: 'Cosine' } });
+      await vectorRequest(port, '/collections/marina/points?wait=true', 'PUT', {
+        points: [{ id: 42, vector: [1, 0, 0] }, { id: 24, vector: [0, 1, 0] }],
+      });
       break;
     default:
       throw new Error('unknown engine ' + engine);
@@ -120,6 +139,11 @@ async function read(ref, port, restarted) {
     case 'memcached':
       assert.equal(await memcached(port, 'get marina\r\n'), restarted ? 'END\r\n' : 'VALUE marina 0 2\r\n42\r\nEND\r\n');
       break;
+    case 'qdrant': {
+      const { result } = await vectorRequest(port, '/collections/marina/points/query', 'POST', { query: [1, 0, 0], limit: 1 });
+      assert.equal(result.points[0].id, 42);
+      break;
+    }
   }
 }
 

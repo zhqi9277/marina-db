@@ -6,6 +6,22 @@ const maria = (file, sha) => input('https://archive.mariadb.org/mariadb-11.4.13/
 const mongo = (file, sha) => input('https://fastdl.mongodb.org/' + file, sha);
 const mongosh = (file, sha) => input('https://github.com/mongodb-js/mongosh/releases/download/v2.14.2/mongosh-2.14.2-' + file, sha);
 
+export const qdrantAssets = {
+  'darwin-x64': 'qdrant-x86_64-apple-darwin.tar.gz',
+  'darwin-arm64': 'qdrant-aarch64-apple-darwin.tar.gz',
+  'linux-x64': 'qdrant-x86_64-unknown-linux-musl.tar.gz',
+  'linux-arm64': 'qdrant-aarch64-unknown-linux-musl.tar.gz',
+  'win32-x64': 'qdrant-x86_64-pc-windows-msvc.zip',
+};
+const qdrantSums = {
+  'darwin-x64': '73a6538ccccb892ec2c6fa3431faf1e73fba7eb2179079adbd0c65ae4c55bf6a',
+  'darwin-arm64': '385b244e6283968b2be926358541b5bc19b9ada7ea9586e900684388bc912d5f',
+  'linux-x64': '7c3e956b97830a9faa6391540330380c2fa4aa2f92df99bd8d1880a703b922af',
+  'linux-arm64': 'c0c16a08440213b89facfbd2dd3cf4cd6fa222c1260b057a0ea77b41a75774c0',
+  'win32-x64': '7a5290b9ef1b204b250a1626ddafec580647ba3cc62ba1630b3a8efdc2718b32',
+};
+export const qdrantLicense = (version) => 'https://raw.githubusercontent.com/qdrant/qdrant/v' + version + '/LICENSE';
+
 const mysqlBinaries = {
   'darwin-x64': mysql('macos15-x86_64.tar.gz', '90e8aea10698d01b978f0179e72e8d5e2cbe9f9bd5771e88b0b75d7c82244d3f'),
   'darwin-arm64': mysql('macos15-arm64.tar.gz', 'b96e00493bc3499b9ffd7f08d65c5d64933af0383a8287d9873b64f94c2d6009'),
@@ -31,6 +47,9 @@ const mongoShell = {
 };
 
 const binaries = {
+  'qdrant@1.20.2': Object.fromEntries(Object.entries(qdrantAssets).map(([platform, name]) => [
+    platform, input('https://github.com/qdrant/qdrant/releases/download/v1.20.2/' + name, qdrantSums[platform]),
+  ])),
   'mysql@8.4.11': mysqlBinaries,
   'mariadb@11.4.13': {
     'linux-x64': maria('bintar-linux-systemd-x86_64/mariadb-11.4.13-linux-systemd-x86_64.tar.gz', '3cebf63914df3154b7cb6d548337eb2be42c773aeb641110446b72e2746cfed7'),
@@ -67,6 +86,7 @@ export function extraBuildInputs(engine, os, arch) {
 }
 
 const sourceCode = {
+  'qdrant@1.20.2': ['https://github.com/qdrant/qdrant/tree/v1.20.2'],
   'mysql@8.4.11': ['https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11.tar.gz'],
   'mongodb@7.0.45': [
     'https://github.com/mongodb/mongo/tree/r7.0.45',
@@ -82,7 +102,9 @@ export function sourcesFor({ engine, version, os, arch, inputs }) {
   const binary = binaries[id]?.[target];
   const source = binary ? null : sourceArchives[id];
   if (!binary && (!source || os === 'win32')) throw new Error('no build inputs for ' + id + ' on ' + target);
-  const additional = extraBuildInputs(engine, os, arch);
+  const additional = id === 'qdrant@1.20.2'
+    ? [input(qdrantLicense(version), '210b508429e913d9de5301f90508bc2cbf5b2281de5b45e607c04d58f0f3bd8f')]
+    : extraBuildInputs(engine, os, arch);
   const upstream = sourceCode[id] ?? [sourceArchives[id]?.url].filter(Boolean);
   const windowsRedis = os === 'win32' && engine === 'redis'
     ? ['https://github.com/redis-windows/redis-windows/tree/7.4.11', 'https://cygwin.com/licensing.html'] : [];

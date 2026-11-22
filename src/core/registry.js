@@ -10,8 +10,9 @@ import postgres from '../engines/postgres.js';
 import mongodb from '../engines/mongodb.js';
 import redis from '../engines/redis.js';
 import memcached from '../engines/memcached.js';
+import qdrant from '../engines/qdrant.js';
 
-export const engines = { mysql, mariadb, postgres, mongodb, redis, memcached };
+export const engines = { mysql, mariadb, postgres, mongodb, redis, memcached, qdrant };
 export const engineList = Object.values(engines);
 
 export function getEngine(key) {
@@ -105,7 +106,7 @@ export function pickVersion(engine, tag) {
 export function buildCtx(engine, { major, version, port, account = state.accountOf(engine.key, major) }) {
   const root = discoverRoot(versionDir(engine.key, major, version), engine.markers);
   const p = port ?? state.portOf(engine.key, major, engine.defaultPort);
-  const confName = CONF_NAMES[engine.key];
+  const confName = engine.configName ?? CONF_NAMES[engine.key];
   return {
     engine,
     key: engine.key,

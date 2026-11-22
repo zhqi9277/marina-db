@@ -28,6 +28,7 @@ export const historySources = {
   mongodb: 'https://downloads.mongodb.org/full.json',
   redis: 'https://download.redis.io/releases/',
   memcached: 'https://github.com/memcached/memcached.git',
+  qdrant: 'https://github.com/qdrant/qdrant.git',
 };
 
 async function readText(url) {
@@ -63,6 +64,8 @@ export function parseVersions(engine, content) {
         .map((match) => match[1]));
     case 'memcached':
       return unique([...content.matchAll(/\brefs\/tags\/(?:release-|v)?(\d+\.\d+\.\d+)\s*$/gm)].map((match) => match[1]));
+    case 'qdrant':
+      return unique([...content.matchAll(/\brefs\/tags\/v(\d+\.\d+\.\d+)$/gm)].map((match) => match[1]));
     default: throw new Error('unknown engine history: ' + engine);
   }
 }
@@ -87,7 +90,7 @@ export function summarizeHistory(upstream, published) {
 }
 
 async function readIndex(engine, url) {
-  const contents = engine === 'mysql' || engine === 'memcached'
+  const contents = url.endsWith('.git')
     ? (await exec('git', ['ls-remote', '--refs', '--tags', url, ...(engine === 'mysql' ? ['refs/tags/mysql-*'] : [])],
       { timeout: 120000, maxBuffer: 5 * 1024 ** 2 })).stdout
     : await readText(url);

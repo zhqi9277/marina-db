@@ -156,12 +156,12 @@ export class App {
       { id: 'stopAll', label: 'Stop all', enabled: this.installedRows().some((x) => x.runningVersion || x.state === 'running' || x.state === 'degraded') },
       { id: 'doctor', label: 'Doctor', enabled: true },
       { id: 'port', label: 'Change port', enabled: installed },
-      { id: 'user', label: 'Set user', enabled: installed },
-      { id: 'password', label: 'Set password', enabled: installed },
+      { id: 'user', label: 'Set user', enabled: installed && e.engine.managedAuth !== false },
+      { id: 'password', label: 'Set password', enabled: installed && e.engine.managedAuth !== false },
       { id: 'logs', label: 'Show logs', enabled: installed },
       { id: 'versions', label: 'Versions / install', enabled: true },
       { id: 'config', label: 'Config path', enabled: installed },
-      { id: 'client', label: 'Copy client command', enabled: installed },
+      { id: 'client', label: e.engine.endpoint ? 'Show API address' : 'Copy client command', enabled: installed },
       { id: 'back', label: 'Back', enabled: true },
     ];
   }

@@ -9,13 +9,14 @@ on:
     - cron: '32 1 * * *' # mongodb
     - cron: '37 1 * * *' # redis
     - cron: '42 1 * * *' # memcached
+    - cron: '47 1 * * *' # qdrant
   workflow_dispatch:
     inputs:
       engine:
         description: Database engine
         type: choice
         required: true
-        options: [mysql, mariadb, postgres, mongodb, redis, memcached]
+        options: [mysql, mariadb, postgres, mongodb, redis, memcached, qdrant]
       versions:
         description: Comma-separated exact versions. Omit for the default builds or all versions in the selected history shard.
         type: string
@@ -104,6 +105,7 @@ jobs:
               '32 1 * * *') ENGINE=mongodb ;;
               '37 1 * * *') ENGINE=redis ;;
               '42 1 * * *') ENGINE=memcached ;;
+              '47 1 * * *') ENGINE=qdrant ;;
               '') ;;
               *) exit 1 ;;
             esac

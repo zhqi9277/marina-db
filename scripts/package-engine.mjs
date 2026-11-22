@@ -82,6 +82,10 @@ try {
     run('bash', ['scripts/build-engine.sh', key, inputs[0].file, root, ...inputs.slice(1).map(({ file }) => file)]);
   }
 
+  if (key === 'qdrant' && !fs.existsSync(path.join(root, 'LICENSE'))) {
+    fs.copyFileSync(inputs[1].file, path.join(root, 'LICENSE'));
+  }
+
   if (key === 'mariadb') {
     // Keep the standalone server distribution, excluding clustering and test tools.
     for (const item of [

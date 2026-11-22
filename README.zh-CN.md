@@ -14,12 +14,12 @@
 </p>
 
 > 每个数据库引擎占一个泊位：`up` 靠岸、`down` 离岸、`use` 换船（换版本）。
-> 码头有泊位号，数据库有端口号；船停在码头不等于永远不走 —— 和你本机的六个实例一样。
+> 码头有泊位号，数据库有端口号。
 
 Marina 是一个零依赖的本地数据库管理器：**装版本、切版本、启停服务、改端口/账号/密码、看日志**，
 全部围绕一个隔离的 `runtime/` 目录完成，不碰系统的包管理器，也不需要 root。
 
-支持的引擎：`mysql` · `mariadb` · `postgres` · `mongodb` · `redis` · `memcached`
+支持的引擎：`mysql` · `mariadb` · `postgres` · `mongodb` · `redis` · `memcached` · `qdrant`
 
 ---
 
@@ -330,7 +330,7 @@ TTY 下 `marina` 进入面板；非 TTY 打印帮助，避免 CI 卡住。状态
 | `d` | doctor 自检视图（`g` 重跑） |
 | `a` / `A` | 当前库 / 全部库：切换登录自启 |
 | `g` | 刷新 |
-| `1…6` | 跳到某个数据库 |
+| 数字键 | 跳到对应数据库 |
 | `?` | 键位帮助 |
 | `q` | 退出 |
 
@@ -438,6 +438,7 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
 | MongoDB | 27017 | 建目录即可 | `mongod --fork --pidfilepath` | SIGTERM | `mongosh --eval ping` → TCP |
 | Redis | 6379 | 无 | `redis-server <conf>`（daemonize） | `redis-cli shutdown save` | `redis-cli ping` → TCP |
 | Memcached | 11211 | 无 | `memcached -d -P <pid>` | SIGTERM | TCP |
+| Qdrant | 6333 | 创建数据目录 | `qdrant --config-path` | 进程信号 | HTTP `/readyz` |
 
 二进制定位不写死路径：按 `bin/ → sbin/ → scripts/ → libexec/ → lib/` 找标记文件，
 找不到再做 BFS，兼容 `8.4.11/bin/...` 与 `bin/...` 两种 tar 布局。
@@ -566,7 +567,7 @@ npm run marina -- remote   # 不装全局时直接跑
 | `src/install/` | 版本索引、下载、解包、产物检查与安装 |
 | `src/runtime/` | 生命周期、配置、账号端口、状态查看、自启与诊断 |
 | `src/host/` | 全系统宿主：进程、信号、路径、shell、登录自启 |
-| `src/engines/*.js` | 六个引擎的驱动 |
+| `src/engines/*.js` | 数据库引擎驱动 |
 | `src/tui/` | 全屏面板状态、绘制、按键与视图 |
 | `src/ui/` | CLI 颜色、表格、消息和交互输出 |
 

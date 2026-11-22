@@ -323,9 +323,9 @@ export function renderHelp(app, w, h) {
     ['v', 'versions: activate installed, install new major'],
     ['l', 'logs (↑↓ scroll, pgup/pgdn, esc back)'],
     ['c', 'print config path'],
-    ['y', 'print client command'],
+    ['y', 'show connection details'],
     ['g', 'refresh now'],
-    ['1…6', 'jump to database'],
+    [`1…${app.engines.length}`, 'jump to database'],
     ['gitee', 'gitee.com/zhqi9277/marina'],
     ['q', 'quit'],
   ];

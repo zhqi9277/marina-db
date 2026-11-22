@@ -73,6 +73,7 @@ Run `marina` in an interactive terminal. Select a database to see its active ver
 | MongoDB | `mongodb` | 27017 |
 | Redis | `redis` | 6379 |
 | Memcached | `memcached` | 11211 |
+| Qdrant | `qdrant` | 6333 |
 
 Version availability depends on your operating system and architecture. `marina remote` fetches the current published catalog and shows the builds available on your machine. [Published catalog](https://github.com/zhqi9277/marina-db/blob/engine-catalog/manifest.json) · [Engine packages](https://github.com/zhqi9277/marina-db/releases)
 

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { CATALOG } from '../src/install/catalog.js';
 import { targets } from './engine-matrix.mjs';
-import { extraBuildInputs } from './engine-sources.mjs';
+import { extraBuildInputs, qdrantAssets, qdrantLicense } from './engine-sources.mjs';
 
 const targetId = ({ os, arch }) => os + '-' + arch;
 const shaPattern = /\b([a-f0-9]{64})\b/i;
@@ -224,9 +224,23 @@ async function mysqlInput(version, os, arch) {
   return binary && { binary, sourceCode, additional };
 }
 
+async function qdrantInput(version, os, arch) {
+  const base = 'https://github.com/qdrant/qdrant';
+  const release = await memo('qdrant-' + version, async () =>
+    (await request('https://api.github.com/repos/qdrant/qdrant/releases/tags/v' + version))?.json());
+  if (!release || release.prerelease || release.draft) return null;
+  const asset = release.assets.find(({ name }) => name === qdrantAssets[os + '-' + arch]);
+  if (!asset) return null;
+  const binary = await pin(asset.browser_download_url, { sha256: asset.digest });
+  const license = await memo('qdrant-license-' + version, () => pin(qdrantLicense(version)));
+  if (!license) throw new Error('missing Qdrant license for ' + version);
+  return binary && { binary, additional: [license], sourceCode: [base + '/tree/v' + version] };
+}
+
 const resolvers = {
   mysql: mysqlInput, mariadb: mariaInput, postgres: postgresInput,
   mongodb: mongoInput, redis: redisInput, memcached: memcachedInput,
+  qdrant: qdrantInput,
 };
 
 export async function prepareBatch(engine, version, requested = []) {

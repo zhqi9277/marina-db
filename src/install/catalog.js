@@ -7,6 +7,7 @@ export const CATALOG = {
   redis: { manifestName: 'redis', majorDepth: 1 },
   mariadb: { manifestName: 'mariadb', majorDepth: 2 },
   memcached: { manifestName: 'memcached', majorDepth: 1 },
+  qdrant: { manifestName: 'qdrant', majorDepth: 1 },
 };
 
 export function majorDepth(key) {

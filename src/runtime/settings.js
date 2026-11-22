@@ -100,6 +100,9 @@ export function changeAccount(ctx, patch) {
 }
 
 async function changeInstanceAccount(requested, patch) {
+  if (requested.engine.managedAuth === false) {
+    throw new Error(`${requested.engine.label} authentication is managed in ${requested.confFile}`);
+  }
   const { current: ctx, running } = serviceContext(requested);
   const oldAccount = state.accountOf(ctx.key, ctx.major);
   const nextAccount = { ...oldAccount, ...patch };

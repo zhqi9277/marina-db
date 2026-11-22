@@ -18,6 +18,7 @@ const versions = {
   mongodb: '7.0.45',
   redis: '7.4.11',
   memcached: '1.6.45',
+  qdrant: '1.20.2',
 };
 
 const baseline = targets.flatMap((target) => Object.entries(versions).map(([engine, version]) => ({

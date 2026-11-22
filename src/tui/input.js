@@ -6,6 +6,10 @@ import { install, use } from '../install/installer.js';
 import { changePort, changeAccount } from '../runtime/settings.js';
 import { setQuiet } from '../ui/console.js';
 
+function connection(e) {
+  return e.engine.endpoint?.(e.ctx) ?? `marina exec ${e.key}@${e.major} -- ${e.engine.primaryClient}`;
+}
+
 export async function handleInput(app, key) {
   if (app.busy) {
     if (key === 'ctrl-c') app.done = true;
@@ -79,7 +83,7 @@ export async function handleInput(app, key) {
       kind: 'ok',
       text: key === 'c'
         ? (e.ctx.confFile || `${e.label} has no marina-managed config`)
-        : `marina exec ${e.key}@${e.major} -- ${e.engine.primaryClient}`,
+        : connection(e),
     };
     app.render();
     return;
@@ -239,7 +243,7 @@ export async function handleActions(app, key) {
       app.message = { kind: 'ok', text: e.ctx.confFile || 'no marina-managed config' };
       return app.render();
     case 'client':
-      app.message = { kind: 'ok', text: `marina exec ${e.key}@${e.major} -- ${e.engine.primaryClient}` };
+      app.message = { kind: 'ok', text: connection(e) };
       return app.render();
     default:
       return app.render();

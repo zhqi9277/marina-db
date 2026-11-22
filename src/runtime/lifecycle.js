@@ -125,7 +125,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function bootReady(ctx) {
   const pid = readPid(ctx);
-  return pidAlive(pid) && await tcpProbe(ctx.port) && pidOwnedBy(pid, ctx);
+  return pidAlive(pid) && await tcpProbe(ctx.port) && pidOwnedBy(pid, ctx) &&
+    (!ctx.engine.waitForProbe || await engineAnswers(ctx));
 }
 
 async function waitFor(fn, timeoutMs, interval = 300) {
@@ -201,7 +202,7 @@ export function start(ctx, opts) {
   return withInstanceLock(ctx, () => startService(ctx, opts));
 }
 
-async function startService(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
+async function startService(ctx, { quiet = false, timeoutMs = ctx.engine.startTimeoutMs ?? 30000 } = {}) {
   ensureDirs();
   if (!ctx.root) throw new Error(`package payload for ${ctx.key}@${ctx.version} is missing (reinstall)`);
 
@@ -237,6 +238,9 @@ async function startService(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
   cleanRuntimeFiles(ctx);
 
   const spec = serverCommand(ctx);
+  if (!spec.cmd) throw new Error(`cannot find ${ctx.engine.serverBin.join('/')} under ${ctx.root}`);
+  const cwd = spec.cwd ?? ctx.root;
+  const env = clientEnv({ ...process.env, ...spec.env });
   const startedAt = Date.now();
   let spawnedPid = null;
   if (!quiet) info(`starting ${ctx.engine.label} ${ctx.version} on port ${ctx.port}`);
@@ -244,12 +248,19 @@ async function startService(ctx, { quiet = false, timeoutMs = 30000 } = {}) {
     // wrapper (e.g. pg_ctl -w) — it daemonizes; ignore stdio so the daemon does
     // not inherit our pipes and leak server logs into the CLI output
     await new Promise((resolve, reject) => {
-      const child = spawn(spec.cmd, spec.args, { cwd: ctx.root, stdio: 'ignore', env: clientEnv() });
+      const child = spawn(spec.cmd, spec.args, { cwd, stdio: 'ignore', env });
       child.on('error', reject);
       child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${path.basename(spec.cmd)} exited ${code}`))));
     });
   } else {
-    const child = spawn(spec.cmd, spec.args, { cwd: ctx.root, detached: true, stdio: 'ignore', env: clientEnv() });
+    const log = spec.logFile ? fs.openSync(spec.logFile, 'a', 0o600) : null;
+    let child;
+    try {
+      const stdio = log === null ? 'ignore' : ['ignore', log, log];
+      child = spawn(spec.cmd, spec.args, { cwd, detached: true, stdio, env });
+    } finally {
+      if (log !== null) fs.closeSync(log);
+    }
     // wait for the exec result: an unhandled 'error' event would crash the CLI,
     // and a missing/broken binary must fail now instead of after the timeout
     const spawnError = await new Promise((resolve) => {
