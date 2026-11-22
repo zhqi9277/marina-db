@@ -35,12 +35,21 @@ jobs:
         run: |
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           data=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
-          echo "$data" | jq -e '.path == ".github/workflows/build-engines.yml" and .event == "push" and .conclusion == "success"' > /dev/null
+          echo "$data" | jq -e '.path == ".github/workflows/build-engines.yml" and .conclusion == "success" and
+            (.event == "push" or .event == "workflow_dispatch")' > /dev/null
           echo "attempt=$(jq -r .run_attempt <<< "$data")" >> "$GITHUB_OUTPUT"
           echo "sha=$(jq -r .head_sha <<< "$data")" >> "$GITHUB_OUTPUT"
+          echo "historical=$(jq -r '.event == "workflow_dispatch"' <<< "$data")" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v8
         with:
           name: engine-validation-${{ steps.run.outputs.attempt }}
+          path: evidence
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v8
+        if: steps.run.outputs.historical == 'true'
+        with:
+          name: locked-plan
           path: evidence
           run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
@@ -48,11 +57,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SHA: ${{ steps.run.outputs.sha }}
+          RUN_ID: ${{ inputs.run_id }}
+          MARINA_ENGINE_PLAN: ${{ steps.run.outputs.historical == 'true' && 'evidence/engine-plan.json' || '' }}
         run: |
           evidence=evidence/engine-validation.json
           jq -e --arg sha "$EXPECTED_SHA" '.passed > 0 and .sha == $sha' "$evidence" > /dev/null
           tag=$(jq -er .tag "$evidence")
           [[ "$tag" =~ ^engines-candidate-[A-Za-z0-9._-]+$ ]]
+          if [[ -n "$MARINA_ENGINE_PLAN" ]]; then
+            [[ "$tag" == "engines-candidate-history-$RUN_ID" ]]
+          fi
           git fetch origin "refs/tags/$tag:refs/tags/$tag" main
           [[ $(git rev-parse "$tag^{commit}") == "$EXPECTED_SHA" ]]
           git merge-base --is-ancestor "$EXPECTED_SHA" origin/main
