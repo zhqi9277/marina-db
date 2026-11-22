@@ -217,7 +217,7 @@ jobs:
           if [[ "$RUNNER_OS" == Linux ]]; then
             # Source builds need room for the C++, Rust and Go objects.
             sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
-            sudo apt-get install -y ninja-build libaio-dev uuid-dev libgoogle-perftools-dev \
+            sudo apt-get install -y ninja-build libaio-dev uuid-dev \
               m4 autoconf automake libtool ccache pkg-config gfortran
           else
             brew install llvm@19 libomp ninja ccache pkg-config
