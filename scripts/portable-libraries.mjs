@@ -65,7 +65,7 @@ function relocateMac(root) {
     for (const dep of deps) {
       // Homebrew bottles use a relocation marker for both their own libraries
       // and runtime dependencies supplied with the package.
-      const bottleLibrary = /^@@HOMEBREW_PREFIX@@\/opt\/[^/]+\/lib\/([^/]+)$/.exec(dep)?.[1];
+      const bottleLibrary = /^(?:@@HOMEBREW_PREFIX@@\/opt\/[^/]+|@@HOMEBREW_CELLAR@@\/[^/]+\/[^/]+)\/lib\/([^/]+)$/.exec(dep)?.[1];
       const target = bottleLibrary ? path.join(root, 'lib', bottleLibrary) : dep;
       if (local(target, root) && fs.existsSync(target)) {
         changes.push('-change', dep, '@loader_path/' + path.relative(path.dirname(file), target));
@@ -85,7 +85,7 @@ function relocateMac(root) {
       }
     }
     for (const ref of rpaths) {
-      if (ref.startsWith('@@HOMEBREW_PREFIX@@/') || (path.isAbsolute(ref) && !darwinSystem.test(ref + '/'))) {
+      if (/^@@HOMEBREW_(?:PREFIX|CELLAR)@@\//.test(ref) || (path.isAbsolute(ref) && !darwinSystem.test(ref + '/'))) {
         changes.push('-delete_rpath', ref);
         if (local(ref, root) && !rpaths.includes('@loader_path/' + path.relative(path.dirname(file), ref))) {
           changes.push('-add_rpath', '@loader_path/' + path.relative(path.dirname(file), ref));
