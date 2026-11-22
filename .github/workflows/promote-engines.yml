@@ -5,7 +5,9 @@ on:
     inputs:
       run_id:
         description: Successful build-engines run ID
-        required: true
+        type: string
+      migrate_engine:
+        description: Engine to migrate from legacy Releases, in place of a build run ID
         type: string
 
 permissions:
@@ -14,7 +16,7 @@ permissions:
 
 concurrency:
   group: engine-catalog
-  cancel-in-progress: false
+  queue: max
 
 jobs:
   promote:
@@ -28,66 +30,55 @@ jobs:
         with:
           node-version: 24
       - name: Verify the workflow run
-        id: run
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.run_id }}
+          MIGRATE_ENGINE: ${{ inputs.migrate_engine }}
         run: |
-          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
-          data=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
-          echo "$data" | jq -e '.path == ".github/workflows/build-engines.yml" and .conclusion == "success" and
-            (.event == "push" or .event == "workflow_dispatch")' > /dev/null
-          echo "attempt=$(jq -r .run_attempt <<< "$data")" >> "$GITHUB_OUTPUT"
-          echo "sha=$(jq -r .head_sha <<< "$data")" >> "$GITHUB_OUTPUT"
-          echo "historical=$(jq -r '.event == "workflow_dispatch"' <<< "$data")" >> "$GITHUB_OUTPUT"
+          if [[ -n "$MIGRATE_ENGINE" ]]; then
+            [[ -z "$RUN_ID" ]]
+            [[ "$MIGRATE_ENGINE" =~ ^(mysql|mariadb|postgres|mongodb|redis|memcached)$ ]]
+          else
+            [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" \
+              --jq 'select((.path | split("@")[0]) == ".github/workflows/build-engines.yml" and .conclusion == "success" and
+                (.event == "workflow_dispatch" or .event == "schedule")) | .head_sha')
+            [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
+            git merge-base --is-ancestor "$sha" "$GITHUB_SHA"
+          fi
       - uses: actions/download-artifact@v8
-        with:
-          name: engine-validation-${{ steps.run.outputs.attempt }}
-          path: evidence
-          run-id: ${{ inputs.run_id }}
-          github-token: ${{ github.token }}
-      - uses: actions/download-artifact@v8
-        if: steps.run.outputs.historical == 'true'
+        if: inputs.run_id != ''
         with:
           name: locked-plan
           path: evidence
           run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
-      - name: Update the stable catalog
+      - uses: actions/download-artifact@v8
+        if: inputs.run_id != ''
+        with:
+          pattern: validated-engine-*
+          path: evidence/validated
+          merge-multiple: true
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Publish assets and update the stable catalog
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_SHA: ${{ steps.run.outputs.sha }}
           RUN_ID: ${{ inputs.run_id }}
-          MARINA_ENGINE_PLAN: ${{ steps.run.outputs.historical == 'true' && 'evidence/engine-plan.json' || '' }}
+          MIGRATE_ENGINE: ${{ inputs.migrate_engine }}
         run: |
-          evidence=evidence/engine-validation.json
-          jq -e --arg sha "$EXPECTED_SHA" '.passed > 0 and .sha == $sha' "$evidence" > /dev/null
-          tag=$(jq -er .tag "$evidence")
-          [[ "$tag" =~ ^engines-candidate-[A-Za-z0-9._-]+$ ]]
-          if [[ -n "$MARINA_ENGINE_PLAN" ]]; then
-            [[ "$tag" == "engines-candidate-history-$RUN_ID" ]]
-          fi
-          git fetch origin "refs/tags/$tag:refs/tags/$tag" main
-          [[ $(git rev-parse "$tag^{commit}") == "$EXPECTED_SHA" ]]
-          git merge-base --is-ancestor "$EXPECTED_SHA" origin/main
-
-          base="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$tag"
-          curl --fail --location --retry 3 "$base/manifest.json" -o candidate.json
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" > release.json
-          digest=$(node scripts/make-manifest.mjs verify candidate.json release.json "$base" "$tag")
-          [[ "$digest" == "$(jq -er .manifest "$evidence")" ]]
-          [[ "$(jq '.artifacts | length' candidate.json)" == "$(jq -er .passed "$evidence")" ]]
-
           parent=()
           stable_ref=refs/heads/engine-catalog
-          if [[ -n $(git ls-remote origin "$stable_ref") ]]; then
+          stable_head=$(git ls-remote origin "$stable_ref")
+          if [[ -n "$stable_head" ]]; then
             git fetch origin "$stable_ref"
             parent=(-p FETCH_HEAD)
             git show FETCH_HEAD:manifest.json > previous.json
-            node scripts/make-manifest.mjs merge previous.json candidate.json > manifest.json
           else
-            cp candidate.json manifest.json
+            echo '{"schema":1,"artifacts":[]}' > previous.json
           fi
+
+          node scripts/publish-engines.mjs previous.json evidence > manifest.json
           blob=$(git hash-object -w manifest.json)
           tree=$(printf '100644 blob %s\tmanifest.json\n' "$blob" | git mktree)
           if (("${#parent[@]}" > 0)) && [[ "$tree" == "$(git rev-parse 'FETCH_HEAD^{tree}')" ]]; then
@@ -95,5 +86,5 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          commit=$(git commit-tree "$tree" "${parent[@]}" -m "Promote engine catalog from $tag")
+          commit=$(git commit-tree "$tree" "${parent[@]}" -m "Publish engine catalog (${MIGRATE_ENGINE:-build $RUN_ID})")
           git push origin "$commit:$stable_ref"

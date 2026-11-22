@@ -1,44 +1,53 @@
 name: build-engines
-run-name: ${{ github.event_name == 'workflow_dispatch' && format('Build {0} from {1}', inputs.version, inputs.shard) || github.ref_name }}
+run-name: ${{ github.event_name == 'schedule' && format('Check upstream releases ({0} UTC)', github.event.schedule) || format('Build {0} {1}', inputs.engine, inputs.versions) }}
 
 on:
-  push:
-    tags: ['engines-candidate-*']
+  schedule:
+    - cron: '17 1 * * *' # mysql
+    - cron: '22 1 * * *' # mariadb
+    - cron: '27 1 * * *' # postgres
+    - cron: '32 1 * * *' # mongodb
+    - cron: '37 1 * * *' # redis
+    - cron: '42 1 * * *' # memcached
   workflow_dispatch:
     inputs:
-      history_run:
-        description: prepare-engine-history run ID
+      engine:
+        description: Database engine
+        type: choice
         required: true
-        type: string
-      shard:
-        description: Prepared artifact name, for example history-mariadb-0
-        required: true
-        type: string
-      version:
-        description: Exact engine version in that artifact
-        required: true
+        options: [mysql, mariadb, postgres, mongodb, redis, memcached]
+      versions:
+        description: Comma-separated exact versions. Omit for the default builds or all versions in the selected history shard.
         type: string
       targets:
-        description: Optional comma-separated OS and architecture pairs, for example linux-x64,win32-x64
+        description: Optional comma-separated platforms, for example linux-x64,win32-x64
         type: string
+      history_run:
+        description: Optional prepare-engine-history run ID
+        type: string
+      shard:
+        description: History artifact from that run, for example history-mariadb-0
+        type: string
+      incremental:
+        description: Check for missing upstream builds for this engine
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: engines-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
-  cancel-in-progress: false
+  group: build-engines-${{ github.event.schedule || github.run_id }}
 
 jobs:
   matrix:
+    if: github.event_name != 'schedule' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     permissions:
       actions: read
       contents: read
     outputs:
       combos: ${{ steps.matrix.outputs.combos }}
-      tag: ${{ steps.matrix.outputs.tag }}
-      historical: ${{ steps.history.outputs.enabled }}
+      has_builds: ${{ steps.matrix.outputs.has_builds }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -46,92 +55,113 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - id: history
-        if: github.event_name == 'workflow_dispatch'
+      - name: Verify the history run
         env:
           GH_TOKEN: ${{ github.token }}
+          ENGINE: ${{ inputs.engine }}
           HISTORY_RUN: ${{ inputs.history_run }}
           SHARD: ${{ inputs.shard }}
-          VERSION: ${{ inputs.version }}
+          INCREMENTAL: ${{ inputs.incremental }}
+          VERSIONS: ${{ inputs.versions }}
         run: |
           [[ "$GITHUB_REF_TYPE" == 'branch' ]]
-          [[ "$HISTORY_RUN" =~ ^[0-9]+$ ]]
-          [[ "$SHARD" =~ ^history-(mysql|mariadb|postgres|mongodb|redis|memcached)-[0-9]+$ ]]
-          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
-          sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$HISTORY_RUN" \
-            --jq 'select(.path == ".github/workflows/prepare-engine-history.yml") | .head_sha')
-          [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
-          git merge-base --is-ancestor "$sha" "$GITHUB_SHA"
-          echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          if [[ "$INCREMENTAL" == 'true' && -n "$HISTORY_RUN$SHARD$VERSIONS" ]]; then
+            echo 'Incremental checks select upstream versions automatically.' >&2
+            exit 1
+          fi
+          if [[ -n "$HISTORY_RUN$SHARD" ]]; then
+            [[ "$HISTORY_RUN" =~ ^[0-9]+$ ]]
+            [[ "$SHARD" =~ ^history-$ENGINE-[0-9]+$ ]]
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$HISTORY_RUN" \
+              --jq 'select((.path | split("@")[0]) == ".github/workflows/prepare-engine-history.yml") | .head_sha')
+            [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
+            git merge-base --is-ancestor "$sha" "$GITHUB_SHA"
+          fi
       - uses: actions/download-artifact@v8
-        if: steps.history.outputs.enabled == 'true'
+        if: inputs.history_run != ''
         with:
           name: ${{ inputs.shard }}
           path: prepared
           run-id: ${{ inputs.history_run }}
           github-token: ${{ github.token }}
-      - name: Select prepared targets
-        if: steps.history.outputs.enabled == 'true'
+      - id: matrix
+        shell: bash
         env:
-          SHARD: ${{ inputs.shard }}
-          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          ENGINE: ${{ inputs.engine }}
+          VERSIONS: ${{ inputs.versions }}
           TARGETS: ${{ inputs.targets }}
+          HISTORY_RUN: ${{ inputs.history_run }}
+          INCREMENTAL: ${{ github.event_name == 'schedule' || inputs.incremental }}
+          SCHEDULE: ${{ github.event.schedule }}
+          MARINA_ENGINE_PLAN: engine-plan.json
         run: |
+          if [[ "$INCREMENTAL" == 'true' ]]; then
+            case "$SCHEDULE" in
+              '17 1 * * *') ENGINE=mysql ;;
+              '22 1 * * *') ENGINE=mariadb ;;
+              '27 1 * * *') ENGINE=postgres ;;
+              '32 1 * * *') ENGINE=mongodb ;;
+              '37 1 * * *') ENGINE=redis ;;
+              '42 1 * * *') ENGINE=memcached ;;
+              '') ;;
+              *) exit 1 ;;
+            esac
+            catalog_ref=refs/heads/engine-catalog
+            catalog_head=$(git ls-remote origin "$catalog_ref")
+            if [[ -n "$catalog_head" ]]; then
+              git fetch origin "$catalog_ref"
+              git show FETCH_HEAD:manifest.json > published.json
+            else
+              echo '{"schema":1,"artifacts":[]}' > published.json
+            fi
+            node scripts/prepare-engine-increment.mjs "$ENGINE" published.json "$MARINA_ENGINE_PLAN" "$TARGETS"
+          else
           node --input-type=module <<'JS'
           import fs from 'node:fs';
-          import { parseBuildMatrix } from './scripts/engine-matrix.mjs';
+          import { selectEnginePlan } from './scripts/engine-matrix.mjs';
           import { sourcesFor } from './scripts/engine-sources.mjs';
-          const { SHARD, VERSION, TARGETS } = process.env;
-          const engine = SHARD.split('-')[1];
-          const file = `prepared/${engine}-${VERSION.replaceAll('.', '-')}.json`;
-          const plan = parseBuildMatrix(JSON.parse(fs.readFileSync(file, 'utf8')));
-          for (const row of plan) {
-            if (row.engine !== engine || row.version !== VERSION || !row.inputs) {
-              throw new Error('Unexpected entry in ' + file);
-            }
-            sourcesFor(row);
-          }
-          const targetId = ({ os, arch }) => `${os}-${arch}`;
-          const targets = TARGETS.split(',').map((target) => target.trim()).filter(Boolean);
-          if (targets.some((target) => !plan.some((row) => targetId(row) === target))) {
-            throw new Error('A requested target has no locked inputs in ' + file);
-          }
-          const selected = plan.filter((row) => !targets.length || targets.includes(targetId(row)));
-          fs.writeFileSync('engine-plan.json', JSON.stringify(selected) + '\n');
+          const { ENGINE, VERSIONS, TARGETS, HISTORY_RUN, MARINA_ENGINE_PLAN } = process.env;
+          const plan = selectEnginePlan(ENGINE, {
+            versions: VERSIONS, platforms: TARGETS, historyDir: HISTORY_RUN ? 'prepared' : undefined,
+          });
+          for (const row of plan) sourcesFor(row);
+          fs.writeFileSync(MARINA_ENGINE_PLAN, JSON.stringify(plan) + '\n');
           JS
-          echo 'MARINA_ENGINE_PLAN=engine-plan.json' >> "$GITHUB_ENV"
-      - id: matrix
-        run: |
-          tag="$GITHUB_REF_NAME"
-          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
-            tag="engines-candidate-history-$GITHUB_RUN_ID"
           fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "combos=$(node scripts/engine-matrix.mjs "$tag")" >> "$GITHUB_OUTPUT"
+          if [[ $(jq length "$MARINA_ENGINE_PLAN") == 0 ]]; then
+            echo 'has_builds=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo 'has_builds=true' >> "$GITHUB_OUTPUT"
+          echo "combos=$(node scripts/engine-matrix.mjs)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
-        if: steps.history.outputs.enabled == 'true'
+        if: steps.matrix.outputs.has_builds == 'true'
         with:
           name: locked-plan
           path: engine-plan.json
           overwrite: true
+          retention-days: 7
           if-no-files-found: error
 
   build:
     needs: matrix
+    if: needs.matrix.outputs.has_builds == 'true'
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 75
+    timeout-minutes: 100
     env:
-      MARINA_ENGINE_PLAN: ${{ needs.matrix.outputs.historical == 'true' && 'engine-plan.json' || '' }}
+      MARINA_ENGINE_PLAN: engine-plan.json
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.combos) }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 24
       - uses: actions/download-artifact@v8
-        if: needs.matrix.outputs.historical == 'true'
         with:
           name: locked-plan
       - name: Build dependencies (Linux)
@@ -155,99 +185,20 @@ jobs:
           echo "MARINA_OPENSSL_ROOT=$ssl_root" >> "$GITHUB_ENV"
       - name: Package for this platform
         run: node scripts/package-engine.mjs "${{ matrix.engine }}" "${{ matrix.version }}" dist
+      - name: Install and smoke test the archive
+        run: npm run smoke:e2e -- "${{ matrix.engine }}" "${{ matrix.version }}" dist validated
       - uses: actions/upload-artifact@v7
         with:
           name: engine-${{ matrix.engine }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/*
           compression-level: 0
           retention-days: 7
+          overwrite: true
           if-no-files-found: error
-
-  candidate:
-    needs: [matrix, build]
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
-    outputs:
-      url: ${{ steps.release.outputs.url }}
-      sha256: ${{ steps.release.outputs.sha256 }}
-    env:
-      MARINA_ENGINE_PLAN: ${{ needs.matrix.outputs.historical == 'true' && 'engine-plan.json' || '' }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - uses: actions/download-artifact@v8
-        if: needs.matrix.outputs.historical == 'true'
-        with:
-          name: locked-plan
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: engine-*
-          path: dist
-          merge-multiple: true
-      - name: Publish the checked candidate
-        id: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.matrix.outputs.tag }}
-        run: |
-          base="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG"
-          node scripts/make-manifest.mjs generate dist "$base" "$TAG" > dist/manifest.json
-          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
-            if ! git ls-remote --exit-code origin "refs/tags/$TAG" > /dev/null; then
-              git push origin "$GITHUB_SHA:refs/tags/$TAG"
-            fi
-            [[ $(git ls-remote origin "refs/tags/$TAG" | cut -f1) == "$GITHUB_SHA" ]]
-          fi
-          if ! gh release view "$TAG" --json isDraft > release-state.json; then
-            gh release create "$TAG" --verify-tag --draft --prerelease --latest=false \
-              --title "Marina engine candidate $TAG" --notes "Engine bundles for candidate $GITHUB_SHA"
-            echo '{"isDraft":true}' > release-state.json
-          fi
-          if jq -e .isDraft release-state.json > /dev/null; then
-            gh release upload "$TAG" dist/* --clobber
-            gh release edit "$TAG" --draft=false --prerelease --latest=false
-          fi
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > release.json
-          digest=$(node scripts/make-manifest.mjs verify dist/manifest.json release.json "$base" "$TAG")
-          echo "url=$base/manifest.json" >> "$GITHUB_OUTPUT"
-          echo "sha256=$digest" >> "$GITHUB_OUTPUT"
-
-  smoke:
-    needs: [matrix, candidate]
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.matrix.outputs.combos) }}
-    env:
-      MARINA_CATALOG_URL: ${{ needs.candidate.outputs.url }}
-      MARINA_CATALOG_SHA256: ${{ needs.candidate.outputs.sha256 }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - run: npm run smoke:e2e -- "${{ matrix.engine }}" "${{ matrix.version }}"
-
-  validated:
-    needs: [matrix, smoke, candidate]
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Record acceptance
-        env:
-          CATALOG_SHA256: ${{ needs.candidate.outputs.sha256 }}
-          COMBINATIONS: ${{ needs.matrix.outputs.combos }}
-          TAG: ${{ needs.matrix.outputs.tag }}
-        run: |
-          passed=$(jq '.include | length' <<< "$COMBINATIONS")
-          jq -n --arg tag "$TAG" --arg sha "$GITHUB_SHA" --arg manifest "$CATALOG_SHA256" \
-            --argjson passed "$passed" '{tag: $tag, sha: $sha, manifest: $manifest, passed: $passed}' > engine-validation.json
-          echo "All $passed engine builds passed. Catalog SHA-256: $CATALOG_SHA256" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
-          name: engine-validation-${{ github.run_attempt }}
-          path: engine-validation.json
+          name: validated-engine-${{ matrix.engine }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}
+          path: validated/*
+          retention-days: 7
+          overwrite: true
           if-no-files-found: error

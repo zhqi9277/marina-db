@@ -151,7 +151,9 @@ The CLI uses Node.js built-in modules. Run the test suite from the repository ro
 npm test
 ```
 
-GitHub Actions builds or repackages each engine for its target platform. Marina checks package sizes and SHA-256 digests before extraction. The acceptance workflow installs the candidate on a fresh runner and checks its version, reads and writes, and restart behavior. [Build workflow](./.github/workflows/build-engines.yml) · [Promotion workflow](./.github/workflows/promote-engines.yml)
+Run `build-engines` with one database and a comma-separated list of versions. GitHub Actions builds and smoke-tests each version and platform, then keeps the packages as workflow artifacts for seven days. Run `promote-engines` with the successful run ID to add the packages to the database's shared Release, such as `engines-redis`, and update the installation catalog. Use `migrate_engine` to copy that database's already published archives into the shared Release and update their catalog links without rebuilding. [Build workflow](./.github/workflows/build-engines.yml) · [Promotion workflow](./.github/workflows/promote-engines.yml)
+
+The build workflow checks upstream releases for each database daily on `main`. It discovers new versions and release series and skips packages already published or covered by unexpired build artifacts. To check immediately, select an engine and enable `incremental` in `build-engines`. Use the successful run ID to promote the builds when ready.
 
 Report bugs and feature requests in [GitHub Issues](https://github.com/zhqi9277/marina-db/issues).
 

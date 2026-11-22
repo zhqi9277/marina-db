@@ -1,4 +1,4 @@
-// Verify one published matrix entry on a fresh runner with a disposable home.
+// Verify one matrix entry with a disposable home and the CLI's download path.
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -7,12 +7,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { Worker } from 'node:worker_threads';
+import { archiveName, catalogArtifact, describeArchive } from '../../scripts/make-manifest.mjs';
 import { tcpProbe } from '../../src/runtime/lifecycle.js';
 
-const [engine, version] = process.argv.slice(2);
+const [engine, version, archiveDir, evidenceDir] = process.argv.slice(2);
 const catalogUrl = process.env.MARINA_CATALOG_URL;
-assert.ok(engine && version, 'usage: npm run smoke:e2e -- <engine> <version>');
-assert.ok(catalogUrl || process.env.MARINA_CATALOG_FILE, 'a candidate catalog is required');
+assert.ok(engine && version, 'usage: npm run smoke:e2e -- <engine> <version> [archive directory] [evidence directory]');
+assert.ok(archiveDir || catalogUrl || process.env.MARINA_CATALOG_FILE, 'a candidate archive or catalog is required');
 const windows = process.platform === 'win32';
 const home = fs.mkdtempSync(path.join(windows ? os.tmpdir() : '/tmp', 'marina test-'));
 const bin = fileURLToPath(new URL('../../bin/marina.js', import.meta.url));
@@ -123,9 +125,22 @@ async function read(ref, port, restarted) {
 
 let ref = engine + '@' + version;
 let failure;
+let server;
+let archive;
 try {
   const expected = process.env.MARINA_CATALOG_SHA256;
-  if (expected) {
+  if (archiveDir) {
+    const target = { engine, version, os: process.platform, arch: process.arch };
+    const file = path.join(archiveDir, archiveName(target));
+    archive = await describeArchive(file, target);
+    server = new Worker(new URL('./serve-engine-archive.mjs', import.meta.url), { workerData: { file, ...archive } });
+    const url = await new Promise((resolve, reject) => {
+      server.once('message', resolve);
+      server.once('error', reject);
+    });
+    env.MARINA_CATALOG_FILE = path.join(home, 'candidate.json');
+    fs.writeFileSync(env.MARINA_CATALOG_FILE, JSON.stringify({ schema: 1, artifacts: [catalogArtifact(target, archive, url)] }));
+  } else if (expected) {
     const response = await fetch(catalogUrl, { signal: AbortSignal.timeout(30000) });
     assert.ok(response.ok, 'candidate catalog returned HTTP ' + response.status);
     const bytes = Buffer.from(await response.arrayBuffer());
@@ -162,6 +177,11 @@ try {
     if (failure) console.error('Cleanup:', error.message);
     else throw error;
   } finally {
+    if (server) await server.terminate();
     fs.rmSync(home, { recursive: true, force: true, maxRetries: 4, retryDelay: 200 });
   }
+}
+if (archive && evidenceDir) {
+  fs.mkdirSync(evidenceDir, { recursive: true });
+  fs.writeFileSync(path.join(evidenceDir, archive.fileName + '.json'), JSON.stringify(archive) + '\n');
 }

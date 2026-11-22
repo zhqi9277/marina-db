@@ -1,6 +1,6 @@
 // GitHub Actions and the manifest generator use the same release matrix.
 import { pathToFileURL } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { CATALOG } from '../src/install/catalog.js';
 
 export const targets = [
@@ -59,6 +59,43 @@ export function parseBuildMatrix(plan) {
     seen.add(id);
     return row;
   });
+}
+
+export function selectEnginePlan(engine, { versions = '', platforms = '', historyDir } = {}) {
+  if (!Object.hasOwn(CATALOG, engine)) throw new Error('unknown engine: ' + engine);
+  const requestedVersions = versions.split(',').map((item) => item.trim()).filter(Boolean);
+  const requestedPlatforms = platforms.split(',').map((item) => item.trim()).filter(Boolean);
+  if (requestedVersions.some((version) => !/^\d+\.\d+(?:\.\d+)?$/.test(version))) {
+    throw new Error('enter exact engine versions separated by commas');
+  }
+  const dir = historyDir ? pathToFileURL(historyDir.replace(/\/?$/, '/')) : new URL('./engine-batches/', import.meta.url);
+  const rows = historyDir ? [] : baseline.filter((row) => row.engine === engine);
+  const available = new Map(rows.map((row) => [artifactId(row), row]));
+  const batchNames = historyDir || requestedVersions.length ? readdirSync(dir).sort() : [];
+  const locked = new Set();
+  for (const name of batchNames) {
+    if (!name.startsWith(engine + '-') || !name.endsWith('.json')) continue;
+    const plan = parseBuildMatrix(JSON.parse(readFileSync(new URL(name, dir), 'utf8')));
+    for (const row of plan) {
+      if (row.engine !== engine || !row.inputs) throw new Error('unexpected entry in ' + name);
+      if (requestedVersions.length && !requestedVersions.includes(row.version)) continue;
+      const id = artifactId(row);
+      if (locked.has(id)) throw new Error('multiple locked plans for ' + id);
+      locked.add(id);
+      available.set(id, row);
+    }
+  }
+  const platformOf = ({ os, arch }) => `${os}-${arch}`;
+  const selected = [...available.values()].filter((row) =>
+    (!requestedVersions.length || requestedVersions.includes(row.version)) &&
+    (!requestedPlatforms.length || requestedPlatforms.includes(platformOf(row))));
+  for (const version of requestedVersions) {
+    if (!selected.some((row) => row.version === version)) throw new Error('no locked targets selected for ' + version);
+  }
+  for (const platform of requestedPlatforms) {
+    if (!selected.some((row) => platformOf(row) === platform)) throw new Error('no locked targets selected for ' + platform);
+  }
+  return parseBuildMatrix(selected);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

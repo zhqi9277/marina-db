@@ -1,8 +1,6 @@
 name: prepare-engine-history
 
 on:
-  push:
-    tags: ['engines-history-plan-*']
   workflow_dispatch:
     inputs:
       engine:

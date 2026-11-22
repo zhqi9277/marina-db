@@ -573,10 +573,14 @@ npm run marina -- remote   # 不装全局时直接跑
 ### 构建和发布引擎
 
 1. 运行 `node scripts/engine-history.mjs` 对照上游发行记录和正式清单，查看各版本已发布及待验收的架构。
-2. 用 `node scripts/prepare-engine-batch.mjs <引擎> <版本>` 解析并锁定上游归档，将结果登记在 `scripts/engine-batches/<批次>.json`。推送 `engines-candidate-<批次>--<提交短哈希>` 标签启动构建。每批单独生成 GitHub Release 和清单，验收会核对实际运行的版本。
-3. 以合并提交方式将候选提交纳入 `main`，然后运行 `promote-engines`，输入通过验收的运行 ID。工作流按批次核对覆盖范围和摘要，将新版本加入 `engine-catalog`。回滚可还原该分支上的上一次发布提交。
+2. 用 `node scripts/prepare-engine-batch.mjs <引擎> <版本>` 锁定上游归档，将结果登记在 `scripts/engine-batches/<批次>.json`。在 GitHub Actions 运行 `build-engines`，选择一个 `engine`，在 `versions` 填写逗号分隔的完整版本号。留空时构建该引擎的默认版本。每个版本和平台独立验收，归档和验收记录在 Actions 中保留 7 天。
+3. 将构建提交纳入 `main`，然后在 `main` 上运行 `promote-engines`，把通过验收的运行 ID 填入 `run_id`。工作流将各版本归档追加到同一个数据库 Release，例如 `engines-redis`，并在核对文件大小和 SHA-256 后更新 `engine-catalog`。达到 GitHub 单个 Release 的 1000 个附件上限时，后续附件使用带编号的 Release，例如 `engines-redis-2`。
 
-在 GitHub Actions 运行 `prepare-engine-history` 可准备全部引擎，也可以填写 `engine` 和 `version` 缩小范围。归档锁定结果保存在 `history-<引擎>-<起始位置>` 附件中。运行 `build-engines` 时填写准备任务的 ID、附件名和完整版本号即可生成候选包。可用 `targets` 指定要单独重试的架构，例如 `linux-arm64`。通过验收后按第 3 步发布。
+在 GitHub Actions 运行 `prepare-engine-history` 可准备全部引擎，也可以填写 `engine` 和 `version` 缩小范围。归档锁定结果保存在 `history-<引擎>-<起始位置>` 附件中。运行 `build-engines` 时，同时填写 `history_run` 和 `shard`。`versions` 留空会构建该附件里所有已锁定的版本。可通过 `targets` 限定平台，例如 `linux-arm64`。通过验收后按第 3 步发布。
+
+`build-engines` 会在 `main` 上每天检查一次各数据库的上游正式版本。它跟踪正式清单中的版本系列，发现新的补丁或系列后，只构建缺少的平台包。已发布的包和成功运行中尚未过期的验收产物会跳过，上游暂未提供的平台会在下次检查时重试。想立即检查时，手动选择 `engine` 并开启 `incremental`。新包通过验收后可用对应的运行 ID 执行 `promote-engines`。
+
+在 `promote-engines` 中只填写 `migrate_engine` 可迁移该数据库已经登记在正式清单中的旧归档。工作流复制原归档并验证校验值，确认新附件可用后再切换清单链接。`engine-catalog` 的历史提交及外部直链仍可能引用旧 Release，清理前需确认这些下载链接可以下线。
 
 `node scripts/prepare-engine-history.mjs <盘点清单> <输出目录> <引擎> [起始位置] [条数]` 可批量准备归档。同一输出目录可以续跑，已锁定的目标会直接复用。缺包和网络错误按版本、架构记录在 `<引擎>-results.jsonl`。
 

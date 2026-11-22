@@ -40,7 +40,9 @@ export function parseVersions(engine, content) {
   switch (engine) {
     case 'mysql': {
       const select = content.match(/<select\b[^>]*\bname=["']version["'][^>]*>([\s\S]*?)<\/select>/i)?.[1] ?? '';
-      return mysqlGa([...select.matchAll(/<option\b[^>]*\bvalue=["'](\d+\.\d+\.\d+)["']/g)].map((match) => match[1]));
+      const archive = [...select.matchAll(/<option\b[^>]*\bvalue=["'](\d+\.\d+\.\d+)["']/g)];
+      const tags = [...content.matchAll(/\brefs\/tags\/mysql-(\d+\.\d+\.\d+)$/gm)];
+      return mysqlGa([...archive, ...tags].map((match) => match[1]));
     }
     case 'mariadb': {
       const rows = [...content.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((match) =>
@@ -91,6 +93,18 @@ async function readIndex(engine, url) {
   const versions = parseVersions(engine, contents);
   if (!versions.length) throw new Error('no versions found for ' + engine + ' at ' + url);
   return [engine, versions];
+}
+
+export async function readLiveVersions(engine) {
+  if (!Object.hasOwn(historySources, engine)) throw new Error('unknown engine: ' + engine);
+  if (engine !== 'mysql') return (await readIndex(engine, historySources[engine]))[1];
+
+  // Current GA releases are tagged before they move to the archive index.
+  const { stdout } = await exec('git', ['ls-remote', '--refs', '--tags',
+    'https://github.com/mysql/mysql-server.git', 'refs/tags/mysql-*'], { timeout: 120000, maxBuffer: 5 * 1024 ** 2 });
+  const versions = parseVersions(engine, stdout);
+  if (!versions.length) throw new Error('no MySQL release tags found');
+  return versions;
 }
 
 async function run(engine) {

@@ -7,7 +7,8 @@ import { pipeline } from 'node:stream/promises';
 import { getEngine } from '../src/core/registry.js';
 import { discoverRoot, findBin } from '../src/install/archive.js';
 import { downloadFile, sha256File } from '../src/install/download.js';
-import { artifactId, readBuildMatrix } from './engine-matrix.mjs';
+import { readBuildMatrix } from './engine-matrix.mjs';
+import { archiveName } from './make-manifest.mjs';
 import { sourcesFor } from './engine-sources.mjs';
 import { relocate, verifyLibraries } from './portable-libraries.mjs';
 
@@ -147,7 +148,7 @@ try {
 
   fs.mkdirSync(out, { recursive: true });
   const windows = process.platform === 'win32';
-  const archive = path.join(out, artifactId(target) + (windows ? '.zip' : '.tar.gz'));
+  const archive = path.join(out, archiveName(target));
   run('tar', [windows ? '-acf' : '-czf', archive, '-C', moved, '.']);
   console.log(archive);
 } finally {
