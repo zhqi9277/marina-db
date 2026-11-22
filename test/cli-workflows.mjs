@@ -110,6 +110,35 @@ test('a manifest-only version resolves without consulting a remote index', (t) =
   assert.deepEqual(target, { version: '99.0.1', channel: 'catalog' });
 });
 
+test('remote text lists versions with local status and omits catalog metadata', (t) => {
+  const { cli, dir, env, home } = fixture(t);
+  env.MARINA_CATALOG_FILE = path.join(dir, 'manifest.json');
+  const artifacts = ['8.4.9', '9.1.0', '8.4.11'].map((version) => ({
+    name: 'mysql', version, os: process.platform, arch: process.arch,
+    sha256: '0123456789abcdef'.repeat(4), url: 'https://example.test/mysql.tar.gz',
+  }));
+  fs.writeFileSync(env.MARINA_CATALOG_FILE, JSON.stringify({ artifacts }));
+  for (const version of ['8.4.9', '8.4.11']) {
+    fs.mkdirSync(path.join(home, 'engines', 'mysql', '8.4', version), { recursive: true });
+  }
+  fs.writeFileSync(path.join(home, 'state.json'), JSON.stringify({ active: { mysql: '8.4.9' } }));
+
+  const remote = (...args) => {
+    const result = cli('remote', ...args);
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout;
+  };
+  const installed = '   8.4.11 (installed)\n-> 8.4.9 (installed)\n';
+  assert.equal(remote('mysql', 'ls'), '   9.1.0\n' + installed);
+  assert.equal(remote('mysql', '--major', '8.4', '--installed'), installed);
+  assert.equal(remote('mysql', '--major', '5.6'), 'No matching versions\n');
+  assert.doesNotMatch(remote(), /INDEX|manifest\.json/);
+
+  const index = json(cli('remote', 'mysql', '--json'));
+  assert.equal(index.source, env.MARINA_CATALOG_FILE);
+  assert.equal(index.versions[0].kind, 'binary');
+});
+
 test('CLI distinguishes selected and running versions on one instance', { skip: windows }, async (t) => {
   const { cli, dir } = fixture(t, { stopRedis: true });
   const server = net.createServer();

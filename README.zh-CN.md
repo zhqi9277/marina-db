@@ -95,7 +95,7 @@ export PATH="$PWD/bin:$PATH"
 ### 2.3 装第一个数据库
 
 ```bash
-marina remote                 # 六个引擎各有多少版本、最新几个、索引来源
+marina remote                 # 各引擎的可用版本数、最新版本和已安装版本
 marina remote mysql           # 某个引擎的完整版本表
 marina install mysql@8.4      # 指定 major 或完整版本
 marina install redis          # 不写版本 → TTY 里从列表选
@@ -236,8 +236,8 @@ export PATH="$PWD/bin:$PATH"
 
 | 命令 | 说明 |
 |---|---|
-| `marina remote` | 六个引擎的版本摘要（数量、最新几个、索引来源） |
-| `marina remote <db>` | 单个引擎的完整版本表 |
+| `marina remote` | 各引擎的可用版本数、最新版本和已安装版本 |
+| `marina remote <db>` | 逐行列出可用版本，用 `->` 标记当前激活版本 |
 | `marina remote <db> --major 8.0` | 只看某个 major |
 | `marina remote <db> --installed` | 只列已安装 |
 | `marina remote --json` | 机器可读输出 |

@@ -180,38 +180,34 @@ async function cmdRemote(flags, args) {
   }
 
   if (!engine) {
-    const rows = indexes.map(({ engine: e, source, versions }) => {
+    const rows = indexes.map(({ engine: e, versions }) => {
       const installed = installedVersions(e).map((r) => r.version);
       const newest = versions.slice(0, 3).map((v) => v.version).join(', ');
-      return [e.label, String(versions.length), newest || '—', installed.join(', ') || '—', source];
+      return [e.label, String(versions.length), newest || '—', installed.join(', ') || '—'];
     });
-    out(table(['DATABASE', 'VERSIONS', 'NEWEST', 'INSTALLED', 'INDEX'], rows));
+    out(table(['DATABASE', 'VERSIONS', 'NEWEST', 'INSTALLED'], rows));
     hint('full list: marina remote <db>');
-    hint('lists published builds for this operating system and architecture');
     return;
   }
 
-  const idx = indexes[0];
   const installed = new Set(installedVersions(engine).map((r) => r.version));
   const active = state.getActive(engine.key);
-  let versions = idx.versions;
+  let { versions } = indexes[0];
   if (flags.major) {
     const major = String(flags.major);
     versions = versions.filter((v) => v.major === major || v.major === major.split('.')[0]);
   }
   if (flags.installed) versions = versions.filter((v) => installed.has(v.version));
 
-  const rows = versions.map((v) => [
-    v.version,
-    v.kind === 'source' ? color.yellow('source') : color.green('binary'),
-    v.supported ? '' : color.red(`n/a`),
-    v.source,
-    installed.has(v.version) ? color.green('installed') : '',
-    active === v.version ? color.cyan('*') : '',
-  ]);
-  out(table([`${engine.label.toUpperCase()} VERSION`, 'KIND', 'PLATFORM', 'INDEX', 'INSTALLED', 'ACTIVE'], rows));
-  hint(`index: ${idx.source} · ${idx.versions.length} versions listed`);
-  hint(`install: marina install ${engine.key}@${versions[0]?.version || '<version>'}`);
+  if (!versions.length) {
+    out('No matching versions');
+    return;
+  }
+  for (const { version } of versions) {
+    const marker = active === version ? color.cyan('->') : '  ';
+    const label = installed.has(version) ? `${color.green(version)} (installed)` : version;
+    out(`${marker} ${label}`);
+  }
 }
 
 async function cmdInstall(flags, args) {
