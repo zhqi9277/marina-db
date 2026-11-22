@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pipeline } from 'node:stream/promises';
 import { getEngine } from '../src/core/registry.js';
 import { discoverRoot, findBin } from '../src/install/archive.js';
 import { downloadFile, sha256File } from '../src/install/download.js';
@@ -16,10 +17,35 @@ function run(command, args, options = {}) {
   if (result.status !== 0) throw new Error(command + ' failed with status ' + result.status);
 }
 
-async function fetch(input, dir) {
-  const file = path.join(dir, path.basename(new URL(input.url).pathname));
-  await downloadFile(input.url, file, { sha256: input.sha256, size: input.size });
-  return { file, url: input.url, sha256: await sha256File(file) };
+async function fetchInput(input, dir) {
+  const url = new URL(input.url);
+  const bottle = url.origin === 'https://ghcr.io' &&
+    /^\/v2\/(homebrew\/core\/[a-z0-9_./-]+)\/blobs\/sha256:([a-f0-9]{64})$/.exec(url.pathname);
+  if (!bottle) {
+    const file = path.join(dir, path.basename(url.pathname));
+    await downloadFile(input.url, file, { sha256: input.sha256, size: input.size });
+    return { file, url: input.url, sha256: await sha256File(file) };
+  }
+
+  const [, repository, digest] = bottle;
+  if (digest !== input.sha256) throw new Error('Homebrew bottle digest differs from the locked input');
+  const auth = new URL('https://ghcr.io/token');
+  auth.searchParams.set('service', 'ghcr.io');
+  auth.searchParams.set('scope', `repository:${repository}:pull`);
+  const authResponse = await fetch(auth, { signal: AbortSignal.timeout(30000) });
+  if (!authResponse.ok) throw new Error(`Homebrew registry authentication HTTP ${authResponse.status}`);
+  const { token } = await authResponse.json();
+  const response = await fetch(url, {
+    headers: { authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(300000),
+  });
+  if (!response.ok) throw new Error(`Homebrew bottle download HTTP ${response.status}: ${repository}`);
+  const file = path.join(dir, `${digest}.tar.gz`);
+  await pipeline(response.body, fs.createWriteStream(file));
+  if ((input.size != null && fs.statSync(file).size !== input.size) || await sha256File(file) !== digest) {
+    throw new Error(`Homebrew bottle does not match the locked input: ${repository}`);
+  }
+  return { file, url: input.url, sha256: digest };
 }
 
 const [key, version, outputDir = 'dist'] = process.argv.slice(2);
@@ -32,7 +58,7 @@ const work = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-package-'));
 
 try {
   const { binary, source, additional, sourceCode } = sourcesFor(target);
-  const inputs = await Promise.all([binary ?? source, ...additional].map((input) => fetch(input, work)));
+  const inputs = await Promise.all([binary ?? source, ...additional].map((input) => fetchInput(input, work)));
   let root = path.join(work, 'payload');
   fs.mkdirSync(root);
   if (binary) {
@@ -75,6 +101,20 @@ try {
       if (!fs.existsSync(destination)) fs.copyFileSync(path.join(compat, 'usr/lib64', library), destination);
     }
     fs.copyFileSync(path.join(compat, 'usr/share/licenses/openssl-libs/LICENSE'), path.join(root, 'LICENSE-OpenSSL-1.1'));
+  }
+
+  const macOpenSSL = inputs.find(({ url }) => url.startsWith('https://ghcr.io/v2/homebrew/core/openssl/1.1/blobs/'));
+  if (key === 'mysql' && process.platform === 'darwin' && macOpenSSL) {
+    const compat = path.join(work, 'openssl-compat');
+    fs.mkdirSync(compat);
+    run('tar', ['-xf', macOpenSSL.file, '-C', compat]);
+    const libs = ['libcrypto.1.1.dylib', 'libssl.1.1.dylib'];
+    const opensslRoot = discoverRoot(compat, ['lib/' + libs[0]]);
+    if (!opensslRoot) throw new Error('OpenSSL bottle is missing its runtime libraries');
+    for (const library of libs) {
+      fs.copyFileSync(path.join(opensslRoot, 'lib', library), path.join(root, 'lib', library), fs.constants.COPYFILE_EXCL);
+    }
+    fs.copyFileSync(path.join(opensslRoot, 'LICENSE'), path.join(root, 'LICENSE-OpenSSL-1.1'));
   }
 
   if (key === 'mongodb') {
