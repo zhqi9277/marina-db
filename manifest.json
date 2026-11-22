@@ -528,6 +528,61 @@
       "size": 701586353,
       "sha256": "54c69e168c7c577831d744f56cc818c6f3cccf0ae04b0d90718a97773b586db0",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mongodb-7-0-43--136f3e3/mongodb-7.0.43-windows-x64.zip"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.10",
+      "major": "17",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "postgres-17.10-darwin-x64.tar.gz",
+      "size": 9831221,
+      "sha256": "2a6984a74eacb8b803a8d2b121eab231ec9e31e17459065214276b6f25b30a5a",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-darwin-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.10",
+      "major": "17",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "postgres-17.10-darwin-arm64.tar.gz",
+      "size": 9386518,
+      "sha256": "58033c53f4e0adfe94b802fc2027c33e9ad969f6c12d9c4a40d58ed8a735496e",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.10",
+      "major": "17",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "postgres-17.10-linux-x64.tar.gz",
+      "size": 10957575,
+      "sha256": "39617f0cc1eeb3366ac0fd23b7da3579f6a7afe3c4cb38e917c6900f41c2e493",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-linux-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.10",
+      "major": "17",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "postgres-17.10-linux-arm64.tar.gz",
+      "size": 10838852,
+      "sha256": "55483fbb00b5099d4e03696a26cdaa46caf9d16a2c70867d1e43e1d8748246bb",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-linux-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.10",
+      "major": "17",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "postgres-17.10-windows-x64.zip",
+      "size": 334066741,
+      "sha256": "14491e86bd7349145784413a9956ac4b504356b11b07d813c28f9313200c83a3",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-windows-x64.zip"
     }
   ]
 }
