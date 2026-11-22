@@ -35,10 +35,16 @@ case "$ENGINE" in
       case "$ARCHIVE" in
         */memcached-1.5.*.tar.gz)
           # This series uses -Werror with declarations deprecated by current compilers.
-          export CFLAGS='-O2 -Wno-error=deprecated-declarations -Wno-error=strict-prototypes -Wno-error=unused-but-set-variable'
+          export CFLAGS='-O2 -fcommon -Wno-error=deprecated-declarations -Wno-error=strict-prototypes -Wno-error=unused-but-set-variable'
           # The stray comment terminator prevents the htonll probe from finding macOS's macro.
           sed -i.bak 's|^#include <inttypes\.h> \*/$|#include <inttypes.h>|' configure
           rm configure.bak
+          if [ -f authfile.c ]; then
+            sed -i.bak '/^#include "authfile\.h"$/i\
+#include "config.h"
+' authfile.c
+            rm authfile.c.bak
+          fi
           ;;
       esac
       ./configure --prefix="$PREFIX" --with-libevent="$WORK/libevent-prefix" --disable-tls
