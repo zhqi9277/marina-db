@@ -330,6 +330,61 @@
       "size": 3557980,
       "sha256": "73d8966e43ba2e474f2a503bf1d582e3e89b5bc9a992bfb461625f17a102fcc5",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/memcached-1.6.8-windows-x64.zip"
+    },
+    {
+      "name": "redis",
+      "version": "8.6.7",
+      "major": "8",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "redis-8.6.7-darwin-x64.tar.gz",
+      "size": 1584734,
+      "sha256": "ae75ff29e78ed79c5d2dee6c22ebf8c9ed0a80f0ffe968c149454fa7911260f9",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-darwin-x64.tar.gz"
+    },
+    {
+      "name": "redis",
+      "version": "8.6.7",
+      "major": "8",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "redis-8.6.7-darwin-arm64.tar.gz",
+      "size": 1460505,
+      "sha256": "46e32bba13460161a8752db80bae4b77c0024e33a2136a25c672c72ddcb27998",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "redis",
+      "version": "8.6.7",
+      "major": "8",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "redis-8.6.7-linux-x64.tar.gz",
+      "size": 7539502,
+      "sha256": "f82b85edf1852672155764b25f839bf121342fc032cf835667fdb7358c2c8aa5",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-linux-x64.tar.gz"
+    },
+    {
+      "name": "redis",
+      "version": "8.6.7",
+      "major": "8",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "redis-8.6.7-linux-arm64.tar.gz",
+      "size": 7482611,
+      "sha256": "5d3e8697e5dd19d578ae9fc3ec6153f612b845ed1aa796455af7c270d4f6e5f1",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-linux-arm64.tar.gz"
+    },
+    {
+      "name": "redis",
+      "version": "8.6.7",
+      "major": "8",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "redis-8.6.7-windows-x64.zip",
+      "size": 13903441,
+      "sha256": "998099bda57df92628d6bdb7e82b4263b036bebf9e4af3011efbd3c953470c40",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-windows-x64.zip"
     }
   ]
 }
