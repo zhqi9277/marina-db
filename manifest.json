@@ -1386,6 +1386,50 @@
       "size": 873590307,
       "sha256": "b2091e291dd8551e436ee3b7be33441ed60eeb8687afff5440bd6ee7bd7a4ee2",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-8.0.38-windows-x64.zip"
+    },
+    {
+      "name": "redis",
+      "version": "7.4.12",
+      "major": "7",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "redis-7.4.12-darwin-x64.tar.gz",
+      "size": 1314865,
+      "sha256": "1c98afe3667b76401e6e45c3281f3166631dd1d6a09652aa940bf2afdda9fa16",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-7.4.12-darwin-x64.tar.gz"
+    },
+    {
+      "name": "redis",
+      "version": "7.4.12",
+      "major": "7",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "redis-7.4.12-darwin-arm64.tar.gz",
+      "size": 1224665,
+      "sha256": "a8dbf8e19254f7498ec8ff7e8c5c7b9bf0d7b0dd9955f017641fbb0eaf36673e",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-7.4.12-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "redis",
+      "version": "7.4.12",
+      "major": "7",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "redis-7.4.12-linux-x64.tar.gz",
+      "size": 6242163,
+      "sha256": "c1b8e5835829e41f102b4267d32fc4d8638093019705028ffaa9362ea0b12c3b",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-7.4.12-linux-x64.tar.gz"
+    },
+    {
+      "name": "redis",
+      "version": "7.4.12",
+      "major": "7",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "redis-7.4.12-linux-arm64.tar.gz",
+      "size": 6187134,
+      "sha256": "0b92d9fdc623b84233de37f5a2d37ba7c077e0a924685b9e56a24628a159dfbf",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-7.4.12-linux-arm64.tar.gz"
     }
   ]
 }
