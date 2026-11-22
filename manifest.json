@@ -1914,6 +1914,28 @@
       "size": 365941311,
       "sha256": "36069a330dd69f4999c80119d6d832ca6ce6ccf340c106f66897bc66029e453d",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-14.25-windows-x64.zip"
+    },
+    {
+      "name": "mongodb",
+      "version": "6.0.29",
+      "major": "6.0",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mongodb-6.0.29-darwin-x64.tar.gz",
+      "size": 147668622,
+      "sha256": "bbda8620aa62245f564fa0092123eeebea6978da19221035ecb7247290f40918",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-6.0.29-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "6.0.29",
+      "major": "6.0",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mongodb-6.0.29-darwin-arm64.tar.gz",
+      "size": 140511832,
+      "sha256": "118a36a569475cd3f3b0e443146d5984bd6f30df1dac3d4ba94c2dbe508ff903",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-6.0.29-darwin-arm64.tar.gz"
     }
   ]
 }
