@@ -1947,6 +1947,61 @@
       "size": 343295605,
       "sha256": "c5a4d01222cd8efee48609876d216e5e1d620507e9e7b2d37d54821affd56a46",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.6.51-linux-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "10.6.28",
+      "major": "10.6",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mariadb-10.6.28-darwin-x64.tar.gz",
+      "size": 93751563,
+      "sha256": "dcbfe08f6f8f449d1df94c56c9d149736336353413b06d8f4f5907e93e26afa0",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-10.6.28-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "10.6.28",
+      "major": "10.6",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mariadb-10.6.28-darwin-arm64.tar.gz",
+      "size": 98180297,
+      "sha256": "02f7ea77cac8bf8b3c3218e35ea26b292db7aaca6aaaef39e02a8b5685d2a0ce",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-10.6.28-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "10.6.28",
+      "major": "10.6",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mariadb-10.6.28-linux-x64.tar.gz",
+      "size": 311901703,
+      "sha256": "a9f6331ce61c73e458b214ebd1b6ba43b4507137ae6c510d1f50e6224a9a1fa1",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-10.6.28-linux-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "10.6.28",
+      "major": "10.6",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mariadb-10.6.28-linux-arm64.tar.gz",
+      "size": 58768046,
+      "sha256": "2532da5eab3717e055a5c8249fb4439767551b257698d1af6993cf3ffda781e6",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-10.6.28-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "10.6.28",
+      "major": "10.6",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mariadb-10.6.28-windows-x64.zip",
+      "size": 87645285,
+      "sha256": "04b18aa9918409a5efee2f47894840506ebd4128d8ec93d346320603ff1aafb1",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-10.6.28-windows-x64.zip"
     }
   ]
 }
