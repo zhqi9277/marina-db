@@ -65,6 +65,18 @@ try {
     }
   }
 
+  const openssl = inputs.find(({ file }) => /^openssl-libs-.*\.rpm$/.test(path.basename(file)));
+  if (key === 'mysql' && process.platform === 'linux' && openssl) {
+    const compat = path.join(work, 'openssl-compat');
+    fs.mkdirSync(compat);
+    run('bsdtar', ['-xf', openssl.file, '-C', compat]);
+    for (const library of ['libcrypto.so.1.1', 'libssl.so.1.1']) {
+      const destination = path.join(root, 'lib', library);
+      if (!fs.existsSync(destination)) fs.copyFileSync(path.join(compat, 'usr/lib64', library), destination);
+    }
+    fs.copyFileSync(path.join(compat, 'usr/share/licenses/openssl-libs/LICENSE'), path.join(root, 'LICENSE-OpenSSL-1.1'));
+  }
+
   if (key === 'mongodb') {
     const shell = path.join(work, 'mongosh');
     fs.mkdirSync(shell);

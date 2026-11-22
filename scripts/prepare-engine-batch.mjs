@@ -164,12 +164,23 @@ async function mysqlInput(version, os, arch) {
   } else {
     const libc = ['2.28', '2.17', '2.12'];
     const stems = libc.map((abi) => 'linux-glibc' + abi + '-' + cpu);
-    suffixes = [...stems.map((stem) => stem + '-minimal.tar.xz'),
-      ...stems.map((stem) => stem + '.tar.xz'), ...stems.map((stem) => stem + '.tar.gz'),
+    // Prefer the newer compatible build even if it lacks a minimal archive.
+    // Older ARM64 builds can link optional modules to OpenSSL 1.0.
+    suffixes = [...stems.flatMap((stem) => [stem + '-minimal.tar.xz', stem + '.tar.xz', stem + '.tar.gz']),
       'linux-' + cpu + '.tar.gz'];
   }
   const official = suffixes.flatMap((name) => [archive, current].map((url) => url + prefix + '-' + name));
   const sourceCode = ['https://github.com/mysql/mysql-server/tree/mysql-' + version];
+  const additional = [];
+  if (version === '8.0.37' && os === 'linux' && arch === 'arm64') {
+    const oracle = 'https://yum.oracle.com/repo/OracleLinux/OL8/baseos/latest/';
+    // The glibc 2.28 LDAP client modules require the OpenSSL 1.1 ABI.
+    additional.push({
+      url: oracle + 'aarch64/getPackage/openssl-libs-1.1.1k-18.el8_6.aarch64.rpm',
+      sha256: '85a712b51cd5645b5019ecb7486fa1e438c8d4365172a8c39074f9e0c77208b2',
+    });
+    sourceCode.push(oracle + 'x86_64/getPackageSource/openssl-1.1.1k-18.el8_6.src.rpm');
+  }
   let lookupError;
   // Probe in small groups to preserve the preferred archive order while
   // avoiding a full download for each candidate filename.
@@ -184,7 +195,7 @@ async function mysqlInput(version, os, arch) {
       // Oracle serves some valid XZ archives as text/plain.
       if (result.value && !/^text\/html\b/i.test(result.value.headers.get('content-type') ?? '')) {
         const binary = await pin(group[index]);
-        if (binary) return { binary, sourceCode };
+        if (binary) return { binary, sourceCode, additional };
       }
     }
   }
@@ -210,7 +221,7 @@ async function mysqlInput(version, os, arch) {
     return null;
   }
   const binary = await pin(base + pkg);
-  return binary && { binary, sourceCode };
+  return binary && { binary, sourceCode, additional };
 }
 
 const resolvers = {
@@ -227,7 +238,8 @@ export async function prepareBatch(engine, version, requested = []) {
   const results = await Promise.allSettled(platforms.map(async ({ os, arch }) => {
     const inputs = await resolvers[engine](version, os, arch);
     if (!inputs) return null;
-    return { engine, version, os, arch, inputs: { ...inputs, additional: extraBuildInputs(engine, os, arch) } };
+    const additional = [...(inputs.additional ?? []), ...extraBuildInputs(engine, os, arch)];
+    return { engine, version, os, arch, inputs: { ...inputs, additional } };
   }));
   const rows = [];
   const omitted = [];
