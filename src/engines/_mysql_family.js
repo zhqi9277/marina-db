@@ -10,14 +10,12 @@ import { mkdirp } from '../core/paths.js';
 import { findBin } from '../install/archive.js';
 import { host } from '../host/index.js';
 
-async function initializeMariaDb(ctx, installer) {
-  if (host.id === 'win32') return spawnAsync(installer, [`--datadir=${ctx.dataDir}`]);
+async function runUnixInstaller(ctx, installer, options) {
   const init = (cmd, root, dataDir) => spawnAsync(cmd, [
     '--no-defaults',
     `--basedir=${root}`,
     `--datadir=${dataDir}`,
-    '--auth-root-authentication-method=normal',
-    '--skip-test-db',
+    ...options,
   ], { cwd: root });
   if (![ctx.root, ctx.dataDir].some((dir) => /[\s*?\[\]]/.test(dir))) {
     return init(installer, ctx.root, ctx.dataDir);
@@ -34,6 +32,51 @@ async function initializeMariaDb(ctx, installer) {
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }
+}
+
+function initializeMariaDb(ctx, installer) {
+  if (host.id === 'win32') return spawnAsync(installer, [`--datadir=${ctx.dataDir}`]);
+  return runUnixInstaller(ctx, installer, ['--auth-root-authentication-method=normal', '--skip-test-db']);
+}
+
+function isMysql56(ctx) {
+  return ctx.key === 'mysql' && ctx.major === '5.6';
+}
+
+async function initializeMysql56(ctx) {
+  // A failed mysql_install_db can create mysql/ before it has written the grant tables.
+  const dataDir = fs.mkdtempSync(path.join(path.dirname(ctx.dataDir), '.mysql-init-'));
+  try {
+    if (host.id === 'win32') {
+      const seed = path.join(ctx.root, 'data');
+      if (!fs.existsSync(path.join(seed, 'mysql', 'user.frm'))) throw new Error('MySQL 5.6 package is missing its initial grant tables');
+      fs.cpSync(seed, dataDir, { recursive: true });
+    } else {
+      const installer = findBin(ctx.root, ['mysql_install_db']);
+      if (!installer) throw new Error('cannot find mysql_install_db for MySQL 5.6');
+      const res = await runUnixInstaller({ ...ctx, dataDir }, installer, ['--force', '--keep-my-cnf']);
+      if (res.code !== 0) throw new Error(`mysql_install_db failed:\n${res.stderr.trim() || res.stdout.trim()}`);
+    }
+    if (!fs.existsSync(path.join(dataDir, 'mysql', 'user.frm'))) throw new Error('MySQL 5.6 did not create the initial grant tables');
+    fs.rmdirSync(ctx.dataDir);
+    fs.renameSync(dataDir, ctx.dataDir);
+  } finally {
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
+export function mysqlAccountSql(ctx, user, password, grant = false) {
+  const literal = (value) => `'${String(value ?? '').replace(/'/g, "''")}'`;
+  const account = `${literal(user)}@'localhost'`;
+  const pw = literal(password);
+  const privileges = `GRANT ALL PRIVILEGES ON *.* TO ${account}`;
+  if (isMysql56(ctx)) {
+    return [grant ? `${privileges} IDENTIFIED BY ${pw} WITH GRANT OPTION;`
+      : `SET PASSWORD FOR ${account} = PASSWORD(${pw});`];
+  }
+  return grant
+    ? [`CREATE USER IF NOT EXISTS ${account} IDENTIFIED BY ${pw};`, `${privileges} WITH GRANT OPTION;`]
+    : [`ALTER USER ${account} IDENTIFIED BY ${pw};`];
 }
 
 function transportArgs(ctx) {
@@ -128,7 +171,9 @@ no-auto-rehash
       if (fs.existsSync(path.join(ctx.dataDir, 'mysql'))) return { skipped: true };
       mkdirp(ctx.dataDir);
       mkdirp(ctx.logDir);
-      if (initKind === 'mysql-initialize') {
+      if (isMysql56(ctx)) {
+        await initializeMysql56(ctx);
+      } else if (initKind === 'mysql-initialize') {
         const mysqld = findBin(ctx.root, serverNames);
         if (!mysqld) throw new Error(`cannot find ${serverNames[0]} under ${ctx.root}`);
         const res = await spawnAsync(mysqld, [
@@ -178,19 +223,14 @@ no-auto-rehash
       const client = findBin(ctx.root, ['mysql', 'mariadb']);
       if (!client) throw new Error('mysql client not found for first-run bootstrap');
       const acct = ctx.account || { user: 'root', password: ctx.password };
-      const user = String(acct.user || 'root').replace(/'/g, "''");
-      const pw = String(acct.password ?? '').replace(/'/g, "''");
+      const user = acct.user || 'root';
       const sql = [
         "SET SESSION sql_mode = 'NO_BACKSLASH_ESCAPES';",
-        `ALTER USER 'root'@'localhost' IDENTIFIED BY '${pw}';`,
-        ...(user === 'root'
-          ? []
-          : [
-              `CREATE USER IF NOT EXISTS '${user}'@'localhost' IDENTIFIED BY '${pw}';`,
-              `GRANT ALL PRIVILEGES ON *.* TO '${user}'@'localhost' WITH GRANT OPTION;`,
-            ]),
+        ...mysqlAccountSql(ctx, 'root', acct.password),
+        ...(user === 'root' ? [] : mysqlAccountSql(ctx, user, acct.password, true)),
         `DELETE FROM mysql.user WHERE User='';`,
-        `DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost','127.0.0.1','::1');`,
+        isMysql56(ctx) ? "DELETE FROM mysql.user WHERE User='root' AND Host <> 'localhost';"
+          : "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost','127.0.0.1','::1');",
         `DROP DATABASE IF EXISTS test;`,
         `FLUSH PRIVILEGES;`,
       ].join('\n');

@@ -1,5 +1,6 @@
 // Per-database settings: port + stored credentials, with best-effort server sync.
 import { buildCtx } from '../core/registry.js';
+import { mysqlAccountSql } from '../engines/_mysql_family.js';
 import { renderConfig } from './config.js';
 import { inspectService, start, stop, tcpProbe } from './lifecycle.js';
 import { spawnAsync, findBin } from '../install/archive.js';
@@ -68,14 +69,12 @@ async function mysqlAlter(ctx, oldAccount, nextAccount) {
   const auth = [`-u${oldAccount.user || 'root'}`];
   if (oldAccount.password) auth.push(`-p${oldAccount.password}`);
 
-  const user = sqlEscape(nextAccount.user || 'root');
-  const pw = sqlEscape(nextAccount.password);
+  const user = nextAccount.user || 'root';
   const sql = ["SET SESSION sql_mode = 'NO_BACKSLASH_ESCAPES';"];
   if (nextAccount.user && nextAccount.user !== oldAccount.user) {
-    sql.push(`CREATE USER IF NOT EXISTS '${user}'@'localhost' IDENTIFIED BY '${pw}';`);
-    sql.push(`GRANT ALL PRIVILEGES ON *.* TO '${user}'@'localhost' WITH GRANT OPTION;`);
+    sql.push(...mysqlAccountSql(ctx, user, nextAccount.password, true));
   }
-  sql.push(`ALTER USER '${user}'@'localhost' IDENTIFIED BY '${pw}';`);
+  sql.push(...mysqlAccountSql(ctx, user, nextAccount.password));
 
   const res = await spawnAsync(client, [...target, ...auth], { input: sql.join('\n') });
   if (res.code !== 0) throw new Error(res.stderr.trim() || `client exited ${res.code}`);

@@ -164,6 +164,12 @@ try {
   await read(ref, port, false);
   cli('restart', ref);
   await read(ref, port, true);
+  if (engine === 'mysql' && version.startsWith('5.6.')) {
+    cli('auth', ref, 'marina_legacy', "legacy'password");
+    await read(ref, port, true);
+    cli('auth', ref, 'marina_legacy', 'updated-password');
+    await read(ref, port, true);
+  }
   cli('stop', ref);
   assert.equal(await tcpProbe(port), false, 'stop left the listener open');
   console.log('[ok] ' + ref + ' ' + process.platform + '/' + process.arch);
