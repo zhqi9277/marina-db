@@ -1,6 +1,7 @@
 // Inventory from the projects' own release indexes. A version is available to
 // Marina only when its platform build also appears in the published catalog.
 import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { DEFAULT_CATALOG_URL, parseCatalog } from '../src/install/overlay.js';
@@ -90,10 +91,23 @@ async function run(engine) {
     readText(DEFAULT_CATALOG_URL).then(JSON.parse),
     ...sources.map(([key, url]) => readIndex(key, url)),
   ]);
-  const errors = results.filter((row) => row.status === 'rejected').map((row) => row.reason.message);
-  if (errors.length) throw new Error(errors.join('\n'));
-  const [published, ...rows] = results.map((row) => row.value);
-  const history = summarizeHistory(Object.fromEntries(rows), published);
+  const [published, ...rows] = results;
+  if (published.status === 'rejected') throw published.reason;
+  const snapshot = JSON.parse(readFileSync(new URL('./engine-history.snapshot.json', import.meta.url), 'utf8'));
+  const reported = rows.map((result, i) => {
+    if (result.status === 'fulfilled') return result.value;
+    const [key] = sources[i];
+    const versions = snapshot.versions[key];
+    if (!Array.isArray(versions) || !versions.length || !versions.every((value) => numericVersion.test(value))) {
+      throw result.reason;
+    }
+    console.error(key + ' uses snapshot ' + snapshot.date + ': ' + result.reason.message);
+    return [key, versions];
+  });
+  const history = summarizeHistory(Object.fromEntries(reported), published.value);
+  for (const [i, result] of rows.entries()) {
+    if (result.status === 'rejected') history[sources[i][0]].snapshotDate = snapshot.date;
+  }
   console.log(JSON.stringify({ schema: 1, history }, null, 2));
 }
 
