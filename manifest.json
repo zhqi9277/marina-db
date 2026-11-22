@@ -1782,6 +1782,61 @@
       "size": 343125394,
       "sha256": "5c9f5e622b60dd7a58541eec1e225528c2e6d1af08be4099c7d26fbee7fd6574",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-9.7.4-windows-x64.zip"
+    },
+    {
+      "name": "mariadb",
+      "version": "12.3.4",
+      "major": "12.3",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mariadb-12.3.4-darwin-x64.tar.gz",
+      "size": 107398070,
+      "sha256": "f17b3d6ce087633ae56b56ec3976a4ca73819518233b99efda8da0f0ad7ff14d",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-12.3.4-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "12.3.4",
+      "major": "12.3",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mariadb-12.3.4-darwin-arm64.tar.gz",
+      "size": 112488777,
+      "sha256": "f2d036f3bdddde1d4f32e12c4152dad08dddcd01bb43e558603ec585c1bf0417",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-12.3.4-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "12.3.4",
+      "major": "12.3",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mariadb-12.3.4-linux-x64.tar.gz",
+      "size": 442840809,
+      "sha256": "00a86b24dd0e7d375df89bb1c8e7e0a7ff4feb26cf138d5efd5286048c75cb47",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-12.3.4-linux-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "12.3.4",
+      "major": "12.3",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mariadb-12.3.4-linux-arm64.tar.gz",
+      "size": 67413880,
+      "sha256": "ce28a6d5cfc3a88123f49959e63805ad8d677875f858771daed730493e259cde",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-12.3.4-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "12.3.4",
+      "major": "12.3",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mariadb-12.3.4-windows-x64.zip",
+      "size": 106365567,
+      "sha256": "23ba78ec768ec489d0b89e917b547d361edccbd8eef6db2ea9818e3efa60269d",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-12.3.4-windows-x64.zip"
     }
   ]
 }
