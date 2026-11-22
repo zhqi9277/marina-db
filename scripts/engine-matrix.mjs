@@ -23,7 +23,7 @@ const versions = {
   redis: '7.4.11',
   memcached: '1.6.45',
   qdrant: '1.20.2',
-  milvus: '3.0.5',
+  milvus: '3.0.6',
 };
 
 const baseline = Object.entries(versions).flatMap(([engine, version]) => engineTargets(engine).map((target) => ({

@@ -69,7 +69,7 @@ export function parseVersions(engine, content) {
       return unique([...content.matchAll(/\brefs\/tags\/v(\d+\.\d+\.\d+)$/gm)].map((match) => match[1]));
     case 'milvus':
       // The native Standalone package uses the 3.x embedded local-storage configuration.
-      return unique([...content.matchAll(/\brefs\/tags\/v([3-9]\d*\.\d+\.\d+)$/gm)].map((match) => match[1]));
+      return unique([...content.matchAll(/\brefs\/tags\/v(3\.\d+\.\d+)$/gm)].map((match) => match[1]));
     default: throw new Error('unknown engine history: ' + engine);
   }
 }

@@ -69,7 +69,7 @@ const binaries = {
 };
 
 const sourceArchives = {
-  'milvus@3.0.5': input(milvusArchive('3.0.5'), '97fe7646493767e4fc734b7a9065a8fd7cefa0647c37ec49cbfd84fea09717e2'),
+  'milvus@3.0.6': input(milvusArchive('3.0.6'), '2a2610adac7712455bcd5fc8eff0da5ad0a51ea6ae0cffc3fc9c084b65ff22e7'),
   'mariadb@11.4.13': maria('source/mariadb-11.4.13.tar.gz', '1bb254b106d0a7ca871cfa18fa6e18d4b80a7430f9ec9d1571ec4271a13def96'),
   'postgres@17.11': input('https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.gz', '5367f6fb2ec97efe1eb2e0c7926bb33438e51b0bd3a9733b88498056a7dc9a7e'),
   'redis@7.4.11': input('https://download.redis.io/releases/redis-7.4.11.tar.gz', '3c266ece0abd54ed3b1c912c6eb86b7508cf382cb690ee6649d3843f018f6357'),
