@@ -181,7 +181,8 @@ async function mysqlInput(version, os, arch) {
         lookupError ??= result.reason;
         continue;
       }
-      if (result.value && !/^text\//i.test(result.value.headers.get('content-type') ?? '')) {
+      // Oracle serves some valid XZ archives as text/plain.
+      if (result.value && !/^text\/html\b/i.test(result.value.headers.get('content-type') ?? '')) {
         const binary = await pin(group[index]);
         if (binary) return { binary, sourceCode };
       }
