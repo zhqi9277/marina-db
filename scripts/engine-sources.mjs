@@ -21,6 +21,7 @@ const qdrantSums = {
   'win32-x64': '7a5290b9ef1b204b250a1626ddafec580647ba3cc62ba1630b3a8efdc2718b32',
 };
 export const qdrantLicense = (version) => 'https://raw.githubusercontent.com/qdrant/qdrant/v' + version + '/LICENSE';
+export const milvusArchive = (version) => 'https://codeload.github.com/milvus-io/milvus/tar.gz/refs/tags/v' + version;
 
 const mysqlBinaries = {
   'darwin-x64': mysql('macos15-x86_64.tar.gz', '90e8aea10698d01b978f0179e72e8d5e2cbe9f9bd5771e88b0b75d7c82244d3f'),
@@ -68,6 +69,7 @@ const binaries = {
 };
 
 const sourceArchives = {
+  'milvus@3.0.5': input(milvusArchive('3.0.5'), '97fe7646493767e4fc734b7a9065a8fd7cefa0647c37ec49cbfd84fea09717e2'),
   'mariadb@11.4.13': maria('source/mariadb-11.4.13.tar.gz', '1bb254b106d0a7ca871cfa18fa6e18d4b80a7430f9ec9d1571ec4271a13def96'),
   'postgres@17.11': input('https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.gz', '5367f6fb2ec97efe1eb2e0c7926bb33438e51b0bd3a9733b88498056a7dc9a7e'),
   'redis@7.4.11': input('https://download.redis.io/releases/redis-7.4.11.tar.gz', '3c266ece0abd54ed3b1c912c6eb86b7508cf382cb690ee6649d3843f018f6357'),

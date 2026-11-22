@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { DEFAULT_CATALOG_URL, parseCatalog } from '../src/install/overlay.js';
-import { targets } from './engine-matrix.mjs';
+import { engineTargets } from './engine-matrix.mjs';
 
 const exec = promisify(execFile);
 const numericVersion = /^\d+\.\d+(?:\.\d+)?$/;
@@ -29,6 +29,7 @@ export const historySources = {
   redis: 'https://download.redis.io/releases/',
   memcached: 'https://github.com/memcached/memcached.git',
   qdrant: 'https://github.com/qdrant/qdrant.git',
+  milvus: 'https://github.com/milvus-io/milvus.git',
 };
 
 async function readText(url) {
@@ -66,6 +67,9 @@ export function parseVersions(engine, content) {
       return unique([...content.matchAll(/\brefs\/tags\/(?:release-|v)?(\d+\.\d+\.\d+)\s*$/gm)].map((match) => match[1]));
     case 'qdrant':
       return unique([...content.matchAll(/\brefs\/tags\/v(\d+\.\d+\.\d+)$/gm)].map((match) => match[1]));
+    case 'milvus':
+      // The native Standalone package uses the 3.x embedded local-storage configuration.
+      return unique([...content.matchAll(/\brefs\/tags\/v([3-9]\d*\.\d+\.\d+)$/gm)].map((match) => match[1]));
     default: throw new Error('unknown engine history: ' + engine);
   }
 }
@@ -81,7 +85,7 @@ export function summarizeHistory(upstream, published) {
   return Object.fromEntries(Object.entries(upstream).map(([engine, versions]) => {
     const records = unique(versions).map((version) => {
       const publishedTargets = available.get(engine + '@' + version) ?? [];
-      const pendingTargets = targets.map(({ os, arch }) => os + '-' + arch)
+      const pendingTargets = engineTargets(engine).map(({ os, arch }) => os + '-' + arch)
         .filter((target) => !publishedTargets.includes(target));
       return { version, publishedTargets, pendingTargets };
     });

@@ -74,6 +74,9 @@ Run `marina` in an interactive terminal. Select a database to see its active ver
 | Redis | `redis` | 6379 |
 | Memcached | `memcached` | 11211 |
 | Qdrant | `qdrant` | 6333 |
+| Milvus Standalone | `milvus` | 19530 |
+
+Qdrant and Milvus listen on localhost. Connect your application to their HTTP endpoints using the port listed above or the port configured with `marina port`. The terminal dashboard shows the address with `y`. Qdrant's bundled configuration enables HTTP. Set `service.grpc_port` in `marina config qdrant` to enable a separate gRPC port. Milvus uses embedded etcd and local storage.
 
 Version availability depends on your operating system and architecture. `marina remote` fetches the current published catalog and shows the builds available on your machine. [Published catalog](https://github.com/zhqi9277/marina-db/blob/engine-catalog/manifest.json) · [Engine packages](https://github.com/zhqi9277/marina-db/releases)
 

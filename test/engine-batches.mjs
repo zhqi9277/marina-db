@@ -10,7 +10,11 @@ import { catalogArtifact, mergeCatalog } from '../scripts/make-manifest.mjs';
 const tag = 'engines-candidate-redis-8-6-7--test';
 
 test('candidate tags select version batches while the original 30 packages remain supported', () => {
-  assert.equal(readBuildMatrix('engines-candidate-af3fde5').filter(({ engine }) => engine !== 'qdrant').length, 30);
+  const baseline = readBuildMatrix('engines-candidate-af3fde5');
+  assert.equal(baseline.filter(({ engine }) => !['qdrant', 'milvus'].includes(engine)).length, 30);
+  assert.equal(baseline.filter(({ engine }) => engine === 'qdrant').length, 5);
+  assert.equal(baseline.filter(({ engine }) => engine === 'milvus').length, 4);
+  assert.throws(() => selectEnginePlan('milvus', { platforms: 'win32-x64' }), /no locked targets selected/);
   const matrix = readBuildMatrix(tag);
   assert.equal(matrix.length, 5);
   assert.ok(matrix.every((row) => row.engine === 'redis' && row.version === '8.6.7'));

@@ -1,0 +1,59 @@
+--- a/cmd/milvus/util.go
++++ b/cmd/milvus/util.go
+@@ -56 +56,8 @@
+-	runtimeDir := "/run/milvus"
++	if dir := os.Getenv("MARINA_MILVUS_RUN_DIR"); dir != "" {
++		if err := makeRuntimeDir(dir); err != nil {
++			fmt.Fprintln(writer, err)
++			os.Exit(1)
++		}
++		return dir
++	}
++	runtimeDir := "/run/milvus"
+--- a/internal/http/server.go
++++ b/internal/http/server.go
+@@ -537 +537 @@
+-		return fmt.Sprintf(":%s", DefaultListenPort)
++		return fmt.Sprintf("127.0.0.1:%s", DefaultListenPort)
+@@ -541 +541 @@
+-	return fmt.Sprintf(":%s", port)
++	return fmt.Sprintf("127.0.0.1:%s", port)
+--- a/pkg/eventlog/grpc.go
++++ b/pkg/eventlog/grpc.go
+@@ -132,3 +132,2 @@
+-	// Flag-off mode intentionally retains the historical remote-listener
+-	// behavior for compatibility.
+-	return ":0"
++	// Marina runs this server locally.
++	return "127.0.0.1:0"
+--- a/pkg/util/funcutil/func.go
++++ b/pkg/util/funcutil/func.go
+@@ -104,14 +103,0 @@
+-	addrs, err := net.InterfaceAddrs()
+-	if err != nil {
+-		mlog.Warn(context.TODO(), "Failed to get interface addresses", mlog.Err(err))
+-		return "127.0.0.1"
+-	}
+-
+-	preferIPv6 := PreferIPv6LocalIP.Load()
+-
+-	ip := getValidLocalIP(addrs, preferIPv6)
+-	if len(ip) != 0 {
+-		return ip
+-	}
+-
+-	mlog.Warn(context.TODO(), "No valid local IP found, falling back to loopback")
+--- a/pkg/util/netutil/listener.go
++++ b/pkg/util/netutil/listener.go
+@@ -20 +20 @@
+-		if lis, err := net.Listen(config.net, fmt.Sprintf(":%d", config.highPriorityToUsePort)); err == nil {
++		if lis, err := net.Listen(config.net, fmt.Sprintf("127.0.0.1:%d", config.highPriorityToUsePort)); err == nil {
+@@ -29 +29 @@
+-	lis, err := net.Listen(config.net, fmt.Sprintf(":%d", config.port))
++	lis, err := net.Listen(config.net, fmt.Sprintf("127.0.0.1:%d", config.port))
+@@ -45 +45 @@
+-		if lis, err := tls.Listen(config.net, fmt.Sprintf(":%d", config.highPriorityToUsePort), c); err == nil {
++		if lis, err := tls.Listen(config.net, fmt.Sprintf("127.0.0.1:%d", config.highPriorityToUsePort), c); err == nil {
+@@ -54 +54 @@
+-	lis, err := tls.Listen(config.net, fmt.Sprintf(":%d", config.port), c)
++	lis, err := tls.Listen(config.net, fmt.Sprintf("127.0.0.1:%d", config.port), c)

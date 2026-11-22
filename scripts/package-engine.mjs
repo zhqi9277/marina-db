@@ -79,7 +79,9 @@ try {
     if (!layout) throw new Error('upstream archive has an unrecognized ' + key + ' layout');
     root = layout;
   } else {
-    run('bash', ['scripts/build-engine.sh', key, inputs[0].file, root, ...inputs.slice(1).map(({ file }) => file)]);
+    run('bash', ['scripts/build-engine.sh', key, inputs[0].file, root, ...inputs.slice(1).map(({ file }) => file)], {
+      env: { ...process.env, MARINA_BUILD_VERSION: version },
+    });
   }
 
   if (key === 'qdrant' && !fs.existsSync(path.join(root, 'LICENSE'))) {

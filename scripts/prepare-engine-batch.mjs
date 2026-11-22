@@ -3,8 +3,8 @@
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { CATALOG } from '../src/install/catalog.js';
-import { targets } from './engine-matrix.mjs';
-import { extraBuildInputs, qdrantAssets, qdrantLicense } from './engine-sources.mjs';
+import { engineTargets } from './engine-matrix.mjs';
+import { extraBuildInputs, milvusArchive, qdrantAssets, qdrantLicense } from './engine-sources.mjs';
 
 const targetId = ({ os, arch }) => os + '-' + arch;
 const shaPattern = /\b([a-f0-9]{64})\b/i;
@@ -241,13 +241,18 @@ const resolvers = {
   mysql: mysqlInput, mariadb: mariaInput, postgres: postgresInput,
   mongodb: mongoInput, redis: redisInput, memcached: memcachedInput,
   qdrant: qdrantInput,
+  async milvus(version) {
+    const url = milvusArchive(version);
+    const source = await memo(url, () => pin(url));
+    return source && { source, sourceCode: [url] };
+  },
 };
 
 export async function prepareBatch(engine, version, requested = []) {
   if (!Object.hasOwn(CATALOG, engine) || !/^\d+\.\d+(?:\.\d+)?$/.test(version || '')) {
     throw new Error('usage: prepare-engine-batch.mjs <engine> <version> [os-arch ...]');
   }
-  const platforms = targets.filter((row) => !requested.length || requested.includes(targetId(row)));
+  const platforms = engineTargets(engine).filter((row) => !requested.length || requested.includes(targetId(row)));
   if (requested.some((id) => !platforms.some((row) => targetId(row) === id))) throw new Error('unknown build target');
   const results = await Promise.allSettled(platforms.map(async ({ os, arch }) => {
     const inputs = await resolvers[engine](version, os, arch);

@@ -30,12 +30,14 @@ export function localHttpService(key, label, defaultMajor, defaultPort) {
       }
     },
 
-    async httpReady(ctx, endpoint, options) {
+    async httpReady(ctx, endpoint, options, valid) {
       try {
         const response = await fetch(this.endpoint(ctx) + endpoint, {
           ...options,
           signal: AbortSignal.timeout(1000),
         });
+        if (response.ok && valid) return valid(await response.json());
+        await response.body?.cancel();
         return response.ok;
       } catch {
         return false;

@@ -11,6 +11,10 @@ export const targets = [
   { runner: 'windows-2022', os: 'win32', arch: 'x64' },
 ];
 
+export function engineTargets(engine) {
+  return engine === 'milvus' ? targets.filter(({ os }) => os !== 'win32') : targets;
+}
+
 const versions = {
   mysql: '8.4.11',
   mariadb: '11.4.13',
@@ -19,9 +23,10 @@ const versions = {
   redis: '7.4.11',
   memcached: '1.6.45',
   qdrant: '1.20.2',
+  milvus: '3.0.5',
 };
 
-const baseline = targets.flatMap((target) => Object.entries(versions).map(([engine, version]) => ({
+const baseline = Object.entries(versions).flatMap(([engine, version]) => engineTargets(engine).map((target) => ({
   ...target,
   engine,
   version: target.os === 'win32' && engine === 'memcached' ? '1.6.8' : version,
@@ -49,7 +54,7 @@ export function parseBuildMatrix(plan) {
   }
   const seen = new Set();
   return plan.map(({ engine, version, os, arch, inputs }) => {
-    const target = targets.find((row) => row.os === os && row.arch === arch);
+    const target = engineTargets(engine).find((row) => row.os === os && row.arch === arch);
     if (!target || !Object.hasOwn(CATALOG, engine) ||
         typeof version !== 'string' || !/^\d+\.\d+(?:\.\d+)?$/.test(version)) {
       throw new Error('invalid engine batch target: ' + [engine, version, os, arch].join(' '));

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Compile the verified source archive into the requested prefix.
 set -euo pipefail
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # Keep compiler/library lookup separate from the runner's other toolchains.
 export PATH="${MARINA_BUILD_PATH:+$MARINA_BUILD_PATH:}/usr/bin:/bin:/usr/sbin:/sbin"
@@ -56,6 +57,30 @@ case "$ENGINE" in
   postgres)
     ( cd "$SRC" && ./configure --prefix="$PREFIX" --without-readline --without-zlib --without-icu \
         && make -j"$JOBS" && make install )
+    ;;
+  milvus)
+    mkdir -p "$PREFIX/bin" "$PREFIX/lib" "$PREFIX/configs"
+    (
+      cd "$SRC"
+      patch -f -F0 -p1 < "$SCRIPT_DIR/milvus-local.patch"
+      export GIT_CONFIG_GLOBAL="$WORK/milvus-git-config"
+      export GOFLAGS=-buildvcs=false
+      make milvus MILVUS_VERSION="${MARINA_BUILD_VERSION:?missing Milvus version}" \
+        BUILD_TAGS="v$MARINA_BUILD_VERSION"
+    )
+    cp "$SRC/bin/milvus" "$PREFIX/bin/"
+    for lib_dir in "$SRC"/internal/core/output/lib "$SRC"/internal/core/output/lib64 "$SRC"/cmake_build/lib; do
+      for library in "$lib_dir"/*.so* "$lib_dir"/*.dylib*; do
+        if [ -f "$library" ] && [ ! -e "$PREFIX/lib/${library##*/}" ]; then
+          cp -a "$library" "$PREFIX/lib/"
+        fi
+      done
+    done
+    cp "$SRC/configs/milvus.yaml" "$PREFIX/configs/"
+    cat > "$PREFIX/configs/marina-etcd.yaml" <<'YAML'
+listen-client-urls: http://127.0.0.1:0
+listen-peer-urls: http://127.0.0.1:0
+YAML
     ;;
   mariadb)
     maria_args=(-DWITH_SSL=system)

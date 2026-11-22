@@ -381,7 +381,7 @@ async function stopService(ctx, { quiet = false, instance = false } = {}) {
   let stopped = gracefulOk ? await waitFor(() => !pidAlive(pid), 15000) : false;
   if (!stopped) {
     if (pidOwnedBy(pid, ctx)) host.terminate(pid, 'term');
-    stopped = await waitFor(() => !pidAlive(pid), 10000);
+    stopped = await waitFor(() => !pidAlive(pid), ctx.engine.stopTimeoutMs ?? 10000);
     if (!stopped) {
       if (!quiet) warn(`graceful stop timed out — sending ${host.forceVerb}`);
       if (pidOwnedBy(pid, ctx)) host.terminate(pid, 'kill');

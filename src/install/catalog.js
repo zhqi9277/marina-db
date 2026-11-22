@@ -8,6 +8,7 @@ export const CATALOG = {
   mariadb: { manifestName: 'mariadb', majorDepth: 2 },
   memcached: { manifestName: 'memcached', majorDepth: 1 },
   qdrant: { manifestName: 'qdrant', majorDepth: 1 },
+  milvus: { manifestName: 'milvus', majorDepth: 1 },
 };
 
 export function majorDepth(key) {

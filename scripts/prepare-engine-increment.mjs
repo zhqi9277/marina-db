@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { parseCatalog } from '../src/install/overlay.js';
 import { readLiveVersions, summarizeHistory } from './engine-history.mjs';
-import { parseBuildMatrix, targets } from './engine-matrix.mjs';
+import { engineTargets, parseBuildMatrix } from './engine-matrix.mjs';
 import { sourcesFor } from './engine-sources.mjs';
 import { prepareBatch } from './prepare-engine-batch.mjs';
 
@@ -66,7 +66,7 @@ function activeBuilds(engine) {
 
 async function main(engine, catalogFile, planFile, targetsInput = '') {
   const selectedPlatforms = targetsInput.split(',').map((target) => target.trim()).filter(Boolean);
-  if (selectedPlatforms.some((platform) => !targets.some((target) => platformOf(target) === platform))) {
+  if (selectedPlatforms.some((platform) => !engineTargets(engine).some((target) => platformOf(target) === platform))) {
     throw new Error('unknown build target');
   }
   const published = JSON.parse(fs.readFileSync(catalogFile, 'utf8'));

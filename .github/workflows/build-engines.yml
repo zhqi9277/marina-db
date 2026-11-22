@@ -10,13 +10,14 @@ on:
     - cron: '37 1 * * *' # redis
     - cron: '42 1 * * *' # memcached
     - cron: '47 1 * * *' # qdrant
+    - cron: '52 1 * * *' # milvus
   workflow_dispatch:
     inputs:
       engine:
         description: Database engine
         type: choice
         required: true
-        options: [mysql, mariadb, postgres, mongodb, redis, memcached, qdrant]
+        options: [mysql, mariadb, postgres, mongodb, redis, memcached, qdrant, milvus]
       versions:
         description: Comma-separated exact versions. Omit for the default builds or all versions in the selected history shard.
         type: string
@@ -106,6 +107,7 @@ jobs:
               '37 1 * * *') ENGINE=redis ;;
               '42 1 * * *') ENGINE=memcached ;;
               '47 1 * * *') ENGINE=qdrant ;;
+              '52 1 * * *') ENGINE=milvus ;;
               '') ;;
               *) exit 1 ;;
             esac
@@ -150,7 +152,7 @@ jobs:
     needs: matrix
     if: needs.matrix.outputs.has_builds == 'true'
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 100
+    timeout-minutes: ${{ matrix.engine == 'milvus' && 350 || 100 }}
     env:
       MARINA_ENGINE_PLAN: engine-plan.json
     strategy:
@@ -199,6 +201,32 @@ jobs:
           ln -s "$(brew --prefix bison)/bin/bison" "$RUNNER_TEMP/marina-tools/bison"
           echo "MARINA_BUILD_PATH=$RUNNER_TEMP/marina-tools" >> "$GITHUB_ENV"
           echo "MARINA_OPENSSL_ROOT=$ssl_root" >> "$GITHUB_ENV"
+      - uses: actions/setup-go@v6
+        if: matrix.engine == 'milvus'
+        with:
+          go-version: '1.26.9'
+          cache: false
+      - uses: actions/setup-python@v6
+        if: matrix.engine == 'milvus'
+        with:
+          python-version: '3.11'
+      - name: Build tools (Milvus)
+        if: matrix.engine == 'milvus'
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            # Source builds need room for the C++, Rust and Go objects.
+            sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+            sudo apt-get install -y ninja-build libaio-dev uuid-dev libgoogle-perftools-dev \
+              m4 autoconf automake libtool ccache pkg-config gfortran
+          else
+            brew install llvm@19 libomp ninja ccache pkg-config
+          fi
+          python -m venv "$RUNNER_TEMP/milvus-tools"
+          "$RUNNER_TEMP/milvus-tools/bin/pip" install 'cmake==3.31.8' 'conan==2.25.1'
+          rustup toolchain install 1.92.0 --profile minimal
+          echo "RUSTUP_TOOLCHAIN=1.92.0" >> "$GITHUB_ENV"
+          echo "MARINA_BUILD_PATH=$RUNNER_TEMP/milvus-tools/bin:$PATH" >> "$GITHUB_ENV"
       - name: Package for this platform
         run: node scripts/package-engine.mjs "${{ matrix.engine }}" "${{ matrix.version }}" dist
       - name: Install and smoke test the archive

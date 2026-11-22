@@ -19,7 +19,7 @@
 Marina 是一个零依赖的本地数据库管理器：**装版本、切版本、启停服务、改端口/账号/密码、看日志**，
 全部围绕一个隔离的 `runtime/` 目录完成，不碰系统的包管理器，也不需要 root。
 
-支持的引擎：`mysql` · `mariadb` · `postgres` · `mongodb` · `redis` · `memcached` · `qdrant`
+支持的引擎：`mysql` · `mariadb` · `postgres` · `mongodb` · `redis` · `memcached` · `qdrant` · `milvus`
 
 ---
 
@@ -439,6 +439,9 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
 | Redis | 6379 | 无 | `redis-server <conf>`（daemonize） | `redis-cli shutdown save` | `redis-cli ping` → TCP |
 | Memcached | 11211 | 无 | `memcached -d -P <pid>` | SIGTERM | TCP |
 | Qdrant | 6333 | 创建数据目录 | `qdrant --config-path` | 进程信号 | HTTP `/readyz` |
+| Milvus Standalone | 19530 | 创建数据目录 | `milvus run standalone` | SIGTERM | HTTP 列出集合 |
+
+Qdrant 和 Milvus 默认在本机提供 HTTP API，面板按 `y` 可查看连接地址。用 `marina config qdrant` 找到配置文件，设定 `service.grpc_port` 可启用 Qdrant 的 gRPC 端口。Milvus 使用内嵌 etcd 和本地存储。
 
 二进制定位不写死路径：按 `bin/ → sbin/ → scripts/ → libexec/ → lib/` 找标记文件，
 找不到再做 BFS，兼容 `8.4.11/bin/...` 与 `bin/...` 两种 tar 布局。

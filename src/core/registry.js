@@ -11,8 +11,9 @@ import mongodb from '../engines/mongodb.js';
 import redis from '../engines/redis.js';
 import memcached from '../engines/memcached.js';
 import qdrant from '../engines/qdrant.js';
+import milvus from '../engines/milvus.js';
 
-export const engines = { mysql, mariadb, postgres, mongodb, redis, memcached, qdrant };
+export const engines = { mysql, mariadb, postgres, mongodb, redis, memcached, qdrant, milvus };
 export const engineList = Object.values(engines);
 
 export function getEngine(key) {

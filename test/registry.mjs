@@ -25,7 +25,7 @@ after(() => fs.rmSync(HOME, { recursive: true, force: true }));
 test('getEngine is case-insensitive and lists known engines in its error', () => {
   assert.equal(registry.getEngine('MySQL').key, 'mysql');
   assert.equal(registry.getEngine('redis').key, 'redis');
-  assert.deepEqual(engineList.map((e) => e.key).sort(), ['mariadb', 'memcached', 'mongodb', 'mysql', 'postgres', 'qdrant', 'redis']);
+  assert.deepEqual(engineList.map((e) => e.key).sort(), ['mariadb', 'memcached', 'milvus', 'mongodb', 'mysql', 'postgres', 'qdrant', 'redis']);
 
   assert.throws(() => registry.getEngine('oracle'), (e) => {
     assert.match(e.message, /unknown database "oracle"/);

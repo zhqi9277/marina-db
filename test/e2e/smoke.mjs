@@ -78,6 +78,22 @@ async function vectorRequest(port, endpoint, method = 'GET', payload) {
   return JSON.parse(text);
 }
 
+async function milvusRequest(port, action, payload) {
+  const result = await vectorRequest(port, '/v2/vectordb/' + action, 'POST', payload);
+  assert.equal(result.code, 0, action + ' ' + JSON.stringify(result));
+  return result.data;
+}
+
+async function waitForMilvusCollection(port) {
+  const deadline = Date.now() + 60000;
+  do {
+    const state = await milvusRequest(port, 'collections/get_load_state', { collectionName: 'marina' });
+    if (state.loadState === 'LoadStateLoaded') return;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  } while (Date.now() < deadline);
+  assert.fail('Milvus did not load the collection');
+}
+
 async function readVersion(ref, port) {
   switch (engine) {
     case 'mysql':
@@ -87,6 +103,10 @@ async function readVersion(ref, port) {
     case 'redis': return command(ref, 'info').match(/^redis_version:(.+)$/m)?.[1];
     case 'memcached': return (await memcached(port, 'version\r\n')).trim().replace(/^VERSION /, '');
     case 'qdrant': return (await vectorRequest(port, '/')).version;
+    case 'milvus': {
+      const log = path.join(home, 'logs', 'milvus', version.split('.')[0] + '.log');
+      return fs.readFileSync(log, 'utf8').match(/^Version:\s+([^\s]+)/m)?.[1];
+    }
   }
 }
 
@@ -113,6 +133,17 @@ async function write(ref, port) {
       await vectorRequest(port, '/collections/marina', 'PUT', { vectors: { size: 3, distance: 'Cosine' } });
       await vectorRequest(port, '/collections/marina/points?wait=true', 'PUT', {
         points: [{ id: 42, vector: [1, 0, 0] }, { id: 24, vector: [0, 1, 0] }],
+      });
+      break;
+    case 'milvus':
+      await milvusRequest(port, 'collections/create', {
+        collectionName: 'marina', dimension: 3, idType: 'Int64', metricType: 'COSINE',
+        primaryFieldName: 'id', vectorFieldName: 'vector', autoID: false,
+      });
+      await waitForMilvusCollection(port);
+      await milvusRequest(port, 'entities/insert', {
+        collectionName: 'marina',
+        data: [{ id: 42, vector: [1, 0, 0] }, { id: 24, vector: [0, 1, 0] }],
       });
       break;
     default:
@@ -142,6 +173,14 @@ async function read(ref, port, restarted) {
     case 'qdrant': {
       const { result } = await vectorRequest(port, '/collections/marina/points/query', 'POST', { query: [1, 0, 0], limit: 1 });
       assert.equal(result.points[0].id, 42);
+      break;
+    }
+    case 'milvus': {
+      await waitForMilvusCollection(port);
+      const rows = await milvusRequest(port, 'entities/search', {
+        collectionName: 'marina', data: [[1, 0, 0]], annsField: 'vector', consistencyLevel: 'Strong', limit: 1,
+      });
+      assert.equal(Number(rows[0].id), 42);
       break;
     }
   }
