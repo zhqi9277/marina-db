@@ -385,6 +385,50 @@
       "size": 13903441,
       "sha256": "998099bda57df92628d6bdb7e82b4263b036bebf9e4af3011efbd3c953470c40",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-windows-x64.zip"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.29",
+      "major": "8.0",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mysql-8.0.29-darwin-arm64.tar.gz",
+      "size": 175531598,
+      "sha256": "2ed70922639573067ba096ed363c8d193a6fea3d3f99dc201b21c885111fecbf",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-8-0-29--3a0215b/mysql-8.0.29-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.29",
+      "major": "8.0",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mysql-8.0.29-darwin-x64.tar.gz",
+      "size": 179321091,
+      "sha256": "ad4b68bc8c4bd6cf2e61ec6e7df7406665fe03e01490704fa547779342871e01",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-8-0-29--3a0215b/mysql-8.0.29-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.29",
+      "major": "8.0",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mysql-8.0.29-linux-x64.tar.gz",
+      "size": 115294713,
+      "sha256": "036abcd2452d888890d14e4215477de9e1d5fc64fbab46992adab2e97c42f834",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-8-0-29--3a0215b/mysql-8.0.29-linux-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.29",
+      "major": "8.0",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mysql-8.0.29-windows-x64.zip",
+      "size": 224028623,
+      "sha256": "56c84231f23de43269b08376549a775d75ad011ab1075bd187c1ae99a61232e5",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-8-0-29--3a0215b/mysql-8.0.29-windows-x64.zip"
     }
   ]
 }
