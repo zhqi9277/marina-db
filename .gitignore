@@ -12,3 +12,6 @@ dist/
 
 # npm publish cache
 .npm-cache/
+
+# local documentation
+/docs/
