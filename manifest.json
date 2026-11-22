@@ -1331,6 +1331,61 @@
       "size": 383478611,
       "sha256": "cae82e59d6f10984c69bc6f0540ec309a596bd2dcaf27fe4c4280e945afceb30",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-18.7-windows-x64.zip"
+    },
+    {
+      "name": "mongodb",
+      "version": "8.0.38",
+      "major": "8.0",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mongodb-8.0.38-darwin-x64.tar.gz",
+      "size": 173424397,
+      "sha256": "95969d3a614bca585c8e7f228498b37e17581b059880b04ec33638d013c71a22",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-8.0.38-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "8.0.38",
+      "major": "8.0",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mongodb-8.0.38-darwin-arm64.tar.gz",
+      "size": 164109698,
+      "sha256": "dd5fe0d93405c6a715b24c9103c5945efdd3f1481bc18d42e64fec639d2f2132",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-8.0.38-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "8.0.38",
+      "major": "8.0",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mongodb-8.0.38-linux-x64.tar.gz",
+      "size": 203590577,
+      "sha256": "0da05b859f0b24f4832c857b681b5b7b11a010bed879d80362a6eec78052b6a9",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-8.0.38-linux-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "8.0.38",
+      "major": "8.0",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mongodb-8.0.38-linux-arm64.tar.gz",
+      "size": 196378232,
+      "sha256": "f430b80814be6aa4dc648b201e96fcff6263519402885dfaf60ae97ce9213c4d",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-8.0.38-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "8.0.38",
+      "major": "8.0",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mongodb-8.0.38-windows-x64.zip",
+      "size": 873590307,
+      "sha256": "b2091e291dd8551e436ee3b7be33441ed60eeb8687afff5440bd6ee7bd7a4ee2",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-8.0.38-windows-x64.zip"
     }
   ]
 }
