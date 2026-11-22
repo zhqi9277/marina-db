@@ -1276,6 +1276,61 @@
       "size": 380331947,
       "sha256": "62ff6fca6a562381ef3bb556b83db30ae1a7cbb0047a26b631b5b90551828558",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.12-windows-x64.zip"
+    },
+    {
+      "name": "postgresql",
+      "version": "18.7",
+      "major": "18",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "postgres-18.7-darwin-x64.tar.gz",
+      "size": 10208856,
+      "sha256": "087110fc4709cc1febcf64a47f9e4c3513f5f527463b08d43738f5f2a7db4945",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-18.7-darwin-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "18.7",
+      "major": "18",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "postgres-18.7-darwin-arm64.tar.gz",
+      "size": 9746214,
+      "sha256": "323db4af4ae9e68b9c5f884f32e11ac1b4ca01e9477b01c1cb4d1425ba978a53",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-18.7-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "18.7",
+      "major": "18",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "postgres-18.7-linux-x64.tar.gz",
+      "size": 11357138,
+      "sha256": "8fc3db6704a0c1713bbefa67ea95f006ae2702a5a987382a6644bf85beb8b6b3",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-18.7-linux-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "18.7",
+      "major": "18",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "postgres-18.7-linux-arm64.tar.gz",
+      "size": 11228100,
+      "sha256": "f37d936c95824b7330f2f14adcbf9fb02ddf9097a2be3d2419ca8a896d037cb9",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-18.7-linux-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "18.7",
+      "major": "18",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "postgres-18.7-windows-x64.zip",
+      "size": 383478611,
+      "sha256": "cae82e59d6f10984c69bc6f0540ec309a596bd2dcaf27fe4c4280e945afceb30",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-18.7-windows-x64.zip"
     }
   ]
 }
