@@ -1221,6 +1221,61 @@
       "size": 75792449,
       "sha256": "5e4e5c6ddc812ea5d7ecfd96f077605f77511f72102bf29b4a2f087b1c3d29ae",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.7.44-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.12",
+      "major": "17",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "postgres-17.12-darwin-x64.tar.gz",
+      "size": 9883479,
+      "sha256": "3fdcf7061111d48cca75592d97dd28ea248133236d8d01e1b2e781b55d983f74",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.12-darwin-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.12",
+      "major": "17",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "postgres-17.12-darwin-arm64.tar.gz",
+      "size": 9437821,
+      "sha256": "b9760669462156c7fac84fa0e0796730d0a58ccfa563cc9d30c5561bb8d8ab4f",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.12-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.12",
+      "major": "17",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "postgres-17.12-linux-x64.tar.gz",
+      "size": 11006406,
+      "sha256": "ffd0fba1a33e66779b6d22b1f4129f186e6d2810843966c63bc918a2a7d1aa2c",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.12-linux-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.12",
+      "major": "17",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "postgres-17.12-linux-arm64.tar.gz",
+      "size": 10882352,
+      "sha256": "2a7f82fbf0168c6c6e83a876e07d52b7d2535e2ff30cec85f9b13e281dbb2f4a",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.12-linux-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "17.12",
+      "major": "17",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "postgres-17.12-windows-x64.zip",
+      "size": 380331947,
+      "sha256": "62ff6fca6a562381ef3bb556b83db30ae1a7cbb0047a26b631b5b90551828558",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-17.12-windows-x64.zip"
     }
   ]
 }
