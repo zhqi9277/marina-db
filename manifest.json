@@ -1595,6 +1595,61 @@
       "size": 96917246,
       "sha256": "d0404342f478bd1b57946b5806f0b01c5ca75998039c6c9b1b1cdf561a5c4aa2",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-11.4.14-windows-x64.zip"
+    },
+    {
+      "name": "postgresql",
+      "version": "19.0",
+      "major": "19",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "postgres-19.0-darwin-x64.tar.gz",
+      "size": 10470685,
+      "sha256": "8f42ac7c5282e64f3b3ea653caa69cb99a2fab7e76ba2fad60027711bc6d8754",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-19.0-darwin-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "19.0",
+      "major": "19",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "postgres-19.0-darwin-arm64.tar.gz",
+      "size": 9983794,
+      "sha256": "fce2c8a905c03f3fc51d0b9109cdb8f2ba386c0917238ba08b966742465caff2",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-19.0-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "19.0",
+      "major": "19",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "postgres-19.0-linux-x64.tar.gz",
+      "size": 11660155,
+      "sha256": "afe4f799913b4852d7f934bce29ea45519dbcd326edf381271c5637572b4c5fa",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-19.0-linux-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "19.0",
+      "major": "19",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "postgres-19.0-linux-arm64.tar.gz",
+      "size": 11501751,
+      "sha256": "e06b6cf2892787cc375d497236b828a56177c05a4c82a61854a40566445c3f10",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-19.0-linux-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "19.0",
+      "major": "19",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "postgres-19.0-windows-x64.zip",
+      "size": 66939179,
+      "sha256": "80b7b5c7c81921d3e2b829871cc44ff821a1acf70a64c9f053f03865b69abd09",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-19.0-windows-x64.zip"
     }
   ]
 }
