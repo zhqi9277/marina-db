@@ -1650,6 +1650,50 @@
       "size": 66939179,
       "sha256": "80b7b5c7c81921d3e2b829871cc44ff821a1acf70a64c9f053f03865b69abd09",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-19.0-windows-x64.zip"
+    },
+    {
+      "name": "mysql",
+      "version": "8.4.13",
+      "major": "8.4",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mysql-8.4.13-darwin-arm64.tar.gz",
+      "size": 167758114,
+      "sha256": "5283922b2f8221dc43e1da3c0eb7a0bbff73abc07c9413153ed8bdb4b20ef44c",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.13-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.4.13",
+      "major": "8.4",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mysql-8.4.13-linux-x64.tar.gz",
+      "size": 142494428,
+      "sha256": "f220a4aef2316912ae5dbf3a13955ab4a2d8b4cf691e5222b195ab70fb1d4024",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.13-linux-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.4.13",
+      "major": "8.4",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mysql-8.4.13-linux-arm64.tar.gz",
+      "size": 909366812,
+      "sha256": "ddf03df89e72e73824fdba5751c090e3f3df4a05b775b1e82aa1179fa2106e60",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.13-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.4.13",
+      "major": "8.4",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mysql-8.4.13-windows-x64.zip",
+      "size": 280388187,
+      "sha256": "6690112c215a0fde15f4009574a9191c4562db055e93a862019e438c0848d633",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.13-windows-x64.zip"
     }
   ]
 }
