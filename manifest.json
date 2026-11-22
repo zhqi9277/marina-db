@@ -1749,6 +1749,39 @@
       "size": 1078965395,
       "sha256": "3cbde3d1357a5cf8139cf5da0628f5f1b05e463694b9a265cb2312147b05def0",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-9.7.4-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "9.7.4",
+      "major": "9.7",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mysql-9.7.4-darwin-x64.tar.gz",
+      "size": 182856626,
+      "sha256": "d1e72fadd9d2cc39e69b7760acfd464d9ce32727919fae8e4cd57a5b17041c89",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-9.7.4-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "9.7.4",
+      "major": "9.7",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mysql-9.7.4-darwin-arm64.tar.gz",
+      "size": 177003528,
+      "sha256": "679998362014a749ab43e424fd23abc3eccc8853cfc8e2f1fe5514dccbbd55b6",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-9.7.4-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "9.7.4",
+      "major": "9.7",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mysql-9.7.4-windows-x64.zip",
+      "size": 343125394,
+      "sha256": "5c9f5e622b60dd7a58541eec1e225528c2e6d1af08be4099c7d26fbee7fd6574",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-9.7.4-windows-x64.zip"
     }
   ]
 }
