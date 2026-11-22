@@ -4,6 +4,13 @@ on:
   push:
     tags: ['engines-history-plan-*']
   workflow_dispatch:
+    inputs:
+      engine:
+        description: Optional engine name to prepare independently
+        type: string
+      version:
+        description: Optional exact release to prepare for the selected engine
+        type: string
 
 permissions:
   contents: read
@@ -19,11 +26,21 @@ jobs:
         with:
           node-version: 24
       - id: inventory
+        env:
+          ENGINE: ${{ inputs.engine }}
+          VERSION: ${{ inputs.version }}
         run: |
-          node scripts/engine-history.mjs > inventory.json
+          node scripts/engine-history.mjs "$ENGINE" > inventory.json
           tasks=$(node --input-type=module <<'JS'
           import fs from 'node:fs';
           const { history } = JSON.parse(fs.readFileSync('inventory.json', 'utf8'));
+          const { ENGINE, VERSION } = process.env;
+          if (VERSION) {
+            const offset = history[ENGINE]?.versions.findIndex((row) => row.version === VERSION);
+            if (offset == null || offset < 0) throw new Error('Version is not in the selected engine history');
+            console.log(JSON.stringify({ include: [{ engine: ENGINE, offset, count: 1 }] }));
+            process.exit(0);
+          }
           const total = Object.values(history).reduce((sum, item) => sum + item.versions.length, 0);
           const count = Math.max(25, Math.ceil(total / 240));
           const include = Object.entries(history).flatMap(([engine, { versions }]) =>

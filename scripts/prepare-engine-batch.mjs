@@ -9,8 +9,8 @@ import { extraBuildInputs } from './engine-sources.mjs';
 const targetId = ({ os, arch }) => os + '-' + arch;
 const shaPattern = /\b([a-f0-9]{64})\b/i;
 
-async function request(url, timeout = 30000) {
-  const result = await fetch(url, { signal: AbortSignal.timeout(timeout) });
+async function request(url, timeout = 30000, method = 'GET') {
+  const result = await fetch(url, { method, signal: AbortSignal.timeout(timeout) });
   if (result.status === 404 || result.status === 410) {
     await result.body?.cancel();
     return null;
@@ -147,6 +147,46 @@ async function mongoInput(version, os, arch) {
 
 async function mysqlInput(version, os, arch) {
   const major = version.split('.').slice(0, 2).join('.');
+  const archive = 'https://cdn.mysql.com/archives/mysql-' + major + '/';
+  const current = 'https://cdn.mysql.com/Downloads/MySQL-' + major + '/';
+  const prefix = 'mysql-' + version;
+  const cpu = arch === 'x64' ? 'x86_64' : 'aarch64';
+  let suffixes;
+  if (os === 'win32') {
+    suffixes = ['winx64.zip'];
+  } else if (os === 'darwin') {
+    const macCpu = arch === 'x64' ? 'x86_64' : 'arm64';
+    const names = arch === 'x64'
+      ? ['macos15', 'macos14', 'macos13', 'macos12', 'macos11', 'osx10.15', 'macos10.15', 'macos10.14',
+        'macos10.13', 'macos10.12', 'osx10.13', 'osx10.12', 'osx10.11', 'osx10.10', 'osx10.9', 'osx10.8', 'osx10.7']
+      : ['macos15', 'macos14', 'macos13', 'macos12', 'macos11'];
+    suffixes = names.map((name) => name + '-' + macCpu + '.tar.gz');
+  } else {
+    const libc = ['2.28', '2.17', '2.12'];
+    const stems = libc.map((abi) => 'linux-glibc' + abi + '-' + cpu);
+    suffixes = [...stems.map((stem) => stem + '-minimal.tar.xz'),
+      ...stems.map((stem) => stem + '.tar.xz'), ...stems.map((stem) => stem + '.tar.gz'),
+      'linux-' + cpu + '.tar.gz'];
+  }
+  const official = suffixes.flatMap((name) => [archive, current].map((url) => url + prefix + '-' + name));
+  const sourceCode = ['https://github.com/mysql/mysql-server/tree/mysql-' + version];
+  let lookupError;
+  // Probe in small groups to preserve the preferred archive order while
+  // avoiding a full download for each candidate filename.
+  for (let i = 0; i < official.length; i += 6) {
+    const group = official.slice(i, i + 6);
+    const results = await Promise.allSettled(group.map((url) => request(url, 12000, 'HEAD')));
+    for (const [index, result] of results.entries()) {
+      if (result.status === 'rejected') {
+        lookupError ??= result.reason;
+        continue;
+      }
+      if (result.value && !/^text\//i.test(result.value.headers.get('content-type') ?? '')) {
+        const binary = await pin(group[index]);
+        if (binary) return { binary, sourceCode };
+      }
+    }
+  }
   const base = 'https://repo.huaweicloud.com/mysql/Downloads/MySQL-' + major + '/';
   const files = await memo(base, async () => {
     const response = await request(base);
@@ -164,9 +204,12 @@ async function mysqlInput(version, os, arch) {
     return new RegExp('-linux-glibc2\\.(?:1[2-9]|2[0-9]|3[0-5])-' + cpu + '(?:-minimal)?\\.tar\\.xz$').test(file);
   });
   const pkg = compatible.find((file) => file.endsWith('-minimal.tar.xz')) ?? compatible.at(-1);
-  if (!pkg) return null;
+  if (!pkg) {
+    if (lookupError) throw lookupError;
+    return null;
+  }
   const binary = await pin(base + pkg);
-  return binary && { binary, sourceCode: ['https://github.com/mysql/mysql-server/tree/mysql-' + version] };
+  return binary && { binary, sourceCode };
 }
 
 const resolvers = {

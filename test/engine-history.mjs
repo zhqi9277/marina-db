@@ -3,7 +3,7 @@ import test from 'node:test';
 import { parseVersions, summarizeHistory } from '../scripts/engine-history.mjs';
 
 test('history inventory uses release metadata and keeps historical patches', () => {
-  assert.deepEqual(parseVersions('mysql', '<select name="version"><option value="8.0.2">A</option><option value="8.0.10">B</option></select><option value="1.2.3">OS</option>'), ['8.0.10', '8.0.2']);
+  assert.deepEqual(parseVersions('mysql', '<select name="version"><option value="8.0.2">A</option><option value="8.0.11">B</option><option value="8.0.12">C</option></select><option value="1.2.3">OS</option>'), ['8.0.12', '8.0.11']);
   assert.deepEqual(parseVersions('mariadb', '<tr><td><a>11.4.0</a></td><td>date</td><td>Alpha</td></tr><tr><td><a>11.4.13</a></td><td>date</td><td>Stable</td></tr>'), ['11.4.13']);
   assert.deepEqual(parseVersions('postgres', '<a href="v1.09/">old</a><a href="v17.8/">stable</a><a href="v18beta1/">beta</a>'), ['17.8', '1.09']);
   assert.deepEqual(parseVersions('redis', '<a href="redis-1.02.tar.gz">old</a><a href="redis-8.0.0-rc1.tar.gz">RC</a>'), ['1.02']);

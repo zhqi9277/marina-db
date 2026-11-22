@@ -10,6 +10,16 @@ import { targets } from './engine-matrix.mjs';
 const exec = promisify(execFile);
 const numericVersion = /^\d+\.\d+(?:\.\d+)?$/;
 const unique = (values) => [...new Set(values)].sort((a, b) => b.localeCompare(a, 'en', { numeric: true }));
+// The archive selector includes milestones and release candidates in these series.
+// https://dev.mysql.com/doc/refman/8.0/en/faqs-general.html
+const firstMysqlGa = { '8.0': 11, '5.7': 9, '5.6': 10, '5.5': 8, '5.1': 30, '5.0': 15 };
+
+function mysqlGa(versions) {
+  return unique(versions.filter((version) => {
+    const [major, minor, patch] = version.split('.');
+    return Number(patch) >= (firstMysqlGa[major + '.' + minor] ?? 0);
+  }));
+}
 
 export const historySources = {
   mysql: 'https://downloads.mysql.com/archives/community/',
@@ -30,7 +40,7 @@ export function parseVersions(engine, content) {
   switch (engine) {
     case 'mysql': {
       const select = content.match(/<select\b[^>]*\bname=["']version["'][^>]*>([\s\S]*?)<\/select>/i)?.[1] ?? '';
-      return unique([...select.matchAll(/<option\b[^>]*\bvalue=["'](\d+\.\d+\.\d+)["']/g)].map((match) => match[1]));
+      return mysqlGa([...select.matchAll(/<option\b[^>]*\bvalue=["'](\d+\.\d+\.\d+)["']/g)].map((match) => match[1]));
     }
     case 'mariadb': {
       const rows = [...content.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((match) =>
@@ -95,13 +105,19 @@ async function run(engine) {
   if (published.status === 'rejected') throw published.reason;
   const snapshot = JSON.parse(readFileSync(new URL('./engine-history.snapshot.json', import.meta.url), 'utf8'));
   const reported = rows.map((result, i) => {
-    if (result.status === 'fulfilled') return result.value;
     const [key] = sources[i];
-    const versions = snapshot.versions[key];
-    if (!Array.isArray(versions) || !versions.length || !versions.every((value) => numericVersion.test(value))) {
-      throw result.reason;
+    const versions = result.status === 'fulfilled' ? result.value[1] : snapshot.versions[key];
+    if (result.status === 'rejected') {
+      if (!Array.isArray(versions) || !versions.length || !versions.every((value) => numericVersion.test(value))) {
+        throw result.reason;
+      }
+      console.error(key + ' uses snapshot ' + snapshot.date + ': ' + result.reason.message);
     }
-    console.error(key + ' uses snapshot ' + snapshot.date + ': ' + result.reason.message);
+    // Confirmed formal releases omitted from the archive selector, including
+    // withdrawn releases and the current downloads.
+    // https://dev.mysql.com/doc/relnotes/mysql/8.0/en/
+    // https://dev.mysql.com/downloads/mysql/
+    if (key === 'mysql') return [key, mysqlGa([...versions, '8.0.29', '8.0.38', '8.0.46', '26.10.0'])];
     return [key, versions];
   });
   const history = summarizeHistory(Object.fromEntries(reported), published.value);
