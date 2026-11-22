@@ -1694,6 +1694,39 @@
       "size": 280388187,
       "sha256": "6690112c215a0fde15f4009574a9191c4562db055e93a862019e438c0848d633",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.13-windows-x64.zip"
+    },
+    {
+      "name": "mongodb",
+      "version": "9.0.8",
+      "major": "9.0",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mongodb-9.0.8-linux-x64.tar.gz",
+      "size": 253531885,
+      "sha256": "a39b4e09b641e03f0abbfb882115ae84bba6ae8c5ea3ecad4be6b0cc4bc67909",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-9.0.8-linux-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "9.0.8",
+      "major": "9.0",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mongodb-9.0.8-linux-arm64.tar.gz",
+      "size": 242372101,
+      "sha256": "9616f4ca31923d29992f0461186e16d0d7484e535d071f05f0d4e840f0629140",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-9.0.8-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "9.0.8",
+      "major": "9.0",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mongodb-9.0.8-windows-x64.zip",
+      "size": 1056407783,
+      "sha256": "f076479416605d9bb17838d9ea2afe6ec15828466e540fc52e8ada038006df67",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-9.0.8-windows-x64.zip"
     }
   ]
 }
