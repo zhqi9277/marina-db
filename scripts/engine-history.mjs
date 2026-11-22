@@ -22,7 +22,7 @@ function mysqlGa(versions) {
 }
 
 export const historySources = {
-  mysql: 'https://downloads.mysql.com/archives/community/',
+  mysql: 'https://github.com/mysql/mysql-server.git',
   mariadb: 'https://mariadb.org/mariadb/all-releases/',
   postgres: 'https://ftp.postgresql.org/pub/source/',
   mongodb: 'https://downloads.mongodb.org/full.json',
@@ -87,8 +87,9 @@ export function summarizeHistory(upstream, published) {
 }
 
 async function readIndex(engine, url) {
-  const contents = engine === 'memcached'
-    ? (await exec('git', ['ls-remote', '--refs', '--tags', url], { timeout: 120000, maxBuffer: 5 * 1024 ** 2 })).stdout
+  const contents = engine === 'mysql' || engine === 'memcached'
+    ? (await exec('git', ['ls-remote', '--refs', '--tags', url, ...(engine === 'mysql' ? ['refs/tags/mysql-*'] : [])],
+      { timeout: 120000, maxBuffer: 5 * 1024 ** 2 })).stdout
     : await readText(url);
   const versions = parseVersions(engine, contents);
   if (!versions.length) throw new Error('no versions found for ' + engine + ' at ' + url);
@@ -97,14 +98,7 @@ async function readIndex(engine, url) {
 
 export async function readLiveVersions(engine) {
   if (!Object.hasOwn(historySources, engine)) throw new Error('unknown engine: ' + engine);
-  if (engine !== 'mysql') return (await readIndex(engine, historySources[engine]))[1];
-
-  // Current GA releases are tagged before they move to the archive index.
-  const { stdout } = await exec('git', ['ls-remote', '--refs', '--tags',
-    'https://github.com/mysql/mysql-server.git', 'refs/tags/mysql-*'], { timeout: 120000, maxBuffer: 5 * 1024 ** 2 });
-  const versions = parseVersions(engine, stdout);
-  if (!versions.length) throw new Error('no MySQL release tags found');
-  return versions;
+  return (await readIndex(engine, historySources[engine]))[1];
 }
 
 async function run(engine) {
@@ -127,8 +121,7 @@ async function run(engine) {
       }
       console.error(key + ' uses snapshot ' + snapshot.date + ': ' + result.reason.message);
     }
-    // Confirmed formal releases omitted from the archive selector, including
-    // withdrawn releases and the current downloads.
+    // Include confirmed formal releases omitted from the upstream index.
     // https://dev.mysql.com/doc/relnotes/mysql/8.0/en/
     // https://dev.mysql.com/downloads/mysql/
     if (key === 'mysql') return [key, mysqlGa([...versions, '8.0.29', '8.0.38', '8.0.46', '26.10.0'])];
