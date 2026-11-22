@@ -54,7 +54,7 @@
       "fileName": "redis-7.4.11-darwin-x64.tar.gz",
       "size": 1314443,
       "sha256": "f93ce2839df7bc078cc9546b7ad5af763473dbf115c42c0b2101d7afb59e7bb9",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/redis-7.4.11-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-7.4.11-darwin-x64.tar.gz"
     },
     {
       "name": "memcached",
@@ -120,7 +120,7 @@
       "fileName": "redis-7.4.11-darwin-arm64.tar.gz",
       "size": 1223320,
       "sha256": "446ae76e6b533d36bc72e5640d551e8cf0395da3a93ed1e7e23eddeb84b86756",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/redis-7.4.11-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-7.4.11-darwin-arm64.tar.gz"
     },
     {
       "name": "memcached",
@@ -186,7 +186,7 @@
       "fileName": "redis-7.4.11-linux-x64.tar.gz",
       "size": 6244415,
       "sha256": "0e410cf33dafed4fa492f5981ac079921c1bdbafe76eb5bd2644ef42e3917e23",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/redis-7.4.11-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-7.4.11-linux-x64.tar.gz"
     },
     {
       "name": "memcached",
@@ -252,7 +252,7 @@
       "fileName": "redis-7.4.11-linux-arm64.tar.gz",
       "size": 6188377,
       "sha256": "97c999e402bb47cc2316378e9633584d1a6b0773c5183c64805969c66d9405fc",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/redis-7.4.11-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-7.4.11-linux-arm64.tar.gz"
     },
     {
       "name": "memcached",
@@ -318,7 +318,7 @@
       "fileName": "redis-7.4.11-windows-x64.zip",
       "size": 12189041,
       "sha256": "a48b1cc8d16d5fda5b9b4509c6d3a3530faf167c1e7a01cb5a553d9715db5ad7",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/redis-7.4.11-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-7.4.11-windows-x64.zip"
     },
     {
       "name": "memcached",
@@ -340,7 +340,7 @@
       "fileName": "redis-8.6.7-darwin-x64.tar.gz",
       "size": 1584734,
       "sha256": "ae75ff29e78ed79c5d2dee6c22ebf8c9ed0a80f0ffe968c149454fa7911260f9",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-8.6.7-darwin-x64.tar.gz"
     },
     {
       "name": "redis",
@@ -351,7 +351,7 @@
       "fileName": "redis-8.6.7-darwin-arm64.tar.gz",
       "size": 1460505,
       "sha256": "46e32bba13460161a8752db80bae4b77c0024e33a2136a25c672c72ddcb27998",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-8.6.7-darwin-arm64.tar.gz"
     },
     {
       "name": "redis",
@@ -362,7 +362,7 @@
       "fileName": "redis-8.6.7-linux-x64.tar.gz",
       "size": 7539502,
       "sha256": "f82b85edf1852672155764b25f839bf121342fc032cf835667fdb7358c2c8aa5",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-8.6.7-linux-x64.tar.gz"
     },
     {
       "name": "redis",
@@ -373,7 +373,7 @@
       "fileName": "redis-8.6.7-linux-arm64.tar.gz",
       "size": 7482611,
       "sha256": "5d3e8697e5dd19d578ae9fc3ec6153f612b845ed1aa796455af7c270d4f6e5f1",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-8.6.7-linux-arm64.tar.gz"
     },
     {
       "name": "redis",
@@ -384,7 +384,7 @@
       "fileName": "redis-8.6.7-windows-x64.zip",
       "size": 13903441,
       "sha256": "998099bda57df92628d6bdb7e82b4263b036bebf9e4af3011efbd3c953470c40",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-redis-8-6-7--d30420b/redis-8.6.7-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-8.6.7-windows-x64.zip"
     },
     {
       "name": "mysql",
@@ -846,7 +846,7 @@
       "fileName": "redis-6.2.24-darwin-x64.tar.gz",
       "size": 1027974,
       "sha256": "37813c79a908cbe3f1970178a5d7db43c820a97b6342fdd98dad24d9065967e5",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298054/redis-6.2.24-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-6.2.24-darwin-x64.tar.gz"
     },
     {
       "name": "redis",
@@ -857,7 +857,7 @@
       "fileName": "redis-6.2.24-darwin-arm64.tar.gz",
       "size": 970025,
       "sha256": "17d7e3ed98ae30753d656b26c3944990c54a547e732021b1e3502fc805ef2e90",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298054/redis-6.2.24-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-6.2.24-darwin-arm64.tar.gz"
     },
     {
       "name": "redis",
@@ -868,7 +868,7 @@
       "fileName": "redis-6.2.24-linux-x64.tar.gz",
       "size": 3551650,
       "sha256": "c6e7858df6cc14206da38919fff0c4844610d3cd7cc513dc2ec1cc9da2e66c8c",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298054/redis-6.2.24-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-6.2.24-linux-x64.tar.gz"
     },
     {
       "name": "redis",
@@ -879,7 +879,7 @@
       "fileName": "redis-6.2.24-linux-arm64.tar.gz",
       "size": 3524452,
       "sha256": "2ef0691e86b0854d68bdf9035987a169faf53884bf505bf6c683a3278830b294",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298054/redis-6.2.24-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-6.2.24-linux-arm64.tar.gz"
     },
     {
       "name": "redis",
@@ -890,7 +890,7 @@
       "fileName": "redis-6.2.24-windows-x64.zip",
       "size": 12283461,
       "sha256": "0bce9e20f19ed9d590d9483d4d3d47a9761ffc861fb251d1abcbc9e9ae0d5dfe",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298054/redis-6.2.24-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-6.2.24-windows-x64.zip"
     },
     {
       "name": "mysql",
