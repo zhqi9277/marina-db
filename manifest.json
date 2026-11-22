@@ -726,6 +726,17 @@
       "size": 94746570,
       "sha256": "a778805bbb60b632abeb5f0645692898c5b7358fc173760e8ba5f2bacf46fb2a",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44978689741/mariadb-11.4.10-windows-x64.zip"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.37",
+      "major": "8.0",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mysql-8.0.37-linux-x64.tar.gz",
+      "size": 140006721,
+      "sha256": "6160823b366e365a4b36f909bc6a35d01d43167aa6dc391745d41f1710e6f041",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44979634868/mysql-8.0.37-linux-x64.tar.gz"
     }
   ]
 }
