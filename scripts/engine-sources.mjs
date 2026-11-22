@@ -60,6 +60,12 @@ const libevent = input(
   '92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb',
 );
 
+export function extraBuildInputs(engine, os, arch) {
+  if (engine === 'mongodb') return [mongoShell[os + '-' + arch]];
+  if (engine === 'memcached' && os !== 'win32') return [libevent];
+  return [];
+}
+
 const sourceCode = {
   'mysql@8.4.11': ['https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11.tar.gz'],
   'mongodb@7.0.45': [
@@ -76,7 +82,7 @@ export function sourcesFor({ engine, version, os, arch, inputs }) {
   const binary = binaries[id]?.[target];
   const source = binary ? null : sourceArchives[id];
   if (!binary && (!source || os === 'win32')) throw new Error('no build inputs for ' + id + ' on ' + target);
-  const additional = engine === 'mongodb' ? [mongoShell[target]] : engine === 'memcached' && source ? [libevent] : [];
+  const additional = extraBuildInputs(engine, os, arch);
   const upstream = sourceCode[id] ?? [sourceArchives[id]?.url].filter(Boolean);
   const windowsRedis = os === 'win32' && engine === 'redis'
     ? ['https://github.com/redis-windows/redis-windows/tree/7.4.11', 'https://cygwin.com/licensing.html'] : [];

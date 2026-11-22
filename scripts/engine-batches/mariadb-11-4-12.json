@@ -1,0 +1,82 @@
+[
+  {
+    "engine": "mariadb",
+    "version": "11.4.12",
+    "os": "darwin",
+    "arch": "x64",
+    "inputs": {
+      "source": {
+        "url": "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12.tar.gz",
+        "sha256": "5ab7883db519bfcebfdd2aac09bc5544a12ce328f39edd46d0bf01690615ef6c"
+      },
+      "sourceCode": [
+        "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12.tar.gz"
+      ],
+      "additional": []
+    }
+  },
+  {
+    "engine": "mariadb",
+    "version": "11.4.12",
+    "os": "darwin",
+    "arch": "arm64",
+    "inputs": {
+      "source": {
+        "url": "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12.tar.gz",
+        "sha256": "5ab7883db519bfcebfdd2aac09bc5544a12ce328f39edd46d0bf01690615ef6c"
+      },
+      "sourceCode": [
+        "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12.tar.gz"
+      ],
+      "additional": []
+    }
+  },
+  {
+    "engine": "mariadb",
+    "version": "11.4.12",
+    "os": "linux",
+    "arch": "x64",
+    "inputs": {
+      "binary": {
+        "url": "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12-linux-systemd-x86_64.tar.gz",
+        "sha256": "afb81282f977c599ecbb0390588b0005b304b4e87d64615a2649ecd2bd1dc16f"
+      },
+      "sourceCode": [
+        "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12.tar.gz"
+      ],
+      "additional": []
+    }
+  },
+  {
+    "engine": "mariadb",
+    "version": "11.4.12",
+    "os": "linux",
+    "arch": "arm64",
+    "inputs": {
+      "source": {
+        "url": "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12.tar.gz",
+        "sha256": "5ab7883db519bfcebfdd2aac09bc5544a12ce328f39edd46d0bf01690615ef6c"
+      },
+      "sourceCode": [
+        "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12.tar.gz"
+      ],
+      "additional": []
+    }
+  },
+  {
+    "engine": "mariadb",
+    "version": "11.4.12",
+    "os": "win32",
+    "arch": "x64",
+    "inputs": {
+      "binary": {
+        "url": "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12-winx64.zip",
+        "sha256": "4db7f8003d4a64ac8042b771c6d34ed04c7ffae8cf52775275b72f2bd4dd17a9"
+      },
+      "sourceCode": [
+        "https://downloads.mariadb.org/rest-api/mariadb/11.4.12/mariadb-11.4.12.tar.gz"
+      ],
+      "additional": []
+    }
+  }
+]
