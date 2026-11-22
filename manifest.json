@@ -1078,6 +1078,28 @@
       "size": 320109890,
       "sha256": "940e582448195c18a98415cace86d2255c5d665305e94f3067e1cd0af0fd02d3",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644785/mysql-5.7.31-windows-x64.zip"
+    },
+    {
+      "name": "mysql",
+      "version": "5.7.44",
+      "major": "5.7",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mysql-5.7.44-linux-x64.tar.gz",
+      "size": 696340410,
+      "sha256": "1a1447d9cda63290c186cbbda18ba84f77e72803fc5294cf0367dc0efd5429f4",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644869/mysql-5.7.44-linux-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "5.7.44",
+      "major": "5.7",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mysql-5.7.44-windows-x64.zip",
+      "size": 352504988,
+      "sha256": "80f0717bd0f534be203d8ec9de199d5910ad911f63f3b35985e87525832dc8bf",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644869/mysql-5.7.44-windows-x64.zip"
     }
   ]
 }
