@@ -583,6 +583,61 @@
       "size": 334066741,
       "sha256": "14491e86bd7349145784413a9956ac4b504356b11b07d813c28f9313200c83a3",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-postgres-17-10--136f3e3/postgres-17.10-windows-x64.zip"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.12",
+      "major": "11.4",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mariadb-11.4.12-darwin-x64.tar.gz",
+      "size": 99671388,
+      "sha256": "d0c7425ae63f720f05ffb89448a6a7c4a8ce2d43c635804ed74ad1bc00fe4c33",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mariadb-11-4-12--2b0eb5e/mariadb-11.4.12-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.12",
+      "major": "11.4",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mariadb-11.4.12-darwin-arm64.tar.gz",
+      "size": 104497363,
+      "sha256": "14a8edf68ecb835fef5ed13b0b6f2cf8f1c6d156546a16caaff0436718a193de",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mariadb-11-4-12--2b0eb5e/mariadb-11.4.12-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.12",
+      "major": "11.4",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mariadb-11.4.12-linux-x64.tar.gz",
+      "size": 347228534,
+      "sha256": "1c8381b8c98fb6b369977ff0c75d910373c881016fa1de4ef3e0b5d28239a96a",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mariadb-11-4-12--2b0eb5e/mariadb-11.4.12-linux-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.12",
+      "major": "11.4",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mariadb-11.4.12-linux-arm64.tar.gz",
+      "size": 63487277,
+      "sha256": "3058a02dc1284f2dc0c2bc505f1ccaabc4385aae5471ff920ca4cc72cc5850e0",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mariadb-11-4-12--2b0eb5e/mariadb-11.4.12-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.12",
+      "major": "11.4",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mariadb-11.4.12-windows-x64.zip",
+      "size": 94681140,
+      "sha256": "ba8d3962f660f714b802b8c42834790e032a8f9144cb4a5f04143c8a1a1eb8d3",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mariadb-11-4-12--2b0eb5e/mariadb-11.4.12-windows-x64.zip"
     }
   ]
 }
