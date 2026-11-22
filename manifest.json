@@ -473,6 +473,61 @@
       "size": 815632,
       "sha256": "a18916c65ffcea06e9d98caf16b3538f12b366d86420e8e99f1456cb664b98e5",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-memcached-1-6-44--2b0eb5e/memcached-1.6.44-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.43",
+      "major": "7.0",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mongodb-7.0.43-darwin-x64.tar.gz",
+      "size": 160983247,
+      "sha256": "0193ada36c212ef086dde8960f7a211ec53e94aa49dbc153b1f914a392e38f60",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mongodb-7-0-43--136f3e3/mongodb-7.0.43-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.43",
+      "major": "7.0",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mongodb-7.0.43-darwin-arm64.tar.gz",
+      "size": 152979624,
+      "sha256": "52797c5c009a8ab6187216faaf0428d63f887390c12c33fd30103ffd9df24760",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mongodb-7-0-43--136f3e3/mongodb-7.0.43-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.43",
+      "major": "7.0",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mongodb-7.0.43-linux-x64.tar.gz",
+      "size": 184934860,
+      "sha256": "30371d0f136562088f9bfe287d4b894760487c2bab11143128530aea50a661b0",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mongodb-7-0-43--136f3e3/mongodb-7.0.43-linux-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.43",
+      "major": "7.0",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mongodb-7.0.43-linux-arm64.tar.gz",
+      "size": 178945662,
+      "sha256": "81daa8b31b450e1a774dcbfeab47d598cc1effa799f50aba874cb54d0e00f2da",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mongodb-7-0-43--136f3e3/mongodb-7.0.43-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.43",
+      "major": "7.0",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mongodb-7.0.43-windows-x64.zip",
+      "size": 701586353,
+      "sha256": "54c69e168c7c577831d744f56cc818c6f3cccf0ae04b0d90718a97773b586db0",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mongodb-7-0-43--136f3e3/mongodb-7.0.43-windows-x64.zip"
     }
   ]
 }
