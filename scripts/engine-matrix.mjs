@@ -31,6 +31,10 @@ export function artifactId({ engine, version, os, arch }) {
 }
 
 export function readBuildMatrix(tag = '') {
+  if (process.env.MARINA_ENGINE_PLAN) {
+    return parseBuildMatrix(JSON.parse(readFileSync(process.env.MARINA_ENGINE_PLAN, 'utf8')));
+  }
+  if (tag.startsWith('engines-candidate-history-')) throw new Error('the historical candidate requires its locked plan');
   if (!tag.includes('--')) return baseline;
   const batch = /^engines-candidate-([a-z0-9]+(?:-[a-z0-9]+)*)--[a-z0-9]+$/.exec(tag)?.[1];
   if (!batch) throw new Error('invalid engine batch tag: ' + tag);
