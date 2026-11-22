@@ -1485,6 +1485,61 @@
       "size": 14767776,
       "sha256": "f325dd0139b2c34b89a877dc7c83f2055b47c5b392854712ad16ffd60a702b33",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-redis/redis-8.10.3-windows-x64.zip"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.48",
+      "major": "7.0",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mongodb-7.0.48-darwin-x64.tar.gz",
+      "size": 161058196,
+      "sha256": "4b2a86bec3cd188934f2c210aca0d29f1ba1d34541ff6534542c5d1ac46cab2c",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-7.0.48-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.48",
+      "major": "7.0",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mongodb-7.0.48-darwin-arm64.tar.gz",
+      "size": 153043501,
+      "sha256": "4898dab384129e248b2b7785a22fbd0c30746cb29cfc3e404a3887026cb789f7",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-7.0.48-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.48",
+      "major": "7.0",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mongodb-7.0.48-linux-x64.tar.gz",
+      "size": 185045372,
+      "sha256": "2a735e679d4d949e3df1d5884932e0c0730c254189b156050771406b247254c2",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-7.0.48-linux-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.48",
+      "major": "7.0",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mongodb-7.0.48-linux-arm64.tar.gz",
+      "size": 179034013,
+      "sha256": "2f78efd3533c669fa844fc1d0eebb557a7b39c59062adf4ac06de28a1e48ad85",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-7.0.48-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.0.48",
+      "major": "7.0",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mongodb-7.0.48-windows-x64.zip",
+      "size": 701470436,
+      "sha256": "889164642a1e40a872cdf72bb7594eb60809979cdce4678997401dcfa473cb99",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-7.0.48-windows-x64.zip"
     }
   ]
 }
