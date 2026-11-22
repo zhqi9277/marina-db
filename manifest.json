@@ -65,7 +65,7 @@
       "fileName": "memcached-1.6.45-darwin-x64.tar.gz",
       "size": 250347,
       "sha256": "83ff10f4c9ff39064147396a06bdd7c97598c32ea205ad02ca3f1372df99ed34",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/memcached-1.6.45-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.6.45-darwin-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -131,7 +131,7 @@
       "fileName": "memcached-1.6.45-darwin-arm64.tar.gz",
       "size": 237660,
       "sha256": "e85976f8204bb7a3bf7886f8ed69e3f213d561abbf68726f451cd301f5573f4f",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/memcached-1.6.45-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.6.45-darwin-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -197,7 +197,7 @@
       "fileName": "memcached-1.6.45-linux-x64.tar.gz",
       "size": 821098,
       "sha256": "5a50b2dcf7d294d18eaa5bc6d553222c1e3f276fb4338f49391160b5d60f73fa",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/memcached-1.6.45-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.6.45-linux-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -263,7 +263,7 @@
       "fileName": "memcached-1.6.45-linux-arm64.tar.gz",
       "size": 817644,
       "sha256": "7e6d40b70172b93be8b01cf3b51aec6b907617d242a9c05610ef495e8ef6e34e",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/memcached-1.6.45-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.6.45-linux-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -329,7 +329,7 @@
       "fileName": "memcached-1.6.8-windows-x64.zip",
       "size": 3557980,
       "sha256": "73d8966e43ba2e474f2a503bf1d582e3e89b5bc9a992bfb461625f17a102fcc5",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/memcached-1.6.8-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.6.8-windows-x64.zip"
     },
     {
       "name": "redis",
@@ -439,7 +439,7 @@
       "fileName": "memcached-1.6.44-darwin-x64.tar.gz",
       "size": 249787,
       "sha256": "6f6f30d813ebb8721fbd791a25eae803a473f13d720bfef69d4a132898bf1053",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-memcached-1-6-44--2b0eb5e/memcached-1.6.44-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.6.44-darwin-x64.tar.gz"
     },
     {
       "name": "memcached",
@@ -450,7 +450,7 @@
       "fileName": "memcached-1.6.44-darwin-arm64.tar.gz",
       "size": 237348,
       "sha256": "8a8ab53ac3a91c44910a8f487c7c724c6175c8e144b15711bad1a7dd35a08ca9",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-memcached-1-6-44--2b0eb5e/memcached-1.6.44-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.6.44-darwin-arm64.tar.gz"
     },
     {
       "name": "memcached",
@@ -461,7 +461,7 @@
       "fileName": "memcached-1.6.44-linux-x64.tar.gz",
       "size": 818985,
       "sha256": "7b5da6e81f55d80b9a36deeb66bfd5fe2a8ff9c1cf42aac91dd4b24a6804bd99",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-memcached-1-6-44--2b0eb5e/memcached-1.6.44-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.6.44-linux-x64.tar.gz"
     },
     {
       "name": "memcached",
@@ -472,7 +472,7 @@
       "fileName": "memcached-1.6.44-linux-arm64.tar.gz",
       "size": 815632,
       "sha256": "a18916c65ffcea06e9d98caf16b3538f12b366d86420e8e99f1456cb664b98e5",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-memcached-1-6-44--2b0eb5e/memcached-1.6.44-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.6.44-linux-arm64.tar.gz"
     },
     {
       "name": "mongodb",
@@ -1011,7 +1011,7 @@
       "fileName": "memcached-1.5.22-darwin-x64.tar.gz",
       "size": 156749,
       "sha256": "baaed82f024647953f5180b08e4f93b83ef55bda1e9a7f05bba93e6c7b7aec7f",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44989711315/memcached-1.5.22-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.5.22-darwin-x64.tar.gz"
     },
     {
       "name": "memcached",
@@ -1022,7 +1022,7 @@
       "fileName": "memcached-1.5.22-darwin-arm64.tar.gz",
       "size": 145616,
       "sha256": "2b20d1f3757d77ed04ac47df11f0c1b875cb8cde77ce23cd50f394dff5824c9c",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44989711315/memcached-1.5.22-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.5.22-darwin-arm64.tar.gz"
     },
     {
       "name": "memcached",
@@ -1033,7 +1033,7 @@
       "fileName": "memcached-1.5.22-linux-x64.tar.gz",
       "size": 311309,
       "sha256": "8efdbb8e4a8869539b8e45ec7101a464a6fb8c71892ca24b5098781dee7b053e",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44989711315/memcached-1.5.22-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.5.22-linux-x64.tar.gz"
     },
     {
       "name": "memcached",
@@ -1044,7 +1044,7 @@
       "fileName": "memcached-1.5.22-linux-arm64.tar.gz",
       "size": 312949,
       "sha256": "63d2647f5a0e1fbcf19beff020fd22ac12a637b4d09af7d27d291ba940bfe7ee",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44989711315/memcached-1.5.22-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-memcached/memcached-1.5.22-linux-arm64.tar.gz"
     },
     {
       "name": "mysql",
