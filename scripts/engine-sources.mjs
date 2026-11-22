@@ -60,6 +60,12 @@ const libevent = input(
   '92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb',
 );
 
+export function extraBuildInputs(engine, os, arch) {
+  if (engine === 'mongodb') return [mongoShell[os + '-' + arch]];
+  if (engine === 'memcached' && os !== 'win32') return [libevent];
+  return [];
+}
+
 const sourceCode = {
   'mysql@8.4.11': ['https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11.tar.gz'],
   'mongodb@7.0.45': [
@@ -69,15 +75,31 @@ const sourceCode = {
   'memcached@1.6.8': ['https://github.com/jefyt/memcached-windows/tree/1.6.8_mingw_libressl'],
 };
 
-export function sourcesFor({ engine, version, os, arch }) {
+export function sourcesFor({ engine, version, os, arch, inputs }) {
+  if (inputs) return validateInputs(inputs, os);
   const id = engine + '@' + version;
   const target = os + '-' + arch;
   const binary = binaries[id]?.[target];
   const source = binary ? null : sourceArchives[id];
   if (!binary && (!source || os === 'win32')) throw new Error('no build inputs for ' + id + ' on ' + target);
-  const additional = engine === 'mongodb' ? [mongoShell[target]] : engine === 'memcached' && source ? [libevent] : [];
+  const additional = extraBuildInputs(engine, os, arch);
   const upstream = sourceCode[id] ?? [sourceArchives[id]?.url].filter(Boolean);
   const windowsRedis = os === 'win32' && engine === 'redis'
     ? ['https://github.com/redis-windows/redis-windows/tree/7.4.11', 'https://cygwin.com/licensing.html'] : [];
   return { binary, source, additional, sourceCode: [...upstream, ...windowsRedis] };
+}
+
+function validateInputs({ binary, source, additional = [], sourceCode = [] }, os) {
+  if (Boolean(binary) === Boolean(source) || (source && os === 'win32') ||
+      !Array.isArray(additional) || !Array.isArray(sourceCode)) {
+    throw new Error('invalid custom build inputs');
+  }
+  for (const { url, sha256, size } of [binary ?? source, ...additional]) {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password ||
+        !/^[a-f0-9]{64}$/.test(sha256 ?? '') || (size != null && (!Number.isSafeInteger(size) || size <= 0))) {
+      throw new Error('custom build inputs require an HTTPS URL and SHA-256');
+    }
+  }
+  return { binary, source, additional, sourceCode };
 }

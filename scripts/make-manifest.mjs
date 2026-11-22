@@ -3,25 +3,27 @@ import path from 'node:path';
 import { CATALOG, majorOf } from '../src/install/catalog.js';
 import { sha256File } from '../src/install/download.js';
 import { parseCatalog } from '../src/install/overlay.js';
-import { artifactId, matrix } from './engine-matrix.mjs';
+import { artifactId, readBuildMatrix } from './engine-matrix.mjs';
 
 const MAX_ASSET_SIZE = 2 * 1024 ** 3;
 const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const print = (artifacts) => console.log(JSON.stringify({ schema: 1, artifacts }, null, 2));
 const nameOf = (row) => artifactId(row) + (row.os === 'win32' ? '.zip' : '.tar.gz');
 const keyOf = (row) => [row.key, row.os, row.arch, row.version].join('/');
-const expected = new Map(matrix.map((row) => [nameOf(row), row]));
+const expectedFiles = (tag) => new Map(readBuildMatrix(tag).map((row) => [nameOf(row), row]));
 
-function requireAssetNames(names) {
-  const missing = [...expected.keys()].filter((name) => !names.includes(name));
-  if (missing.length || names.length !== expected.size) {
+function requireAssetNames(names, expected) {
+  const present = new Set(names);
+  const missing = [...expected.keys()].filter((name) => !present.has(name));
+  if (missing.length || names.length !== expected.size || present.size !== names.length) {
     throw new Error('expected ' + expected.size + ' archives, found ' + names.length + ', missing: ' + missing.join(', '));
   }
 }
 
-async function generate(dir, base) {
+async function generate(dir, base, tag) {
+  const expected = expectedFiles(tag);
   const files = fs.readdirSync(dir).filter((name) => name !== 'manifest.json');
-  requireAssetNames(files);
+  requireAssetNames(files, expected);
   const artifacts = [];
   for (const [fileName, row] of expected) {
     const file = path.join(dir, fileName);
@@ -38,9 +40,10 @@ async function generate(dir, base) {
   print(artifacts);
 }
 
-async function verify(file, releaseFile, base) {
+async function verify(file, releaseFile, base, tag) {
+  const expected = expectedFiles(tag);
   const artifacts = parseCatalog(read(file), { requireSize: true });
-  requireAssetNames(artifacts.map((row) => row.fileName));
+  requireAssetNames(artifacts.map((row) => row.fileName), expected);
   const { draft, prerelease, assets } = read(releaseFile);
   if (draft || !prerelease || assets.length !== expected.size + 1) throw new Error('candidate release attachments are incomplete');
   const byName = new Map(assets.map((asset) => [asset.name, asset]));
@@ -77,4 +80,4 @@ const [command, ...args] = process.argv.slice(2);
 if (command === 'generate') await generate(...args);
 else if (command === 'verify') await verify(...args);
 else if (command === 'merge') merge(...args);
-else throw new Error('usage: make-manifest.mjs generate <directory> <release base> | verify <manifest> <release JSON> <release base> | merge <stable> <candidate>');
+else throw new Error('usage: make-manifest.mjs generate <directory> <release base> [tag] | verify <manifest> <release JSON> <release base> [tag] | merge <stable> <candidate>');

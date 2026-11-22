@@ -1,0 +1,79 @@
+[
+  {
+    "engine": "redis",
+    "version": "8.6.7",
+    "os": "darwin",
+    "arch": "x64",
+    "inputs": {
+      "source": {
+        "url": "https://download.redis.io/releases/redis-8.6.7.tar.gz",
+        "sha256": "1632b042a60670d6f7c516d6f3ffaec7d2b3e032b2e34f80e8f2b28dfa76e2c9"
+      },
+      "sourceCode": [
+        "https://download.redis.io/releases/redis-8.6.7.tar.gz"
+      ]
+    }
+  },
+  {
+    "engine": "redis",
+    "version": "8.6.7",
+    "os": "darwin",
+    "arch": "arm64",
+    "inputs": {
+      "source": {
+        "url": "https://download.redis.io/releases/redis-8.6.7.tar.gz",
+        "sha256": "1632b042a60670d6f7c516d6f3ffaec7d2b3e032b2e34f80e8f2b28dfa76e2c9"
+      },
+      "sourceCode": [
+        "https://download.redis.io/releases/redis-8.6.7.tar.gz"
+      ]
+    }
+  },
+  {
+    "engine": "redis",
+    "version": "8.6.7",
+    "os": "linux",
+    "arch": "x64",
+    "inputs": {
+      "source": {
+        "url": "https://download.redis.io/releases/redis-8.6.7.tar.gz",
+        "sha256": "1632b042a60670d6f7c516d6f3ffaec7d2b3e032b2e34f80e8f2b28dfa76e2c9"
+      },
+      "sourceCode": [
+        "https://download.redis.io/releases/redis-8.6.7.tar.gz"
+      ]
+    }
+  },
+  {
+    "engine": "redis",
+    "version": "8.6.7",
+    "os": "linux",
+    "arch": "arm64",
+    "inputs": {
+      "source": {
+        "url": "https://download.redis.io/releases/redis-8.6.7.tar.gz",
+        "sha256": "1632b042a60670d6f7c516d6f3ffaec7d2b3e032b2e34f80e8f2b28dfa76e2c9"
+      },
+      "sourceCode": [
+        "https://download.redis.io/releases/redis-8.6.7.tar.gz"
+      ]
+    }
+  },
+  {
+    "engine": "redis",
+    "version": "8.6.7",
+    "os": "win32",
+    "arch": "x64",
+    "inputs": {
+      "binary": {
+        "url": "https://github.com/redis-windows/redis-windows/releases/download/8.6.7/Redis-8.6.7-Windows-x64-cygwin.zip",
+        "sha256": "69574ff3e47b472d2f6f933751dba9b60f93069f0dfa3147fc90054017ce1939"
+      },
+      "sourceCode": [
+        "https://download.redis.io/releases/redis-8.6.7.tar.gz",
+        "https://github.com/redis-windows/redis-windows/tree/8.6.7",
+        "https://cygwin.com/licensing.html"
+      ]
+    }
+  }
+]

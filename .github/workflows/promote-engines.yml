@@ -50,7 +50,7 @@ jobs:
           EXPECTED_SHA: ${{ steps.run.outputs.sha }}
         run: |
           evidence=evidence/engine-validation.json
-          jq -e --arg sha "$EXPECTED_SHA" '.passed == 30 and .sha == $sha' "$evidence" > /dev/null
+          jq -e --arg sha "$EXPECTED_SHA" '.passed > 0 and .sha == $sha' "$evidence" > /dev/null
           tag=$(jq -er .tag "$evidence")
           [[ "$tag" =~ ^engines-candidate-[A-Za-z0-9._-]+$ ]]
           git fetch origin "refs/tags/$tag:refs/tags/$tag" main
@@ -60,8 +60,9 @@ jobs:
           base="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$tag"
           curl --fail --location --retry 3 "$base/manifest.json" -o candidate.json
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" > release.json
-          digest=$(node scripts/make-manifest.mjs verify candidate.json release.json "$base")
+          digest=$(node scripts/make-manifest.mjs verify candidate.json release.json "$base" "$tag")
           [[ "$digest" == "$(jq -er .manifest "$evidence")" ]]
+          [[ "$(jq '.artifacts | length' candidate.json)" == "$(jq -er .passed "$evidence")" ]]
 
           parent=()
           stable_ref=refs/heads/engine-catalog

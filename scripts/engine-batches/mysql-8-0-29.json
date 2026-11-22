@@ -1,0 +1,66 @@
+[
+  {
+    "engine": "mysql",
+    "version": "8.0.29",
+    "os": "darwin",
+    "arch": "arm64",
+    "inputs": {
+      "binary": {
+        "url": "https://repo.huaweicloud.com/mysql/Downloads/MySQL-8.0/mysql-8.0.29-macos12-arm64.tar.gz",
+        "sha256": "8e8295d76fcd579fbbb1966b1baeb75e18df130ca3dbd63f9442cdd26647d809",
+        "size": 175524317
+      },
+      "sourceCode": [
+        "https://github.com/mysql/mysql-server/tree/mysql-8.0.29"
+      ]
+    }
+  },
+  {
+    "engine": "mysql",
+    "version": "8.0.29",
+    "os": "darwin",
+    "arch": "x64",
+    "inputs": {
+      "binary": {
+        "url": "https://repo.huaweicloud.com/mysql/Downloads/MySQL-8.0/mysql-8.0.29-macos12-x86_64.tar.gz",
+        "sha256": "7aff875028e9aff9ade9eed23b373e9021ba9954a49466ca5ff9c700a81447f6",
+        "size": 176860182
+      },
+      "sourceCode": [
+        "https://github.com/mysql/mysql-server/tree/mysql-8.0.29"
+      ]
+    }
+  },
+  {
+    "engine": "mysql",
+    "version": "8.0.29",
+    "os": "linux",
+    "arch": "x64",
+    "inputs": {
+      "binary": {
+        "url": "https://repo.huaweicloud.com/mysql/Downloads/MySQL-8.0/mysql-8.0.29-linux-glibc2.17-x86_64-minimal.tar.xz",
+        "sha256": "facef7416c092489817fbfb78ac7019f69006762a76db4fbde20892024355eec",
+        "size": 54767572
+      },
+      "sourceCode": [
+        "https://github.com/mysql/mysql-server/tree/mysql-8.0.29"
+      ]
+    }
+  },
+  {
+    "engine": "mysql",
+    "version": "8.0.29",
+    "os": "win32",
+    "arch": "x64",
+    "inputs": {
+      "binary": {
+        "url": "https://repo.huaweicloud.com/mysql/Downloads/MySQL-8.0/mysql-8.0.29-winx64.zip",
+        "sha256": "75f41e8707c659308d62623b37ec37ffc3e02d4387bdc95bf247aa930bb03870",
+        "size": 224359438
+      },
+      "sourceCode": [
+        "https://github.com/mysql/mysql-server/tree/mysql-8.0.29"
+      ]
+    }
+  }
+]
