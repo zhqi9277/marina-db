@@ -223,7 +223,7 @@ jobs:
             brew install llvm@19 libomp ninja ccache pkg-config
           fi
           python -m venv "$RUNNER_TEMP/milvus-tools"
-          "$RUNNER_TEMP/milvus-tools/bin/pip" install 'cmake==3.31.8' 'conan==2.25.1'
+          "$RUNNER_TEMP/milvus-tools/bin/pip" install 'cmake==3.31.10' 'conan==2.25.1'
           rustup toolchain install 1.92.0 --profile minimal
           echo "RUSTUP_TOOLCHAIN=1.92.0" >> "$GITHUB_ENV"
           echo "MARINA_BUILD_PATH=$RUNNER_TEMP/milvus-tools/bin:$PATH" >> "$GITHUB_ENV"

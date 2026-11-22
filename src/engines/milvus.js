@@ -40,6 +40,8 @@ export default {
         MARINA_MILVUS_RUN_DIR: path.join(ctx.dataDir, 'run'),
         DEPLOY_MODE: 'STANDALONE',
         PROXY_PORT: String(ctx.port),
+        PROXY_INTERNALPORT: '0',
+        ROOTCOORD_PORT: '0',
         PROXY_IP: '127.0.0.1',
         METRICS_PORT: '0',
         ETCD_USE_EMBED: 'true',
