@@ -429,6 +429,50 @@
       "size": 224028623,
       "sha256": "56c84231f23de43269b08376549a775d75ad011ab1075bd187c1ae99a61232e5",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-8-0-29--3a0215b/mysql-8.0.29-windows-x64.zip"
+    },
+    {
+      "name": "memcached",
+      "version": "1.6.44",
+      "major": "1",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "memcached-1.6.44-darwin-x64.tar.gz",
+      "size": 249787,
+      "sha256": "6f6f30d813ebb8721fbd791a25eae803a473f13d720bfef69d4a132898bf1053",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-memcached-1-6-44--2b0eb5e/memcached-1.6.44-darwin-x64.tar.gz"
+    },
+    {
+      "name": "memcached",
+      "version": "1.6.44",
+      "major": "1",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "memcached-1.6.44-darwin-arm64.tar.gz",
+      "size": 237348,
+      "sha256": "8a8ab53ac3a91c44910a8f487c7c724c6175c8e144b15711bad1a7dd35a08ca9",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-memcached-1-6-44--2b0eb5e/memcached-1.6.44-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "memcached",
+      "version": "1.6.44",
+      "major": "1",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "memcached-1.6.44-linux-x64.tar.gz",
+      "size": 818985,
+      "sha256": "7b5da6e81f55d80b9a36deeb66bfd5fe2a8ff9c1cf42aac91dd4b24a6804bd99",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-memcached-1-6-44--2b0eb5e/memcached-1.6.44-linux-x64.tar.gz"
+    },
+    {
+      "name": "memcached",
+      "version": "1.6.44",
+      "major": "1",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "memcached-1.6.44-linux-arm64.tar.gz",
+      "size": 815632,
+      "sha256": "a18916c65ffcea06e9d98caf16b3538f12b366d86420e8e99f1456cb664b98e5",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-memcached-1-6-44--2b0eb5e/memcached-1.6.44-linux-arm64.tar.gz"
     }
   ]
 }
