@@ -737,6 +737,17 @@
       "size": 140006721,
       "sha256": "6160823b366e365a4b36f909bc6a35d01d43167aa6dc391745d41f1710e6f041",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44979634868/mysql-8.0.37-linux-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.37",
+      "major": "8.0",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mysql-8.0.37-linux-arm64.tar.gz",
+      "size": 546237503,
+      "sha256": "2a0e0925de18fb2e20a5f53e961d375b72dda84cf5ca6a59e0a5227f76893d53",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987092108/mysql-8.0.37-linux-arm64.tar.gz"
     }
   ]
 }
