@@ -2013,6 +2013,61 @@
       "size": 450092808,
       "sha256": "73d0d19ab8f77f85f78485b5230a4132c441bd0e1b897bf751f35627c3c211f7",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.6.51-windows-x64.zip"
+    },
+    {
+      "name": "qdrant",
+      "version": "1.20.2",
+      "major": "1",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "qdrant-1.20.2-darwin-x64.tar.gz",
+      "size": 33548383,
+      "sha256": "522c793003a1d7a28711f2d88845e7bf2c0a38a549861a41553b0e091732cf61",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-qdrant/qdrant-1.20.2-darwin-x64.tar.gz"
+    },
+    {
+      "name": "qdrant",
+      "version": "1.20.2",
+      "major": "1",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "qdrant-1.20.2-darwin-arm64.tar.gz",
+      "size": 29870014,
+      "sha256": "d04fe8156e527719bad8309da3eae2494caad22c76cdfdf83be8fd50a975ab08",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-qdrant/qdrant-1.20.2-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "qdrant",
+      "version": "1.20.2",
+      "major": "1",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "qdrant-1.20.2-linux-x64.tar.gz",
+      "size": 35566178,
+      "sha256": "4e8281d7a394fefbc822893a168942c7abbc1a60fd7ec7905c48672fe6d0dc70",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-qdrant/qdrant-1.20.2-linux-x64.tar.gz"
+    },
+    {
+      "name": "qdrant",
+      "version": "1.20.2",
+      "major": "1",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "qdrant-1.20.2-linux-arm64.tar.gz",
+      "size": 32308235,
+      "sha256": "c9e92fc03c1107c8625d473b932730d17985f96f6343b9239cd04e7258987b4e",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-qdrant/qdrant-1.20.2-linux-arm64.tar.gz"
+    },
+    {
+      "name": "qdrant",
+      "version": "1.20.2",
+      "major": "1",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "qdrant-1.20.2-windows-x64.zip",
+      "size": 33466468,
+      "sha256": "cabdabcf6c39b2bfa2944e67f22ab7629647ad6bd87c085405e5f19373186f41",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-qdrant/qdrant-1.20.2-windows-x64.zip"
     }
   ]
 }
