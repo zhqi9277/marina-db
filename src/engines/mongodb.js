@@ -1,8 +1,11 @@
-// MongoDB: no datadir bootstrap; mongod --fork writes the pid file itself.
+// MongoDB initializes its data directory on first start.
 import fs from 'node:fs';
 import { spawnAsync, findBin } from '../install/archive.js';
 import { mkdirp } from '../core/paths.js';
 import { host } from '../host/index.js';
+
+// MongoDB 9 rejects --fork on macOS. Let Marina detach and record the PID there.
+const fork = host.capabilities.fork && host.id !== 'darwin';
 
 export default {
   key: 'mongodb',
@@ -16,7 +19,7 @@ export default {
   clientBins: ['mongosh', 'mongod', 'mongos', 'mongoexport', 'mongoimport', 'mongodump', 'mongorestore'],
   primaryClient: 'mongosh',
   hasDataDir: true,
-  recordPid: !host.capabilities.fork,
+  recordPid: !fork,
 
   readPid(ctx) {
     try {
@@ -52,7 +55,7 @@ export default {
       '--logpath', ctx.logFile,
       '--logappend',
     ];
-    if (host.capabilities.fork) args.push('--fork', '--pidfilepath', ctx.pidFile);
+    if (fork) args.push('--fork', '--pidfilepath', ctx.pidFile);
     return args;
   },
 

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
+import mongodb from '../src/engines/mongodb.js';
 
 import {
   IS_MAC, IS_LINUX, IS_WIN, OS_LABEL, PLATFORM,
@@ -22,6 +23,13 @@ test('platform constants agree with process.platform', () => {
   assert.equal(IS_WIN, process.platform === 'win32');
   assert.equal([IS_MAC, IS_LINUX, IS_WIN].filter(Boolean).length, 1);
   assert.equal(OS_LABEL, IS_MAC ? 'macOS' : IS_LINUX ? 'Linux' : 'Windows');
+});
+
+test('MongoDB forks on Linux and lets Marina record the PID on macOS and Windows', () => {
+  const args = mongodb.startArgs({ dataDir: 'db', port: 27017, logFile: 'mongo.log', pidFile: 'mongo.pid' });
+  assert.equal(args.includes('--fork'), IS_LINUX);
+  assert.equal(args.includes('--pidfilepath'), IS_LINUX);
+  assert.equal(mongodb.recordPid, !IS_LINUX);
 });
 
 test('env reads MARINA_<name> and treats an empty value as defined', () => {
