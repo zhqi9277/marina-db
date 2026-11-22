@@ -803,6 +803,39 @@
       "size": 372215680,
       "sha256": "42f432db8c3c58023fc92dbd84b02dda0c57fc0a2daed095c36be5c2f8438955",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987300224/postgres-16.16-windows-x64.zip"
+    },
+    {
+      "name": "mongodb",
+      "version": "6.0.30",
+      "major": "6.0",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mongodb-6.0.30-linux-x64.tar.gz",
+      "size": 170892467,
+      "sha256": "19921fa0cc56467090faed523bca8eeeb2fd93e91647266b201f183863f7d376",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987301078/mongodb-6.0.30-linux-x64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "6.0.30",
+      "major": "6.0",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mongodb-6.0.30-linux-arm64.tar.gz",
+      "size": 166431473,
+      "sha256": "020423217c71875eecb2f822e551d591d7ae1e3e1ea525bc065a098ac841968b",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987301078/mongodb-6.0.30-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mongodb",
+      "version": "6.0.30",
+      "major": "6.0",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mongodb-6.0.30-windows-x64.zip",
+      "size": 604466906,
+      "sha256": "2561ced4d951261f02408a54a545b9074b2628314e093aa0f55154babd479d80",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987301078/mongodb-6.0.30-windows-x64.zip"
     }
   ]
 }
