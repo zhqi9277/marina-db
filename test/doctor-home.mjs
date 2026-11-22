@@ -1,4 +1,4 @@
-// Doctor checks against an isolated MARINA_HOME: cache summary, writability and
+// Doctor checks against an isolated MARINA_HOME: writability and
 // port-conflict reporting. No network and no real database.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -24,7 +24,7 @@ after(() => fs.rmSync(HOME, { recursive: true, force: true }));
 
 test('an empty home reports the expected check values', async () => {
   const checks = await runDoctor();
-  assert.equal(checks.length, 7);
+  assert.equal(checks.length, 6);
 
   assert.deepEqual(check(checks, 'platform'), { name: 'platform', value: `${OS_LABEL} ${process.arch}`, ok: true });
   assert.deepEqual(check(checks, 'node'), { name: 'node', value: process.versions.node, ok: true });
@@ -34,31 +34,9 @@ test('an empty home reports the expected check values', async () => {
   assert.equal(tar.ok, true);
   assert.ok(tar.value.length > 0);
 
-  assert.deepEqual(check(checks, 'index'), {
-    name: 'index',
-    value: 'not fetched yet — run: marina remote --refresh',
-    ok: false,
-  });
   assert.match(check(checks, 'libs').value, /no installed engine binaries to inspect|skipped on Windows/);
   assert.equal(check(checks, 'libs').ok, true);
   assert.deepEqual(check(checks, 'ports'), { name: 'ports', value: 'no foreign listeners', ok: true });
-});
-
-test('a populated index cache turns the index check green', async () => {
-  const file = path.join(HOME, 'cache', 'index', 'catalog-' + 'a'.repeat(64) + '.json');
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(
-    file,
-    JSON.stringify({
-      fetchedAt: Date.now(),
-      artifacts: [{ key: 'mysql' }],
-    }) + '\n',
-  );
-
-  const index = check(await runDoctor(), 'index');
-  assert.equal(index.ok, true);
-  assert.match(index.value, /1 engines cached/);
-  assert.match(index.value, /last refresh/);
 });
 
 test('a foreign listener on an installed engine port is reported as a conflict', async () => {

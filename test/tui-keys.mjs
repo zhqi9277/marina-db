@@ -1,5 +1,7 @@
 // Regression tests for raw key names and TUI arrow navigation.
 import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import http from 'node:http';
 import test from 'node:test';
 import { readKeys } from '../src/tui/screen.js';
 import { App } from '../src/tui/app.js';
@@ -244,4 +246,54 @@ test('arrow keys move the version list selection', async () => {
   assert.equal(app.versionSel, 1);
   await app.handle('esc:A');
   assert.equal(app.versionSel, 0);
+});
+
+test('version pane refreshes live and discards the previous response', async () => {
+  const server = http.createServer();
+  await new Promise((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve));
+  const screen = fakeScreen();
+  const app = new App(screen);
+  app.engines = [fakeEngine('mysql', 'MySQL', 'running')];
+  const previousUrl = process.env.MARINA_CATALOG_URL;
+  process.env.MARINA_CATALOG_URL = `http://127.0.0.1:${server.address().port}/manifest.json`;
+
+  async function requestFor(key) {
+    const arrival = once(server, 'request', { signal: AbortSignal.timeout(5000) });
+    const done = app.handle(key);
+    const [, response] = await arrival;
+    return { response, done };
+  }
+
+  function reply(response, version) {
+    response.end(JSON.stringify({ artifacts: [{
+      name: 'mysql', version, os: process.platform, arch: process.arch,
+      sha256: 'a'.repeat(64), url: 'https://example.test/engine.tar.gz',
+    }] }));
+  }
+
+  try {
+    const first = await requestFor('v');
+    assert.match(screen.lines.join('\n'), /loading remote index/);
+    const newer = await requestFor('g');
+    reply(newer.response, '8.4.13');
+    await newer.done;
+    reply(first.response, '8.4.12');
+    await first.done;
+    assert.match(screen.lines.join('\n'), /8\.4\.13/);
+    assert.doesNotMatch(screen.lines.join('\n'), /8\.4\.12/);
+
+    await app.handle('esc');
+    const reopened = await requestFor('v');
+    reopened.response.writeHead(503).end();
+    await reopened.done;
+    const result = screen.lines.join('\n');
+    assert.match(result, /index unavailable/);
+    assert.match(result, /8\.4\.11/);
+    assert.doesNotMatch(result, /8\.4\.13/);
+  } finally {
+    if (previousUrl == null) delete process.env.MARINA_CATALOG_URL;
+    else process.env.MARINA_CATALOG_URL = previousUrl;
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
 });

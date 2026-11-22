@@ -37,8 +37,8 @@ function request(url, opts = {}, redirects = 0) {
   });
 }
 
-export async function fetchText(url, { timeout = 20000 } = {}) {
-  const res = await request(url, { timeout });
+export async function fetchText(url, { timeout = 20000, headers } = {}) {
+  const res = await request(url, { timeout, headers });
   const chunks = [];
   for await (const chunk of res) chunks.push(chunk);
   return Buffer.concat(chunks).toString('utf8');

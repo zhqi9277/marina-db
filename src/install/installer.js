@@ -157,7 +157,6 @@ async function installTarget(target, opts, port) {
     ? target.file
     : `${target.indexSource} · ${target.urls[0]}`;
   info(`${engine.label} ${version}  ${color.gray(`(${origin})`)}`);
-  if (target.stale) warn('version index is a stale cache (network refresh failed)');
 
   const { tarball, sha256 } = await fetchPackage(target);
   const pending = pendingInstallFile(engine, major, version);

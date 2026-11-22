@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-versions-'));
 process.env.MARINA_HOME = home;
-const { listVersions, resolveVersion, indexCacheInfo } = await import('../src/install/versions.js');
+const { listVersions, resolveVersion } = await import('../src/install/versions.js');
 const { parseCatalog } = await import('../src/install/overlay.js');
 const { resolveTarget } = await import('../src/install/installer.js');
 const { engines } = await import('../src/core/registry.js');
@@ -67,37 +71,44 @@ test('list, default selection and explicit install share one platform-filtered c
   }
 });
 
-test('remote cache is shared across engines, isolated by URL and bypassed on refresh', async () => {
-  let requests = 0;
-  const server = http.createServer((_req, res) => {
-    requests++;
-    res.end(JSON.stringify(catalog));
+test('remote queries and install resolution read the current catalog without disk fallback', async () => {
+  const requests = [];
+  let served = catalog;
+  const server = http.createServer((req, res) => {
+    requests.push({ url: req.url, cacheControl: req.headers['cache-control'] });
+    res.statusCode = served ? 200 : 503;
+    res.end(JSON.stringify(served));
   });
   await new Promise((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve));
-  const url = 'http://127.0.0.1:' + server.address().port + '/manifest.json';
+  const requestPath = '/manifest.json?key=fixture';
+  const url = 'http://127.0.0.1:' + server.address().port + requestPath;
+  const oldDir = path.join(home, 'cache', 'index');
+  const oldFile = 'catalog-' + createHash('sha256').update(url).digest('hex') + '.json';
+  const old = JSON.stringify({ fetchedAt: Date.now(), artifacts: [artifact('mysql', '8.4.1')] });
+  fs.mkdirSync(oldDir, { recursive: true });
+  fs.writeFileSync(path.join(oldDir, oldFile), old);
+
   process.env.MARINA_CATALOG_URL = url;
-  delete process.env.MARINA_INDEX_TTL;
   try {
-    await Promise.all([listVersions('mysql'), listVersions('postgres')]);
-    assert.equal(requests, 1);
-    assert.deepEqual(indexCacheInfo().engines.sort(), ['mysql', 'postgres']);
-    await listVersions('mysql');
-    assert.equal(requests, 1);
-    await listVersions('mysql', { refresh: true });
-    assert.equal(requests, 2);
-    process.env.MARINA_CATALOG_URL = url + '?another';
-    await listVersions('mysql');
-    assert.equal(requests, 3);
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
-  try {
-    process.env.MARINA_CATALOG_URL = url;
-    process.env.MARINA_INDEX_TTL = '0';
-    assert.equal((await listVersions('mysql')).stale, true);
-    await assert.rejects(listVersions('mysql', { refresh: true }), /engine catalog/);
+    const bin = fileURLToPath(new URL('../bin/marina.js', import.meta.url));
+    const { stdout } = await promisify(execFile)(process.execPath, [bin, 'remote', '--json']);
+    const indexes = JSON.parse(stdout);
+    assert.deepEqual(indexes.mysql.versions.map((entry) => entry.version), ['9.1.0', '8.4.11', '8.4.9']);
+    assert.equal(indexes.postgres.versions[0].version, '17.11');
+    assert.equal(requests.length, 1);
+
+    served = { artifacts: [artifact('mysql', '8.4.12')] };
+    assert.equal((await listVersions('mysql')).versions[0].version, '8.4.12');
+    served = { artifacts: [artifact('mysql', '8.4.14')] };
+    assert.equal((await resolveTarget('mysql@8.4')).version, '8.4.14');
+    served = null;
+    await assert.rejects(listVersions('mysql'), /engine catalog.*HTTP 503/);
+    assert.equal(requests.length, 4);
+    assert.ok(requests.every((req) => req.url === requestPath && req.cacheControl === 'no-cache, no-store'));
+    assert.deepEqual(fs.readdirSync(oldDir), [oldFile]);
+    assert.equal(fs.readFileSync(path.join(oldDir, oldFile), 'utf8'), old);
   } finally {
     delete process.env.MARINA_CATALOG_URL;
-    delete process.env.MARINA_INDEX_TTL;
+    await new Promise((resolve) => server.close(resolve));
   }
 });

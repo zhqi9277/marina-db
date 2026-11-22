@@ -71,14 +71,7 @@ export async function handleInput(app, key) {
   if (key === 'x') return app.quick('stop');
   if (key === 'r') return app.quick('restart');
   if (key === 'l') return app.openLogs();
-  if (key === 'v') {
-    app.mode = 'versions';
-    app.versionSel = 0;
-    app.remote = null;
-    app.render();
-    app.loadRemote();
-    return;
-  }
+  if (key === 'v') return app.openVersions();
   if (key === 'c' || key === 'y') {
     const e = app.current();
     if (!e || e.state === 'absent') return;
@@ -241,11 +234,7 @@ export async function handleActions(app, key) {
     case 'logs':
       return app.openLogs();
     case 'versions':
-      app.mode = 'versions';
-      app.versionSel = 0;
-      app.remote = null;
-      app.render();
-      return app.loadRemote();
+      return app.openVersions();
     case 'config':
       app.message = { kind: 'ok', text: e.ctx.confFile || 'no marina-managed config' };
       return app.render();
@@ -259,6 +248,7 @@ export async function handleActions(app, key) {
 
 export async function handleVersions(app, key) {
   if (key === 'esc' || key === 'q' || key === 'backspace') {
+    app.remote = null;
     app.mode = 'detail';
     return app.render();
   }
@@ -271,7 +261,7 @@ export async function handleVersions(app, key) {
     app.versionSel = (app.versionSel + 1) % Math.max(1, items.length);
     return app.render();
   }
-  if (key === 'g') return app.loadRemote(true);
+  if (key === 'g') return app.loadRemote();
   if (key !== 'enter') return;
 
   const item = items[app.versionSel];
@@ -282,7 +272,10 @@ export async function handleVersions(app, key) {
       `activating ${e.key} ${item.version}…`,
       () => use(`${e.key}@${item.version}`, { quiet: true }),
     );
-    if (ok) app.mode = 'detail';
+    if (ok) {
+      app.remote = null;
+      app.mode = 'detail';
+    }
     return app.render();
   }
   const ok = await app.run(

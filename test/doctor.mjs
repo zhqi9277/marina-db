@@ -9,7 +9,7 @@ test('doctor returns named checks with boolean verdicts', async () => {
   assert.ok(checks.length >= 6);
 
   const names = checks.map((c) => c.name);
-  for (const required of ['platform', 'node', 'tar', 'MARINA_HOME', 'index', 'libs', 'ports']) {
+  for (const required of ['platform', 'node', 'tar', 'MARINA_HOME', 'libs', 'ports']) {
     assert.ok(names.includes(required), `missing check: ${required}`);
   }
   for (const c of checks) {

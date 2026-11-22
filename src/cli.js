@@ -6,7 +6,7 @@ import { engineList, getEngine, installedVersions, activeCtx, instanceContexts, 
 import { collectRows, versionStatus } from './runtime/inventory.js';
 import { status, start, stop, restart, stateBadge } from './runtime/lifecycle.js';
 import { install, remove, use } from './install/installer.js';
-import { listVersions } from './install/versions.js';
+import { listVersions, listVersionIndexes } from './install/versions.js';
 import { installShims, resolveBin, shellenv } from './runtime/shims.js';
 import { readProject } from './core/project.js';
 import { changePort, changeAccount } from './runtime/settings.js';
@@ -29,9 +29,8 @@ DATABASES
   mysql, mariadb, postgres, mongodb, redis, memcached
 
 INSTALL / SWITCH
-  marina remote                   every version the mirrors / upstream expose
+  marina remote                   fetch the published builds for this host
   marina remote mysql             full version list for one database
-  marina remote mysql --refresh   re-query the index (cache ttl 6h)
   marina install mysql@8.4        download, unpack, init datadir, wire config
   marina install mysql            pick a version from the list (TTY)
   marina install redis --port 6380
@@ -63,13 +62,12 @@ TOOLS
 FLAGS
   --json   machine-readable output      --force   rewrite config / re-extract
   --all    every installed database     --purge   delete the datadir too
-  --refresh  re-query the remote index  --use / --no-use  switch active after install
+  --use / --no-use  switch active after install
   --major 8.0  --installed             filter the remote version list
   --port N --file path --version v --lines N
 
 ENV
   MARINA_HOME            install root (default <repo>/runtime, ~/.marina if read-only)
-  MARINA_INDEX_TTL       version-index cache seconds (default 21600)
   MARINA_CATALOG_FILE    use a local build catalog (JSON)
   MARINA_CATALOG_URL     override the GitHub build catalog URL
 
@@ -153,25 +151,18 @@ async function cmdLs(flags) {
 async function cmdRemote(flags, args) {
   const engine = args[0] ? getEngine(args[0]) : null;
   const targets = engine ? [engine] : engineList;
-  const indexes = (await Promise.all(targets.map(async (e) => {
-    try {
-      return { ...(await listVersions(e.key, { refresh: !!flags.refresh })), engine: e };
-    } catch (err) {
-      warn(`${e.label}: ${err.message.split('\n')[0]}`);
-      return null;
-    }
-  }))).filter(Boolean);
-  if (!indexes.length) throw new Error('no version index is reachable — check the network, then: marina remote --refresh');
+  const indexes = (await listVersionIndexes(targets.map((e) => e.key)))
+    .map((index, i) => ({ ...index, engine: targets[i] }));
 
   if (flags.json) {
     const data = {};
-    for (const { engine: e, source, fetchedAt, stale, versions } of indexes) {
+    for (const { engine: e, source, fetchedAt, versions } of indexes) {
       const installed = new Set(installedVersions(e).map((r) => r.version));
       const active = state.getActive(e.key);
       data[e.key] = {
         source,
         fetchedAt,
-        stale: !!stale,
+        stale: false,
         versions: versions.map((v) => ({
           version: v.version,
           major: v.major,
@@ -195,7 +186,7 @@ async function cmdRemote(flags, args) {
       return [e.label, String(versions.length), newest || '—', installed.join(', ') || '—', source];
     });
     out(table(['DATABASE', 'VERSIONS', 'NEWEST', 'INSTALLED', 'INDEX'], rows));
-    hint('full list: marina remote <db>   ·   refresh: marina remote --refresh');
+    hint('full list: marina remote <db>');
     hint('lists published builds for this operating system and architecture');
     return;
   }
@@ -219,7 +210,7 @@ async function cmdRemote(flags, args) {
     active === v.version ? color.cyan('*') : '',
   ]);
   out(table([`${engine.label.toUpperCase()} VERSION`, 'KIND', 'PLATFORM', 'INDEX', 'INSTALLED', 'ACTIVE'], rows));
-  hint(`index: ${idx.source}${idx.stale ? ' (stale cache)' : ''} · ${idx.versions.length} versions listed`);
+  hint(`index: ${idx.source} · ${idx.versions.length} versions listed`);
   hint(`install: marina install ${engine.key}@${versions[0]?.version || '<version>'}`);
 }
 

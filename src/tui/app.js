@@ -170,17 +170,27 @@ export class App {
     return renderActions(this, w, h);
   }
 
-  async loadRemote(refresh = false) {
-    if (this.remote && !refresh) return;
-    this.remote = { loading: true, versions: [] };
+  openVersions() {
+    this.mode = 'versions';
+    this.versionSel = 0;
+    return this.loadRemote();
+  }
+
+  async loadRemote() {
+    const engine = this.current();
+    if (!engine) return;
+    const pending = { loading: true, versions: [] };
+    this.remote = pending;
     this.render();
+    let result;
     try {
-      const e = this.current();
-      const idx = await listVersions(e.key, { refresh });
-      this.remote = { loading: false, ...idx };
+      const index = await listVersions(engine.key);
+      result = { loading: false, ...index };
     } catch (err) {
-      this.remote = { loading: false, versions: [], error: err.message.split('\n')[0] };
+      result = { loading: false, versions: [], error: err.message.split('\n')[0] };
     }
+    if (this.done || this.mode !== 'versions' || this.remote !== pending) return;
+    this.remote = result;
     this.render();
   }
 

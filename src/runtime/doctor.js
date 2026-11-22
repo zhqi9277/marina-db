@@ -1,5 +1,5 @@
 // Environment self-check, shared by `marina doctor` and the TUI doctor view.
-// Local checks only: no network, no index refresh.
+// Local checks only.
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirs, ensureDirs } from '../core/paths.js';
@@ -8,7 +8,6 @@ import { engineList, activeCtx } from '../core/registry.js';
 import { status, tcpProbe } from './lifecycle.js';
 import { findBin } from '../install/archive.js';
 import { depsOf, foreignDeps } from '../install/libcheck.js';
-import { indexCacheInfo } from '../install/versions.js';
 
 /**
  * @returns {Promise<Array<{name:string, value:string, ok:boolean}>>}
@@ -31,15 +30,6 @@ export async function runDoctor() {
     writable = false;
   }
   checks.push({ name: 'MARINA_HOME', value: dirs.root, ok: writable });
-
-  const idx = indexCacheInfo();
-  checks.push({
-    name: 'index',
-    value: idx.files
-      ? `${idx.engines.length} engines cached${idx.newest ? ` · last refresh ${new Date(idx.newest).toLocaleString()}` : ''}`
-      : 'not fetched yet — run: marina remote --refresh',
-    ok: idx.files > 0,
-  });
 
   const libProblems = [];
   let inspected = 0;

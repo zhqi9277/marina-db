@@ -139,7 +139,6 @@ runtime/
   logs/<db>/<major>.log
   run/<db>-<major>.pid|.sock|.service.json  进程、套接字与实际运行版本
   cache/<db>/<version>/*.tar.gz     已校验的下载缓存
-  cache/index/catalog-<hash>.json  按清单 URL 缓存的版本索引
   shims/<bin>                       PATH shims
   state.json                        激活版本、端口、设置
   state.lock                        写入 state.json 时的目录锁（退出即删）
@@ -178,7 +177,7 @@ runtime/
 
 默认清单存放在 GitHub 的 `engine-catalog` 分支，归档由 [GitHub Releases](https://github.com/zhqi9277/marina-db/releases) 提供。`marina remote` 和终端面板仅列出本机可安装的版本。指定完整版本时精确匹配，指定系列时选择最新补丁，非交互式省略版本时优先使用引擎的默认系列。
 
-清单默认缓存 6 小时，可用 `MARINA_INDEX_TTL` 调整。`marina remote --refresh` 立即重新读取。若指定版本缺失，安装命令会列出可用版本。
+执行 `marina remote`、打开版本面板、按 `g` 刷新或解析远程安装目标时，Marina 都会实时请求清单。请求失败时会显示错误。若指定版本缺失，安装命令会列出可用版本。
 
 `MARINA_CATALOG_FILE=/path/manifest.json` 或 `MARINA_CATALOG_URL=https://example.test/manifest.json` 可覆盖默认清单。已有归档可用 `marina install redis@7.4.11 --file /path/to/archive.tar.gz` 直接安装。
 
@@ -238,7 +237,6 @@ export PATH="$PWD/bin:$PATH"
 | `marina remote <db> --major 8.0` | 只看某个 major |
 | `marina remote <db> --installed` | 只列已安装 |
 | `marina remote --json` | 机器可读输出 |
-| `marina remote --refresh` | 强制重查索引 |
 | `marina install <db>[@ver]` | 下载、校验、解压、初始化、写配置；默认切换 active |
 | `marina install <db> --port 6380` | 安装时指定端口 |
 | `marina install <db>@<ver> --file <pkg>` | 用本地包离线安装 |
@@ -304,7 +302,6 @@ export PATH="$PWD/bin:$PATH"
 | 变量 | 默认 | 作用 |
 |---|---|---|
 | `MARINA_HOME` | 仓库 `runtime/`（可写时）或 `~/.marina` | 运行时根目录 |
-| `MARINA_INDEX_TTL` | `21600` | 索引缓存秒数 |
 | `MARINA_CATALOG_FILE` | — | 覆盖默认 GitHub 清单（本地 JSON） |
 | `MARINA_CATALOG_URL` | — | 覆盖默认 GitHub 清单（HTTP） |
 | `MARINA_DEBUG` | — | CLI 打印完整错误栈 |
@@ -340,7 +337,7 @@ TTY 下 `marina` 进入面板；非 TTY 打印帮助，避免 CI 卡住。状态
 |---|---|
 | Start / Stop / Restart | 当前库 |
 | Start all / Stop all | 所有已安装库，逐个执行，失败会列第一条错误 |
-| Doctor | 本地自检：platform / node / tar / MARINA_HOME / index / libs / ports |
+| Doctor | 本地自检（platform / node / tar / MARINA_HOME / libs / ports） |
 | Change port | 输入新端口，自动重写配置，运行中自动重启 |
 | Set user | 输入新账号；MySQL 系会创建用户并授权 |
 | Set password | 掩码输入；MySQL 系执行 `ALTER USER`，Redis 写 `requirepass` |
@@ -523,7 +520,7 @@ marina start --all
 | `port-busy` | 端口被非 marina 进程占用：`lsof -i :<port>`，或 `marina port <db> <新端口>` |
 | `dyld: Library not loaded` | 引擎依赖缺失。检查 `marina doctor`，然后重装已发布的同版本。 |
 | `doctor` 的 `libs` 报 `(outside install)` | 这个包依赖了安装目录和系统之外的库，换一台机器就起不来：重装一个自包含的包（`scripts/build-engine.sh`） |
-| `engine catalog` / HTTP 错误 | 检查 GitHub 是否可访问并运行 `marina remote --refresh`。离线时可用 `--file` 安装已有归档。 |
+| `engine catalog` / HTTP 错误 | 检查清单来源是否可访问，再运行 `marina remote`。离线时可用 `--file` 安装已有归档。 |
 | 校验和不匹配 | 缓存损坏：删 `runtime/cache/<db>/<ver>/` 后重装 |
 | `Access denied` | `marina auth <db>` 看保存的凭据；MySQL 系可用正确密码重新设置 |
 | TUI 方向键不动 | 终端把方向键发成应用模式序列；用 `j/k` 代替 |
@@ -547,7 +544,7 @@ npm run marina -- remote   # 不装全局时直接跑
 
 测试覆盖：
 
-- 版本排序、major 深度、GitHub 清单缓存与平台过滤
+- 版本排序、major 深度、实时清单请求与平台过滤
 - 配置路径过期检测（INI / YAML / redis.conf 三种指令）、启动快速失败
 - 状态文件损坏归一化与 0600 权限、端口校验、下载完整性、Redis `requirepass`
 - pid 归属校验与 stop 终止确认（含搬家后的旧进程、pid 复用防误杀）

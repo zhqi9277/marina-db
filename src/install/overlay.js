@@ -1,14 +1,12 @@
 // The hosted catalog and explicit local/test catalogs share the same format.
-import crypto from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { env } from '../core/platform.js';
-import { dirs } from '../core/paths.js';
 import { CATALOG, majorOf } from './catalog.js';
 import { fetchJson } from './download.js';
 
 export const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/zhqi9277/marina-db/engine-catalog/manifest.json';
-export const indexDir = path.join(dirs.cache, 'index');
 
 export function normalizeOs(os) {
   const value = String(os || '').toLowerCase();
@@ -49,56 +47,24 @@ export function parseCatalog(raw, { requireSize = false } = {}) {
   });
 }
 
-const requests = new Map();
-
-export async function loadCatalog({ refresh = false } = {}) {
+export async function loadCatalog() {
   const file = env('CATALOG_FILE');
   if (file) {
     try {
-      return { source: path.resolve(file), artifacts: parseCatalog(JSON.parse(fs.readFileSync(file, 'utf8'))), fetchedAt: null, stale: false };
+      return { source: path.resolve(file), artifacts: parseCatalog(JSON.parse(fs.readFileSync(file, 'utf8'))), fetchedAt: null };
     } catch (error) {
       throw new Error(`engine catalog ${file}: ${error.message}`);
     }
   }
-  const url = env('CATALOG_URL') || DEFAULT_CATALOG_URL;
-  const existing = requests.get(url);
-  if (existing && (existing.refresh || !refresh)) return existing.promise;
-  const promise = loadRemoteCatalog(url, refresh).finally(() => {
-    if (requests.get(url)?.promise === promise) requests.delete(url);
-  });
-  requests.set(url, { promise, refresh });
-  return promise;
-}
-
-async function loadRemoteCatalog(source, refresh) {
+  const source = env('CATALOG_URL') || DEFAULT_CATALOG_URL;
   const requireSize = source === DEFAULT_CATALOG_URL;
-  const name = crypto.createHash('sha256').update(source).digest('hex');
-  const file = path.join(indexDir, `catalog-${name}.json`);
-  const ttl = Number(env('INDEX_TTL', 21600)) * 1000;
-  let cached;
+  // Give each read of the GitHub branch its own CDN cache key. Custom catalog
+  // URLs may contain signed queries, so pass them through exactly as supplied.
+  const url = requireSize ? `${source}?request=${randomUUID()}` : source;
   try {
-    const { fetchedAt, artifacts } = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (Number.isFinite(fetchedAt)) cached = { source, fetchedAt, artifacts: parseCatalog(artifacts, { requireSize }) };
-  } catch {
-    // Missing, obsolete or invalid cache entries are refreshed from the same source.
-  }
-  if (!refresh && cached && Date.now() - cached.fetchedAt < ttl) return { ...cached, stale: false };
-
-  let artifacts;
-  try {
-    artifacts = parseCatalog(await fetchJson(source), { requireSize });
+    const raw = await fetchJson(url, { headers: { 'cache-control': 'no-cache, no-store' } });
+    return { source, artifacts: parseCatalog(raw, { requireSize }), fetchedAt: Date.now() };
   } catch (error) {
-    if (!refresh && cached) return { ...cached, stale: true, error: error.message };
-    throw new Error(`engine catalog ${source}: ${error.message}`);
+    throw new Error(`engine catalog ${source}: ${error.message.replace(url, source)}`);
   }
-  const fetchedAt = Date.now();
-  fs.mkdirSync(indexDir, { recursive: true });
-  const temp = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
-  try {
-    fs.writeFileSync(temp, JSON.stringify({ fetchedAt, artifacts }));
-    fs.renameSync(temp, file);
-  } finally {
-    fs.rmSync(temp, { force: true });
-  }
-  return { source, artifacts, fetchedAt, stale: false };
 }
