@@ -1210,6 +1210,17 @@
       "size": 244476334,
       "sha256": "b366391f878a9f2346c768cbbd5f3ead2de684bb09a2a113833f38a402b5ea9e",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644931/mysql-8.0.45-windows-x64.zip"
+    },
+    {
+      "name": "mysql",
+      "version": "5.7.44",
+      "major": "5.7",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mysql-5.7.44-darwin-arm64.tar.gz",
+      "size": 75792449,
+      "sha256": "5e4e5c6ddc812ea5d7ecfd96f077605f77511f72102bf29b4a2f087b1c3d29ae",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-5-7-44-macos-arm64--022252c/mysql-5.7.44-darwin-arm64.tar.gz"
     }
   ]
 }
