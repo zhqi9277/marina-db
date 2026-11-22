@@ -30,8 +30,18 @@ case "$ENGINE" in
     tar -xf "$LIBEVENT_ARCHIVE" -C "$WORK/libevent" --strip-components=1
     ( cd "$WORK/libevent" && ./configure --prefix="$WORK/libevent-prefix" --disable-openssl --disable-shared \
         && make -j"$JOBS" && make install )
-    ( cd "$SRC" && ./configure --prefix="$PREFIX" --with-libevent="$WORK/libevent-prefix" --disable-tls \
-        && make -j"$JOBS" && make install )
+    (
+      cd "$SRC"
+      case "$ARCHIVE" in
+        */memcached-1.5.*.tar.gz)
+          # This series uses -Werror with declarations deprecated by current compilers.
+          export CFLAGS='-O2 -Wno-error=deprecated-declarations -Wno-error=strict-prototypes -Wno-error=unused-but-set-variable'
+          ;;
+      esac
+      ./configure --prefix="$PREFIX" --with-libevent="$WORK/libevent-prefix" --disable-tls
+      make -j"$JOBS"
+      make install
+    )
     cp "$WORK/libevent/LICENSE" "$PREFIX/LICENSE-libevent"
     ;;
   postgres)
