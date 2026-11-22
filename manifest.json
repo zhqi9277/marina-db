@@ -1859,6 +1859,61 @@
       "size": 261990863,
       "sha256": "68d361712c80bbec1f23b123038dcb9c9e6241acc55302c4dff74df4f5e2eacc",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-9.0.8-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "14.25",
+      "major": "14",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "postgres-14.25-darwin-x64.tar.gz",
+      "size": 8842634,
+      "sha256": "d87d16e574fd91ad3676ee5f653da0a6eff5b67b796a3cda051b632d0e5a50c4",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-14.25-darwin-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "14.25",
+      "major": "14",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "postgres-14.25-darwin-arm64.tar.gz",
+      "size": 8455535,
+      "sha256": "18ac08250cfe1c8043fd70ecae3dfd0244fb665a7dea546766168e51a30d2f9a",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-14.25-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "14.25",
+      "major": "14",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "postgres-14.25-linux-x64.tar.gz",
+      "size": 9823861,
+      "sha256": "f6e5e32076f5a9737b16ed519365cfc16c9aa4bd8f0c91c934ca073805801110",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-14.25-linux-x64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "14.25",
+      "major": "14",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "postgres-14.25-linux-arm64.tar.gz",
+      "size": 9726695,
+      "sha256": "449a92233efadbc4a769b7de4afc28bbcaa2d3c76530a753fd0f8016b6d48c9a",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-14.25-linux-arm64.tar.gz"
+    },
+    {
+      "name": "postgresql",
+      "version": "14.25",
+      "major": "14",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "postgres-14.25-windows-x64.zip",
+      "size": 365941311,
+      "sha256": "36069a330dd69f4999c80119d6d832ca6ce6ccf340c106f66897bc66029e453d",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-postgres/postgres-14.25-windows-x64.zip"
     }
   ]
 }
