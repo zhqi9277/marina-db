@@ -1540,6 +1540,61 @@
       "size": 701470436,
       "sha256": "889164642a1e40a872cdf72bb7594eb60809979cdce4678997401dcfa473cb99",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mongodb/mongodb-7.0.48-windows-x64.zip"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.14",
+      "major": "11.4",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mariadb-11.4.14-darwin-x64.tar.gz",
+      "size": 100005207,
+      "sha256": "ba1d9d87b179bbc0ee460f35121746f45ae38996bb4ac2df08d17cceb468ddc0",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-11.4.14-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.14",
+      "major": "11.4",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mariadb-11.4.14-darwin-arm64.tar.gz",
+      "size": 104827604,
+      "sha256": "183c76ed3a3e579aaa823ef1d7873d0279157aabdd779e53363f4a0e4279badb",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-11.4.14-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.14",
+      "major": "11.4",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mariadb-11.4.14-linux-x64.tar.gz",
+      "size": 348384864,
+      "sha256": "523512793ffe27c605ae5b8e87f031cd79384212b11f8e6a55705d0d7262a985",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-11.4.14-linux-x64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.14",
+      "major": "11.4",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mariadb-11.4.14-linux-arm64.tar.gz",
+      "size": 63847861,
+      "sha256": "64ba7fbe3edee602cfbe6102ccf714a277974e9b58a6d9973c383ab881040213",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-11.4.14-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mariadb",
+      "version": "11.4.14",
+      "major": "11.4",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mariadb-11.4.14-windows-x64.zip",
+      "size": 96917246,
+      "sha256": "d0404342f478bd1b57946b5806f0b01c5ca75998039c6c9b1b1cdf561a5c4aa2",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mariadb/mariadb-11.4.14-windows-x64.zip"
     }
   ]
 }
