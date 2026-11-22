@@ -891,6 +891,61 @@
       "size": 12283461,
       "sha256": "0bce9e20f19ed9d590d9483d4d3d47a9761ffc861fb251d1abcbc9e9ae0d5dfe",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298054/redis-6.2.24-windows-x64.zip"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.46",
+      "major": "8.0",
+      "os": "darwin",
+      "arch": "x64",
+      "fileName": "mysql-8.0.46-darwin-x64.tar.gz",
+      "size": 177789219,
+      "sha256": "87792aea2195caa7d0e692f4a5d73f2cf955bd4a6701824e6ef6653fc0fd96fa",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-darwin-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.46",
+      "major": "8.0",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "mysql-8.0.46-darwin-arm64.tar.gz",
+      "size": 173419996,
+      "sha256": "f4e7ed9b7edb1c2fc2df183b403e880395bccfab6850eafbcd4b4feb1653c20e",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.46",
+      "major": "8.0",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "mysql-8.0.46-linux-x64.tar.gz",
+      "size": 141056143,
+      "sha256": "c4ee848cfae7f4428359cd5f31045bb4be391346cd64053f53838128d5259859",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-linux-x64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.46",
+      "major": "8.0",
+      "os": "linux",
+      "arch": "arm64",
+      "fileName": "mysql-8.0.46-linux-arm64.tar.gz",
+      "size": 977188371,
+      "sha256": "c4a570de10792edfce5627a69e6ef3853244c3b7fe43ef9c1663917366ef176d",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-linux-arm64.tar.gz"
+    },
+    {
+      "name": "mysql",
+      "version": "8.0.46",
+      "major": "8.0",
+      "os": "win32",
+      "arch": "x64",
+      "fileName": "mysql-8.0.46-windows-x64.zip",
+      "size": 247551452,
+      "sha256": "062d18ceb5928d9e90e862b57486f73a5094608621520f8622cbac9f9f394eb4",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-windows-x64.zip"
     }
   ]
 }
