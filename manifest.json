@@ -10,7 +10,7 @@
       "fileName": "mysql-8.4.11-darwin-x64.tar.gz",
       "size": 173239169,
       "sha256": "763157e48d5c34511f6fe92be85347afc1ab04087409bf94ebfe53be1ea1b0e7",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/mysql-8.4.11-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.11-darwin-x64.tar.gz"
     },
     {
       "name": "mariadb",
@@ -76,7 +76,7 @@
       "fileName": "mysql-8.4.11-darwin-arm64.tar.gz",
       "size": 169021040,
       "sha256": "5945a6a8cdbf650d75083cd166d507d264a7df595722e6536e56f2e2cd7f7809",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/mysql-8.4.11-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.11-darwin-arm64.tar.gz"
     },
     {
       "name": "mariadb",
@@ -142,7 +142,7 @@
       "fileName": "mysql-8.4.11-linux-x64.tar.gz",
       "size": 142638699,
       "sha256": "0c62957adc632e46bc252a29c20a265206c96fd88e69823c5cc93d7000c60ab8",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/mysql-8.4.11-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.11-linux-x64.tar.gz"
     },
     {
       "name": "mariadb",
@@ -208,7 +208,7 @@
       "fileName": "mysql-8.4.11-linux-arm64.tar.gz",
       "size": 907353827,
       "sha256": "5b8e01da4cc17b5c4de50dfbafc7cc0784f0faef5a3a4408137a54d4bd092f66",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/mysql-8.4.11-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.11-linux-arm64.tar.gz"
     },
     {
       "name": "mariadb",
@@ -274,7 +274,7 @@
       "fileName": "mysql-8.4.11-windows-x64.zip",
       "size": 280422017,
       "sha256": "32555b84c4360742263699f87fd006074c0b759ea328c53f751f5469bc34ed97",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-af3fde5/mysql-8.4.11-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.11-windows-x64.zip"
     },
     {
       "name": "mariadb",
@@ -395,7 +395,7 @@
       "fileName": "mysql-8.0.29-darwin-arm64.tar.gz",
       "size": 175531598,
       "sha256": "2ed70922639573067ba096ed363c8d193a6fea3d3f99dc201b21c885111fecbf",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-8-0-29--3a0215b/mysql-8.0.29-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.29-darwin-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -406,7 +406,7 @@
       "fileName": "mysql-8.0.29-darwin-x64.tar.gz",
       "size": 179321091,
       "sha256": "ad4b68bc8c4bd6cf2e61ec6e7df7406665fe03e01490704fa547779342871e01",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-8-0-29--3a0215b/mysql-8.0.29-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.29-darwin-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -417,7 +417,7 @@
       "fileName": "mysql-8.0.29-linux-x64.tar.gz",
       "size": 115294713,
       "sha256": "036abcd2452d888890d14e4215477de9e1d5fc64fbab46992adab2e97c42f834",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-8-0-29--3a0215b/mysql-8.0.29-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.29-linux-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -428,7 +428,7 @@
       "fileName": "mysql-8.0.29-windows-x64.zip",
       "size": 224028623,
       "sha256": "56c84231f23de43269b08376549a775d75ad011ab1075bd187c1ae99a61232e5",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-8-0-29--3a0215b/mysql-8.0.29-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.29-windows-x64.zip"
     },
     {
       "name": "memcached",
@@ -648,7 +648,7 @@
       "fileName": "mysql-8.0.37-darwin-x64.tar.gz",
       "size": 174593222,
       "sha256": "63e9979b6e5b99ca38cc8d30225e75cc5933264624d8b2e979d08ae919c8439b",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44979134158/mysql-8.0.37-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.37-darwin-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -659,7 +659,7 @@
       "fileName": "mysql-8.0.37-darwin-arm64.tar.gz",
       "size": 169907052,
       "sha256": "a857208b6117720106e34f4f943c3b8980d5edc1bb5844f9b0840df596b17a8d",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44979134158/mysql-8.0.37-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.37-darwin-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -670,7 +670,7 @@
       "fileName": "mysql-8.0.37-windows-x64.zip",
       "size": 242272957,
       "sha256": "492c0a09fd031ecb30ca0a815e7edf443148e5f0736bcafd2ea85ecc7d76115a",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44979134158/mysql-8.0.37-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.37-windows-x64.zip"
     },
     {
       "name": "mariadb",
@@ -736,7 +736,7 @@
       "fileName": "mysql-8.0.37-linux-x64.tar.gz",
       "size": 140006721,
       "sha256": "6160823b366e365a4b36f909bc6a35d01d43167aa6dc391745d41f1710e6f041",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44979634868/mysql-8.0.37-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.37-linux-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -747,7 +747,7 @@
       "fileName": "mysql-8.0.37-linux-arm64.tar.gz",
       "size": 546237503,
       "sha256": "2a0e0925de18fb2e20a5f53e961d375b72dda84cf5ca6a59e0a5227f76893d53",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987092108/mysql-8.0.37-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.37-linux-arm64.tar.gz"
     },
     {
       "name": "postgresql",
@@ -901,7 +901,7 @@
       "fileName": "mysql-8.0.46-darwin-x64.tar.gz",
       "size": 177789219,
       "sha256": "87792aea2195caa7d0e692f4a5d73f2cf955bd4a6701824e6ef6653fc0fd96fa",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.46-darwin-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -912,7 +912,7 @@
       "fileName": "mysql-8.0.46-darwin-arm64.tar.gz",
       "size": 173419996,
       "sha256": "f4e7ed9b7edb1c2fc2df183b403e880395bccfab6850eafbcd4b4feb1653c20e",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.46-darwin-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -923,7 +923,7 @@
       "fileName": "mysql-8.0.46-linux-x64.tar.gz",
       "size": 141056143,
       "sha256": "c4ee848cfae7f4428359cd5f31045bb4be391346cd64053f53838128d5259859",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.46-linux-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -934,7 +934,7 @@
       "fileName": "mysql-8.0.46-linux-arm64.tar.gz",
       "size": 977188371,
       "sha256": "c4a570de10792edfce5627a69e6ef3853244c3b7fe43ef9c1663917366ef176d",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.46-linux-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -945,7 +945,7 @@
       "fileName": "mysql-8.0.46-windows-x64.zip",
       "size": 247551452,
       "sha256": "062d18ceb5928d9e90e862b57486f73a5094608621520f8622cbac9f9f394eb4",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-44987298228/mysql-8.0.46-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.46-windows-x64.zip"
     },
     {
       "name": "mariadb",
@@ -1055,7 +1055,7 @@
       "fileName": "mysql-5.7.31-darwin-x64.tar.gz",
       "size": 224633219,
       "sha256": "157243ae8cacb44cb9f35c861b627c75ba745e84779c02dbc87ef41e6626ef3a",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644785/mysql-5.7.31-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.7.31-darwin-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1066,7 +1066,7 @@
       "fileName": "mysql-5.7.31-linux-x64.tar.gz",
       "size": 377447529,
       "sha256": "a842e5bd28804f1a67cfb2dec0e0071d1781a710d3091f787e3caf053613b2b2",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644785/mysql-5.7.31-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.7.31-linux-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1077,7 +1077,7 @@
       "fileName": "mysql-5.7.31-windows-x64.zip",
       "size": 320109890,
       "sha256": "940e582448195c18a98415cace86d2255c5d665305e94f3067e1cd0af0fd02d3",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644785/mysql-5.7.31-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.7.31-windows-x64.zip"
     },
     {
       "name": "mysql",
@@ -1088,7 +1088,7 @@
       "fileName": "mysql-5.7.44-linux-x64.tar.gz",
       "size": 696340410,
       "sha256": "1a1447d9cda63290c186cbbda18ba84f77e72803fc5294cf0367dc0efd5429f4",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644869/mysql-5.7.44-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.7.44-linux-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1099,7 +1099,7 @@
       "fileName": "mysql-5.7.44-windows-x64.zip",
       "size": 352504988,
       "sha256": "80f0717bd0f534be203d8ec9de199d5910ad911f63f3b35985e87525832dc8bf",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644869/mysql-5.7.44-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.7.44-windows-x64.zip"
     },
     {
       "name": "mysql",
@@ -1110,7 +1110,7 @@
       "fileName": "mysql-8.4.10-darwin-x64.tar.gz",
       "size": 173048532,
       "sha256": "8b8dd5c319a7265717ef0f7795a72f3d76f39c3a96176b86f4aa78fb931979fe",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.10-darwin-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1121,7 +1121,7 @@
       "fileName": "mysql-8.4.10-darwin-arm64.tar.gz",
       "size": 168852070,
       "sha256": "e630c2be47a4c221ab35d29ff6e56e6f0ed845d44500aee0985ead6ed94fa988",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.10-darwin-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1132,7 +1132,7 @@
       "fileName": "mysql-8.4.10-linux-x64.tar.gz",
       "size": 142400742,
       "sha256": "fbf40d2ed59940a727860ee14af04913758e1bbaa45db7d8e095f32f2b3d4d29",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.10-linux-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1143,7 +1143,7 @@
       "fileName": "mysql-8.4.10-linux-arm64.tar.gz",
       "size": 906530512,
       "sha256": "a2bb3b211f36ff16117766110139bda36373954f44b2637bf0c9a72c785fd070",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.10-linux-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1154,7 +1154,7 @@
       "fileName": "mysql-8.4.10-windows-x64.zip",
       "size": 279908347,
       "sha256": "ec723a6623882803ed3ae574e8b846763e65209576bdc66039967242a6295496",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001645031/mysql-8.4.10-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.4.10-windows-x64.zip"
     },
     {
       "name": "mysql",
@@ -1165,7 +1165,7 @@
       "fileName": "mysql-8.0.45-darwin-x64.tar.gz",
       "size": 177238738,
       "sha256": "129b836637728d2cca17451b0283bed4c81010e78900c984fb3869865a7ebd7d",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644931/mysql-8.0.45-darwin-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.45-darwin-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1176,7 +1176,7 @@
       "fileName": "mysql-8.0.45-darwin-arm64.tar.gz",
       "size": 172397146,
       "sha256": "61773707d3c31b8884991a4f64857cb5a5d7a181905e8751fb0a439141d6904c",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644931/mysql-8.0.45-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.45-darwin-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1187,7 +1187,7 @@
       "fileName": "mysql-8.0.45-linux-x64.tar.gz",
       "size": 140546903,
       "sha256": "6f6857b0a3351e056fbf6ed5de1292195b5398a2fadb34308c8a38a96e548193",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644931/mysql-8.0.45-linux-x64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.45-linux-x64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1198,7 +1198,7 @@
       "fileName": "mysql-8.0.45-linux-arm64.tar.gz",
       "size": 975351757,
       "sha256": "a30a30b0b7a371714593a098633c1f6772604a08d0acb42bce834612690ef4af",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644931/mysql-8.0.45-linux-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.45-linux-arm64.tar.gz"
     },
     {
       "name": "mysql",
@@ -1209,7 +1209,7 @@
       "fileName": "mysql-8.0.45-windows-x64.zip",
       "size": 244476334,
       "sha256": "b366391f878a9f2346c768cbbd5f3ead2de684bb09a2a113833f38a402b5ea9e",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-history-45001644931/mysql-8.0.45-windows-x64.zip"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-8.0.45-windows-x64.zip"
     },
     {
       "name": "mysql",
@@ -1220,7 +1220,7 @@
       "fileName": "mysql-5.7.44-darwin-arm64.tar.gz",
       "size": 75792449,
       "sha256": "5e4e5c6ddc812ea5d7ecfd96f077605f77511f72102bf29b4a2f087b1c3d29ae",
-      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-candidate-mysql-5-7-44-macos-arm64--022252c/mysql-5.7.44-darwin-arm64.tar.gz"
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.7.44-darwin-arm64.tar.gz"
     }
   ]
 }
