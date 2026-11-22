@@ -1,19 +1,12 @@
 // Lock the upstream archives for a particular historical version before CI
 // builds them. Each emitted target still has to pass the release smoke job.
 import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { CATALOG } from '../src/install/catalog.js';
 import { targets } from './engine-matrix.mjs';
 import { extraBuildInputs } from './engine-sources.mjs';
 
-const [engine, version, ...requested] = process.argv.slice(2);
-if (!Object.hasOwn(CATALOG, engine) || !/^\d+\.\d+(?:\.\d+)?$/.test(version || '')) {
-  throw new Error('usage: prepare-engine-batch.mjs <engine> <version> [os-arch ...]');
-}
 const targetId = ({ os, arch }) => os + '-' + arch;
-const platforms = targets.filter((row) => !requested.length || requested.includes(targetId(row)));
-if (!platforms.length || requested.some((id) => !platforms.some((row) => targetId(row) === id))) {
-  throw new Error('unknown build target');
-}
 const shaPattern = /\b([a-f0-9]{64})\b/i;
 
 async function request(url, timeout = 30000) {
@@ -55,11 +48,14 @@ async function pin(url, { sha256, shaUrl } = {}) {
 
 const once = new Map();
 function memo(key, read) {
-  if (!once.has(key)) once.set(key, read());
+  if (!once.has(key)) once.set(key, read().catch((error) => {
+    once.delete(key);
+    throw error;
+  }));
   return once.get(key);
 }
 
-async function postgresInput(os) {
+async function postgresInput(version, os) {
   if (os === 'win32') {
     const binary = await pin('https://get.enterprisedb.com/postgresql/postgresql-' + version + '-1-windows-x64-binaries.zip');
     return binary && { binary };
@@ -69,7 +65,7 @@ async function postgresInput(os) {
   return checked && { source: checked, sourceCode: [source] };
 }
 
-async function redisInput(os) {
+async function redisInput(version, os) {
   const source = 'https://download.redis.io/releases/redis-' + version + '.tar.gz';
   if (os === 'win32') {
     const api = await request('https://api.github.com/repos/redis-windows/redis-windows/releases/tags/' + version);
@@ -80,15 +76,16 @@ async function redisInput(os) {
     return binary && { binary, sourceCode: [source, release.html_url, 'https://cygwin.com/licensing.html'] };
   }
   const checked = await memo(source, async () => {
-    const index = await request('https://raw.githubusercontent.com/redis/redis-hashes/master/README');
-    const line = (await index.text()).split('\n').find((text) =>
+    const index = await memo('redis-hashes', async () =>
+      (await (await request('https://raw.githubusercontent.com/redis/redis-hashes/master/README')).text()).split('\n'));
+    const line = index.find((text) =>
       text.startsWith('hash redis-' + version + '.tar.gz sha256 '));
     return pin(source, { sha256: line?.match(shaPattern)?.[1] });
   });
   return checked && { source: checked, sourceCode: [source] };
 }
 
-async function memcachedInput(os) {
+async function memcachedInput(version, os) {
   if (os === 'win32') {
     // The Windows port's tag differs from the upstream source version.
     if (version !== '1.6.8') return null;
@@ -101,7 +98,7 @@ async function memcachedInput(os) {
   return source && { source, sourceCode: [url] };
 }
 
-async function mariaInput(os, arch) {
+async function mariaInput(version, os, arch) {
   const base = 'https://downloads.mariadb.org/rest-api/mariadb/' + version + '/';
   const files = await memo(base, async () => {
     const json = await (await request(base))?.json();
@@ -124,13 +121,16 @@ async function mariaInput(os, arch) {
   };
 }
 
-async function mongoInput(os, arch) {
+async function mongoInput(version, os, arch) {
   const url = 'https://downloads.mongodb.org/full.json';
-  const downloads = await memo(url, async () => {
+  const releases = await memo(url, async () => {
     const data = await (await request(url, 180000)).json();
-    return data.versions.find((row) => row.version === version && row.production_release && !row.development_release)
-      ?.downloads?.filter((row) => row.edition === 'base' && row.archive?.url) ?? [];
+    return new Map(data.versions
+      .filter((row) => row.production_release && !row.development_release && !row.release_candidate)
+      .map((row) => [row.version, row.downloads?.filter((item) => item.edition === 'base' && item.archive?.url) ?? []]));
   });
+  const downloads = releases.get(version);
+  if (!downloads) return null;
   const platform = { darwin: ['macos', 'osx'], linux: ['ubuntu2204', 'ubuntu2004', 'debian12'], win32: ['windows'] }[os];
   const cpu = arch === 'arm64' ? ['arm64', 'aarch64'] : ['x86_64', 'x64'];
   const available = platform.map((target) => downloads.find((row) =>
@@ -145,16 +145,16 @@ async function mongoInput(os, arch) {
   return binary && { binary, sourceCode: ['https://github.com/mongodb/mongo/tree/r' + version, 'https://github.com/mongodb-js/mongosh/tree/v2.14.2'] };
 }
 
-async function mysqlInput(os, arch) {
+async function mysqlInput(version, os, arch) {
   const major = version.split('.').slice(0, 2).join('.');
   const base = 'https://repo.huaweicloud.com/mysql/Downloads/MySQL-' + major + '/';
   const files = await memo(base, async () => {
     const response = await request(base);
     const html = await response?.text() ?? '';
-    return [...new Set([...html.matchAll(/href=["']([^"'/]+)["']/g)].map((row) => row[1]))]
-      .filter((file) => file.startsWith('mysql-' + version + '-'));
+    return [...new Set([...html.matchAll(/href=["']([^"'/]+)["']/g)].map((row) => row[1]))];
   });
   const compatible = files.filter((file) => {
+    if (!file.startsWith('mysql-' + version + '-')) return false;
     if (os === 'win32') return file.endsWith('-winx64.zip');
     if (os === 'darwin') {
       const cpu = arch === 'x64' ? 'x86_64' : 'arm64';
@@ -169,20 +169,39 @@ async function mysqlInput(os, arch) {
   return binary && { binary, sourceCode: ['https://github.com/mysql/mysql-server/tree/mysql-' + version] };
 }
 
-const resolver = {
+const resolvers = {
   mysql: mysqlInput, mariadb: mariaInput, postgres: postgresInput,
   mongodb: mongoInput, redis: redisInput, memcached: memcachedInput,
-}[engine];
+};
 
-const results = await Promise.allSettled(platforms.map(async ({ os, arch }) => {
-  const inputs = await resolver(os, arch);
-  if (!inputs) return null;
-  return { engine, version, os, arch, inputs: { ...inputs, additional: extraBuildInputs(engine, os, arch) } };
-}));
-const rows = [];
-for (const [i, result] of results.entries()) {
-  if (result.status === 'fulfilled' && result.value) rows.push(result.value);
-  else console.error(targetId(platforms[i]) + ' ' + (result.reason?.message ?? 'no compatible upstream archive found'));
+export async function prepareBatch(engine, version, requested = []) {
+  if (!Object.hasOwn(CATALOG, engine) || !/^\d+\.\d+(?:\.\d+)?$/.test(version || '')) {
+    throw new Error('usage: prepare-engine-batch.mjs <engine> <version> [os-arch ...]');
+  }
+  const platforms = targets.filter((row) => !requested.length || requested.includes(targetId(row)));
+  if (requested.some((id) => !platforms.some((row) => targetId(row) === id))) throw new Error('unknown build target');
+  const results = await Promise.allSettled(platforms.map(async ({ os, arch }) => {
+    const inputs = await resolvers[engine](version, os, arch);
+    if (!inputs) return null;
+    return { engine, version, os, arch, inputs: { ...inputs, additional: extraBuildInputs(engine, os, arch) } };
+  }));
+  const rows = [];
+  const omitted = [];
+  for (const [i, result] of results.entries()) {
+    if (result.status === 'fulfilled' && result.value) rows.push(result.value);
+    else omitted.push({
+      target: targetId(platforms[i]),
+      state: result.status === 'rejected' ? 'lookup-error' : 'archive-unavailable',
+      reason: result.reason?.message ?? 'no compatible upstream archive found',
+    });
+  }
+  return { rows, omitted };
 }
-if (!rows.length) process.exitCode = 1;
-console.log(JSON.stringify(rows, null, 2));
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const [engine, version, ...requested] = process.argv.slice(2);
+  const { rows, omitted } = await prepareBatch(engine, version, requested);
+  for (const item of omitted) console.error(item.target + ' ' + item.reason);
+  if (!rows.length) process.exitCode = 1;
+  console.log(JSON.stringify(rows, null, 2));
+}

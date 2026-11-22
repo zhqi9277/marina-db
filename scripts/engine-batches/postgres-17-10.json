@@ -1,0 +1,80 @@
+[
+  {
+    "engine": "postgres",
+    "version": "17.10",
+    "os": "darwin",
+    "arch": "x64",
+    "inputs": {
+      "source": {
+        "url": "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.gz",
+        "sha256": "e4b43025f32ea3d271be64365d284c8462cffd41d80db0c3df6fc62417a2d9dc"
+      },
+      "sourceCode": [
+        "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.gz"
+      ],
+      "additional": []
+    }
+  },
+  {
+    "engine": "postgres",
+    "version": "17.10",
+    "os": "darwin",
+    "arch": "arm64",
+    "inputs": {
+      "source": {
+        "url": "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.gz",
+        "sha256": "e4b43025f32ea3d271be64365d284c8462cffd41d80db0c3df6fc62417a2d9dc"
+      },
+      "sourceCode": [
+        "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.gz"
+      ],
+      "additional": []
+    }
+  },
+  {
+    "engine": "postgres",
+    "version": "17.10",
+    "os": "linux",
+    "arch": "x64",
+    "inputs": {
+      "source": {
+        "url": "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.gz",
+        "sha256": "e4b43025f32ea3d271be64365d284c8462cffd41d80db0c3df6fc62417a2d9dc"
+      },
+      "sourceCode": [
+        "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.gz"
+      ],
+      "additional": []
+    }
+  },
+  {
+    "engine": "postgres",
+    "version": "17.10",
+    "os": "linux",
+    "arch": "arm64",
+    "inputs": {
+      "source": {
+        "url": "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.gz",
+        "sha256": "e4b43025f32ea3d271be64365d284c8462cffd41d80db0c3df6fc62417a2d9dc"
+      },
+      "sourceCode": [
+        "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.gz"
+      ],
+      "additional": []
+    }
+  },
+  {
+    "engine": "postgres",
+    "version": "17.10",
+    "os": "win32",
+    "arch": "x64",
+    "inputs": {
+      "binary": {
+        "url": "https://get.enterprisedb.com/postgresql/postgresql-17.10-1-windows-x64-binaries.zip",
+        "sha256": "f9aafca58e7026a1ef2caeee711acf761671e57904d430adc85f468374f5a821",
+        "size": 333925750
+      },
+      "additional": []
+    }
+  }
+]

@@ -1,0 +1,68 @@
+name: prepare-engine-history
+
+on:
+  push:
+    tags: ['engines-history-plan-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.inventory.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - id: inventory
+        run: |
+          node scripts/engine-history.mjs > inventory.json
+          tasks=$(node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const { history } = JSON.parse(fs.readFileSync('inventory.json', 'utf8'));
+          const total = Object.values(history).reduce((sum, item) => sum + item.versions.length, 0);
+          const count = Math.max(25, Math.ceil(total / 240));
+          const include = Object.entries(history).flatMap(([engine, { versions }]) =>
+            Array.from({ length: Math.ceil(versions.length / count) }, (_, index) => ({
+              engine, offset: index * count, count,
+            })));
+          console.log(JSON.stringify({ include }));
+          JS
+          )
+          echo "matrix=$tasks" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: upstream-history
+          path: inventory.json
+          if-no-files-found: error
+
+  prepare:
+    needs: inventory
+    runs-on: ubuntu-22.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.inventory.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
+          name: upstream-history
+      - name: Lock historical archives
+        run: |
+          node scripts/prepare-engine-history.mjs inventory.json plans \
+            "${{ matrix.engine }}" "${{ matrix.offset }}" "${{ matrix.count }}"
+      - uses: actions/upload-artifact@v7
+        if: "!cancelled()"
+        with:
+          name: history-${{ matrix.engine }}-${{ matrix.offset }}
+          path: plans/
+          if-no-files-found: warn
