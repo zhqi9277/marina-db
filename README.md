@@ -43,6 +43,17 @@ marina --version
 
 Use `node bin/marina.js` from the checkout for any example that starts with `marina`.
 
+### Update the CLI
+
+```sh
+marina update --check    # Compare your commit with GitHub main
+marina update            # Fast-forward the checkout used by Marina
+```
+
+The updater works with a Git checkout, including installations created with `scripts/install-cli.sh` or `npm link`. It updates a clean local `main` from the official GitHub repository, keeping your Git remote settings, database data, and running services in place. Add `--json` for the full commit IDs.
+
+If your installed checkout predates the command, run `git pull --ff-only https://github.com/zhqi9277/marina-db.git main` once from that checkout. For packages installed from npm, use npm to upgrade.
+
 ## Terminal dashboard
 
 Run `marina` in an interactive terminal. Select a database to see its active version, running state, port, and connection details.

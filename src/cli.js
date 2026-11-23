@@ -51,6 +51,8 @@ SERVICE
   marina auth <db[@ver]> [u] [p]  show/store the connection account + password
 
 TOOLS
+  marina update                       sync the CLI checkout to GitHub main
+  marina update --check               compare the local and GitHub commits
   marina exec <db[@ver]> -- -e "select 1"    run the client of that version
   marina which mysql                          resolve a client binary
   marina shims                                install shims into the runtime dir

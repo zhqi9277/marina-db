@@ -228,6 +228,17 @@ export PATH="$PWD/bin:$PATH"
 ./bin/marina --version
 ```
 
+### 更新 Marina CLI
+
+```bash
+marina update --check   # 比对当前提交与 GitHub main
+marina update           # 将 Marina 使用的 checkout 快进到 GitHub main
+```
+
+这两个命令适用于 Git checkout、安装脚本生成的启动器和 `npm link`，可在任意目录执行。更新要求本地 `main` 能安全快进，受跟踪文件干净。更新保留 Git 远程设置、数据库数据和正在运行的服务。加 `--json` 可查看完整提交号。
+
+如果旧版还没有 `update`，在它使用的 checkout 中执行一次 `git pull --ff-only https://github.com/zhqi9277/marina-db.git main`，之后即可使用自更新。通过 npm 安装的软件包请用 npm 升级。
+
 ---
 
 ## 7. 命令参考
