@@ -1,7 +1,7 @@
 // Update the checkout that provides the CLI, even when invoked elsewhere.
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -28,7 +28,7 @@ async function updateCheckout(check) {
 
   async function git(...args) {
     try {
-      const { stdout } = await exec('git', ['--no-replace-objects', '-C', ROOT, ...args], { env, timeout: 120000 });
+      const { stdout } = await exec('git', ['--no-replace-objects', ...args], { cwd: ROOT, env, timeout: 120000 });
       return stdout.replace(/\r?\n$/, '');
     } catch (error) {
       if (error.code === 'ENOENT') throw new Error('Git is required to update this Marina installation.');
@@ -36,8 +36,10 @@ async function updateCheckout(check) {
     }
   }
 
-  const checkout = await git('rev-parse', '--show-toplevel');
-  if (path.relative(realpathSync(ROOT), realpathSync(checkout))) throw new Error(unsupported);
+  // Ask Git whether this directory is the worktree root without comparing
+  // filesystem paths rendered by different programs on Windows.
+  const [inWorktree, prefix] = (await git('rev-parse', '--is-inside-work-tree', '--show-prefix')).split(/\r?\n/);
+  if (inWorktree !== 'true' || prefix !== '') throw new Error(unsupported);
   const head = () => git('rev-parse', '--verify', 'HEAD');
   const current = await head();
   if (check) {

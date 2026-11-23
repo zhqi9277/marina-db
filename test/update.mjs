@@ -167,6 +167,8 @@ test('update handles a failed fetch and recommends the original channel for a pa
     fs.copyFileSync(path.join(local, file), target);
   }
   rejected(launch(path.join(packaged, 'bin', 'marina.js'), '--check'), /original installation method/);
+  fs.mkdirSync(path.join(packaged, '.git'));
+  rejected(launch(path.join(packaged, 'bin', 'marina.js'), '--check'), /original installation method/);
   assert.equal(fs.existsSync(path.join(packaged, 'runtime')), false);
 
   fs.renameSync(upstream, upstream + '-offline');
