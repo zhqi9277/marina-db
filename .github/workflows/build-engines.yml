@@ -1,5 +1,5 @@
 name: build-engines
-run-name: ${{ github.event_name == 'push' && 'Verify Milvus Linux x64 packages' || github.event_name == 'schedule' && format('Check upstream releases ({0} UTC)', github.event.schedule) || format('Build {0} {1}', inputs.engine, inputs.versions) }}
+run-name: ${{ github.event_name == 'push' && 'Verify Milvus packages' || github.event_name == 'schedule' && format('Check upstream releases ({0} UTC)', github.event.schedule) || format('Build {0} {1}', inputs.engine, inputs.versions) }}
 
 on:
   push:
@@ -111,7 +111,7 @@ jobs:
         run: |
           if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
             ENGINE=milvus
-            TARGETS=linux-x64
+            TARGETS=linux-x64,darwin-arm64
           fi
           if [[ "$INCREMENTAL" == 'true' ]]; then
             case "$SCHEDULE" in
@@ -251,9 +251,50 @@ jobs:
           rustup toolchain install 1.92.0 --profile minimal
           echo "RUSTUP_TOOLCHAIN=1.92.0" >> "$GITHUB_ENV"
           echo "MARINA_BUILD_PATH=$RUNNER_TEMP/milvus-tools/bin:$PATH" >> "$GITHUB_ENV"
+      - name: Identify the Milvus source build
+        id: milvus-native
+        if: matrix.engine == 'milvus' && runner.os == 'macOS'
+        shell: bash
+        env:
+          VERSION: ${{ matrix.version }}
+        run: |
+          recipe=$({
+            shasum -a 256 scripts/build-engine.sh scripts/milvus-local.patch
+            sw_vers -buildVersion
+            xcodebuild -version
+            brew list --versions llvm@19 libomp
+            go version
+            rustc --version
+            "$RUNNER_TEMP/milvus-tools/bin/conan" --version
+            "$RUNNER_TEMP/milvus-tools/bin/cmake" --version
+            node --input-type=module <<'JS'
+          import { readBuildMatrix } from './scripts/engine-matrix.mjs';
+          import { sourcesFor } from './scripts/engine-sources.mjs';
+          const row = readBuildMatrix().find(({ version, os, arch }) =>
+            version === process.env.VERSION && os === process.platform && arch === process.arch);
+          console.log(JSON.stringify(sourcesFor(row)));
+          JS
+          } | shasum -a 256 | cut -d' ' -f1)
+          echo "key=milvus-native-v1-${{ matrix.os }}-${{ matrix.arch }}-$recipe" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v5
+        id: restore-milvus-native
+        if: steps.milvus-native.outputs.key != ''
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/milvus-native
+          key: ${{ steps.milvus-native.outputs.key }}
       - name: Package for this platform
         id: package
+        env:
+          MARINA_MILVUS_NATIVE_CACHE: ${{ steps.milvus-native.outputs.key && format('{0}/milvus-native', runner.temp) || '' }}
+          MARINA_MILVUS_NATIVE_RESTORED: ${{ steps.restore-milvus-native.outputs.cache-hit }}
         run: node scripts/package-engine.mjs "${{ matrix.engine }}" "${{ matrix.version }}" dist
+      - uses: actions/cache/save@v5
+        if: "!cancelled() && steps.package.outputs.milvus_native_ready == 'true'"
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/milvus-native
+          key: ${{ steps.milvus-native.outputs.key }}
       - name: Install and smoke test the archive
         env:
           MARINA_SMOKE_LOG_DIR: ${{ matrix.engine == 'milvus' && 'smoke-logs' || '' }}

@@ -170,6 +170,8 @@ Run `build-engines` with one database and a comma-separated list of versions. Gi
 
 The build workflow checks upstream releases for each database daily on `main`. It discovers new versions and release series and skips packages already published or covered by unexpired build artifacts. To check immediately, select an engine and enable `incremental` in `build-engines`. Use the successful run ID to promote the builds when ready.
 
+Changes to Milvus packaging on `main` check for missing Linux x64 and macOS ARM64 builds. Milvus packages from these checks and from the daily Milvus run publish automatically after smoke tests pass. Linux can reuse a compatible package from an earlier run, and macOS caches the compiled files before packaging.
+
 Report bugs and feature requests in [GitHub Issues](https://github.com/zhqi9277/marina-db/issues).
 
 ## License

@@ -39,6 +39,23 @@ function milvusDarwinLibraries(root) {
   });
 }
 
+function buildSource(target, inputs, root) {
+  const { engine, version, os } = target;
+  const cache = engine === 'milvus' && os === 'darwin' && process.env.MARINA_MILVUS_NATIVE_CACHE;
+  const payload = cache ? path.join(cache, 'payload') : root;
+  const restored = cache && process.env.MARINA_MILVUS_NATIVE_RESTORED === 'true' && findBin(payload, ['milvus']);
+  if (restored) {
+    console.log('Reusing the compiled Milvus payload for ' + os + '/' + target.arch);
+  } else {
+    if (cache) fs.rmSync(payload, { recursive: true, force: true });
+    run('bash', ['scripts/build-engine.sh', engine, inputs[0].file, payload, ...inputs.slice(1).map(({ file }) => file)], {
+      env: { ...process.env, MARINA_BUILD_VERSION: version },
+    });
+    if (cache && process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'milvus_native_ready=true\n');
+  }
+  if (cache) fs.cpSync(payload, root, { recursive: true, verbatimSymlinks: true });
+}
+
 async function fetchInput(input, dir) {
   const url = new URL(input.url);
   const bottle = url.origin === 'https://ghcr.io' &&
@@ -110,9 +127,7 @@ try {
     if (!layout) throw new Error('upstream archive has an unrecognized ' + key + ' layout');
     root = layout;
   } else {
-    run('bash', ['scripts/build-engine.sh', key, inputs[0].file, root, ...inputs.slice(1).map(({ file }) => file)], {
-      env: { ...process.env, MARINA_BUILD_VERSION: version },
-    });
+    buildSource(target, inputs, root);
   }
 
   if (key === 'milvus') {

@@ -89,7 +89,8 @@ jobs:
         run: |
           if [[ "$GITHUB_EVENT_NAME" == 'workflow_run' ]]; then
             jq -e --arg event "$BUILD_EVENT" 'length > 0 and all(.[];
-              .engine == "milvus" and ($event != "push" or (.os == "linux" and .arch == "x64"))
+              .engine == "milvus" and ($event != "push" or (.os == "linux" and .arch == "x64") or
+              (.os == "darwin" and .arch == "arm64"))
             )' evidence/engine-plan.json
           fi
           parent=()

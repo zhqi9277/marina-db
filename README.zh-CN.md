@@ -595,6 +595,8 @@ npm run marina -- remote   # 不装全局时直接跑
 
 `build-engines` 会在 `main` 上每天检查一次各数据库的上游正式版本。它跟踪正式清单中的版本系列，发现新的补丁或系列后，只构建缺少的平台包。已发布的包和成功运行中尚未过期的验收产物会跳过，上游暂未提供的平台会在下次检查时重试。想立即检查时，手动选择 `engine` 并开启 `incremental`。新包通过验收后可用对应的运行 ID 执行 `promote-engines`。
 
+向 `main` 推送 Milvus 打包改动时，会检查缺少的 Linux x64 和 macOS ARM64 包。该检查和每日 Milvus 构建通过冒烟测试后会自动发布。Linux 可以复用相同构建配方的历史产物，macOS 会在打包前缓存已编译文件。
+
 在 `promote-engines` 中只填写 `migrate_engine` 可迁移该数据库已经登记在正式清单中的旧归档。工作流复制原归档并验证校验值，确认新附件可用后再切换清单链接。`engine-catalog` 的历史提交及外部直链仍可能引用旧 Release，清理前需确认这些下载链接可以下线。
 
 `node scripts/prepare-engine-history.mjs <盘点清单> <输出目录> <引擎> [起始位置] [条数]` 可批量准备归档。同一输出目录可以续跑，已锁定的目标会直接复用。缺包和网络错误按版本、架构记录在 `<引擎>-results.jsonl`。
