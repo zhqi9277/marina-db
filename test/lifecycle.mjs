@@ -30,3 +30,25 @@ test('start() ignores stale absolute config text and checks the payload', async 
   await assert.rejects(start(ctx, { quiet: true }), /payload|cannot find|server binary/i);
   assert.ok(Date.now() - t0 < 2000, 'must fail fast, not wait for the 30s readiness window');
 });
+
+test('start reports an early exit from a foreground server', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-exit-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const pidFile = path.join(dir, 'milvus.pid');
+  const logFile = path.join(dir, 'milvus.log');
+  const engine = {
+    key: 'milvus',
+    label: 'Milvus',
+    readPid: () => Number(fs.readFileSync(pidFile, 'utf8')),
+    startCommand: () => ({
+      cmd: process.execPath,
+      args: ['-e', 'console.error("native startup failure"); process.exit(23)'],
+      foreground: true,
+      recordPid: true,
+      logFile,
+    }),
+  };
+  const ctx = { key: engine.key, version: '3.0.6', major: '3', port: 1, root: dir, pidFile, logFile, engine };
+  await assert.rejects(start(ctx, { quiet: true, timeoutMs: 3000 }), /Milvus exited with code 23 during startup[\s\S]*native startup failure/);
+  assert.equal(fs.existsSync(pidFile), false);
+});

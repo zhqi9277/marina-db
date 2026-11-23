@@ -243,6 +243,7 @@ async function startService(ctx, { quiet = false, timeoutMs = ctx.engine.startTi
   const env = clientEnv({ ...process.env, ...spec.env });
   const startedAt = Date.now();
   let spawnedPid = null;
+  let serverExit = null;
   if (!quiet) info(`starting ${ctx.engine.label} ${ctx.version} on port ${ctx.port}`);
   if (!spec.foreground) {
     // wrapper (e.g. pg_ctl -w) — it daemonizes; ignore stdio so the daemon does
@@ -271,6 +272,9 @@ async function startService(ctx, { quiet = false, timeoutMs = ctx.engine.startTi
     if (spawnError) throw new Error(`failed to start ${ctx.engine.label}: ${spawnError.message}`);
     spawnedPid = child.pid;
     if (spec.recordPid) {
+      child.once('exit', (code, signal) => {
+        serverExit = signal ? `was terminated by ${signal}` : `exited with code ${code}`;
+      });
       try {
         fs.writeFileSync(ctx.pidFile, `${spawnedPid}\n`);
       } catch (error) {
@@ -280,10 +284,11 @@ async function startService(ctx, { quiet = false, timeoutMs = ctx.engine.startTi
     }
   }
 
-  // readiness = our own pid file is alive *and* the port accepts connections.
-  // Polling this is much cheaper than spawning a client probe every 300ms.
-  const up = await waitFor(() => bootReady(ctx), timeoutMs, 200);
-  if (!up) {
+  const finished = await waitFor(() => serverExit || bootReady(ctx), timeoutMs, 200);
+  if (!finished || serverExit) {
+    const reason = serverExit
+      ? `${ctx.engine.label} ${serverExit} during startup`
+      : `${ctx.engine.label} did not become ready within ${Math.round(timeoutMs / 1000)}s`;
     // do not leak the process we just started: a server that never becomes
     // ready keeps holding the port/datadir, and the retry would fail
     const pid = readPid(ctx);
@@ -296,7 +301,7 @@ async function startService(ctx, { quiet = false, timeoutMs = ctx.engine.startTi
     const tail = tailLog(ctx);
     if (!pidAlive(pid) && !pidAlive(spawnedPid)) cleanRuntimeFiles(ctx);
     throw new Error(
-      `${ctx.engine.label} did not become ready within ${Math.round(timeoutMs / 1000)}s\n` +
+      reason + '\n' +
       (tail ? `--- last log lines (${ctx.logFile}) ---\n${tail}` : `(no log at ${ctx.logFile})`),
     );
   }

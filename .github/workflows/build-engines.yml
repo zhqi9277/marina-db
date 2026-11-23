@@ -228,10 +228,14 @@ jobs:
           echo "RUSTUP_TOOLCHAIN=1.92.0" >> "$GITHUB_ENV"
           echo "MARINA_BUILD_PATH=$RUNNER_TEMP/milvus-tools/bin:$PATH" >> "$GITHUB_ENV"
       - name: Package for this platform
+        id: package
         run: node scripts/package-engine.mjs "${{ matrix.engine }}" "${{ matrix.version }}" dist
       - name: Install and smoke test the archive
+        env:
+          MARINA_SMOKE_LOG_DIR: ${{ matrix.engine == 'milvus' && 'smoke-logs' || '' }}
         run: npm run smoke:e2e -- "${{ matrix.engine }}" "${{ matrix.version }}" dist validated
       - uses: actions/upload-artifact@v7
+        if: success() || (failure() && matrix.engine == 'milvus' && steps.package.outcome == 'success')
         with:
           name: engine-${{ matrix.engine }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/*
@@ -239,6 +243,14 @@ jobs:
           retention-days: 7
           overwrite: true
           if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: failure() && matrix.engine == 'milvus' && steps.package.outcome == 'success'
+        with:
+          name: milvus-smoke-logs-${{ matrix.os }}-${{ matrix.arch }}
+          path: smoke-logs/
+          retention-days: 7
+          overwrite: true
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
         with:
           name: validated-engine-${{ matrix.engine }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}

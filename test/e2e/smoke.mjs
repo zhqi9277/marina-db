@@ -238,6 +238,12 @@ try {
   console.log('[ok] ' + ref + ' ' + process.platform + '/' + process.arch);
 } catch (error) {
   failure = error;
+  if (process.env.MARINA_SMOKE_LOG_DIR) {
+    const logs = path.join(home, 'logs', engine);
+    if (fs.existsSync(logs)) {
+      fs.cpSync(logs, process.env.MARINA_SMOKE_LOG_DIR, { recursive: true });
+    }
+  }
   throw error;
 } finally {
   try {
