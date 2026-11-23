@@ -56,17 +56,31 @@ function machLocal(ref, file, root) {
   return ref.replace(/^@loader_path\b/, dir).replace(/^@executable_path\b/, path.join(root, 'bin'));
 }
 
-function relocateMac(root) {
+function relocateMac(root, libraries) {
+  const bundled = new Map();
+  const copies = new Set();
+  for (const source of libraries) {
+    const target = path.join(root, 'lib', path.basename(source));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
+    bundled.set(source, target);
+    bundled.set(fs.realpathSync(source), target);
+    copies.add(target);
+  }
   const files = nativeFiles(root);
   for (const file of files) {
     const deps = machDependencies(file);
     const rpaths = machRpaths(file);
     const changes = [];
+    // A copied dylib may still identify itself by its original absolute path.
+    const copiedId = copies.has(file) ? command('otool', ['-D', file]).split('\n')[1]?.trim() : null;
+    if (copiedId) changes.push('-id', '@rpath/' + path.basename(file));
     for (const dep of deps) {
+      if (dep === copiedId) continue;
       // Homebrew bottles use a relocation marker for both their own libraries
       // and runtime dependencies supplied with the package.
       const bottleLibrary = /^(?:@@HOMEBREW_PREFIX@@\/opt\/[^/]+|@@HOMEBREW_CELLAR@@\/[^/]+\/[^/]+)\/lib\/([^/]+)$/.exec(dep)?.[1];
-      const target = bottleLibrary ? path.join(root, 'lib', bottleLibrary) : dep;
+      const target = bundled.get(dep) ?? (bottleLibrary ? path.join(root, 'lib', bottleLibrary) : dep);
       if (local(target, root) && fs.existsSync(target)) {
         changes.push('-change', dep, '@loader_path/' + path.relative(path.dirname(file), target));
       } else if (dep.startsWith('@rpath/') && !rpaths.some((ref) => {
@@ -148,8 +162,8 @@ async function relocateLinux(root) {
   }
 }
 
-export async function relocate(root) {
-  if (process.platform === 'darwin') relocateMac(root);
+export async function relocate(root, { darwinLibraries = [] } = {}) {
+  if (process.platform === 'darwin') relocateMac(root, darwinLibraries);
   if (process.platform === 'linux') await relocateLinux(root);
 }
 

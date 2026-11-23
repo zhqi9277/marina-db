@@ -30,7 +30,9 @@ export default {
 
   startCommand(ctx) {
     const configs = path.join(ctx.root, 'configs');
-    fs.copyFileSync(path.join(configs, 'milvus.yaml'), path.join(ctx.etcDir, 'milvus.yaml'));
+    for (const file of ['milvus.yaml', 'glog.conf']) {
+      fs.copyFileSync(path.join(configs, file), path.join(ctx.etcDir, file));
+    }
     return {
       cmd: findBin(ctx.root, this.serverBin),
       args: ['run', 'standalone'],

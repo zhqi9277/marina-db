@@ -76,7 +76,7 @@ case "$ENGINE" in
         fi
       done
     done
-    cp "$SRC/configs/milvus.yaml" "$PREFIX/configs/"
+    cp "$SRC/configs/milvus.yaml" "$SRC/configs/glog.conf" "$PREFIX/configs/"
     cat > "$PREFIX/configs/marina-etcd.yaml" <<'YAML'
 listen-client-urls: http://127.0.0.1:0
 listen-peer-urls: http://127.0.0.1:0

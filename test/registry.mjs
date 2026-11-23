@@ -99,6 +99,23 @@ test('buildCtx wires paths, account and port for each engine shape', () => {
   assert.equal(redis.confFile, path.join(HOME, 'etc', 'redis', '7', 'redis.conf'));
 });
 
+test('Milvus copies the packaged logging flags to the active configuration directory', (t) => {
+  const root = fs.mkdtempSync(path.join(HOME, 'milvus payload '));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const configs = path.join(root, 'configs');
+  const etcDir = path.join(root, 'instance config');
+  fs.mkdirSync(configs);
+  fs.mkdirSync(etcDir);
+  fs.writeFileSync(path.join(configs, 'milvus.yaml'), 'common:\n');
+  fs.writeFileSync(path.join(configs, 'glog.conf'), '--minloglevel=0\n');
+  fs.writeFileSync(path.join(etcDir, 'user.yaml'), 'custom: true\n');
+  const launch = engines.milvus.startCommand({ root, etcDir, dataDir: root, port: 19530 });
+  assert.equal(launch.env.MILVUSCONF, etcDir);
+  assert.equal(fs.readFileSync(path.join(etcDir, 'glog.conf'), 'utf8'), '--minloglevel=0\n');
+  assert.equal(fs.readFileSync(path.join(etcDir, 'milvus.yaml'), 'utf8'), 'common:\n');
+  assert.equal(fs.readFileSync(path.join(etcDir, 'user.yaml'), 'utf8'), 'custom: true\n');
+});
+
 test('resolveRef reports installed versions and honours requireInstalled', () => {
   const hit = registry.resolveRef('mysql@8.4.11');
   assert.equal(hit.installed, true);

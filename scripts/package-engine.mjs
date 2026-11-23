@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
 import { getEngine } from '../src/core/registry.js';
 import { discoverRoot, findBin } from '../src/install/archive.js';
@@ -16,6 +16,26 @@ function run(command, args, options = {}) {
   const result = spawnSync(command, args, { stdio: 'inherit', ...options });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(command + ' failed with status ' + result.status);
+}
+
+function milvusDarwinLibraries(root) {
+  const runtimes = {
+    'llvm@19': ['lib/c++/libc++.1.dylib', 'lib/c++/libc++abi.1.dylib', 'lib/unwind/libunwind.1.dylib'],
+    libomp: ['lib/libomp.dylib'],
+  };
+  return Object.entries(runtimes).flatMap(([formula, libraries]) => {
+    const prefix = execFileSync('brew', ['--prefix', formula], { encoding: 'utf8' }).trim();
+    const notices = fs.readdirSync(prefix).filter((name) => /^(license|copying|notice)([.-]|$)/i.test(name));
+    if (!notices.length) throw new Error('Missing license files in the Homebrew prefix for ' + formula);
+    for (const name of notices) {
+      fs.copyFileSync(path.join(prefix, name), path.join(root, formula + '-' + name));
+    }
+    return libraries.map((library) => {
+      const file = path.join(prefix, library);
+      fs.accessSync(file, fs.constants.R_OK);
+      return file;
+    });
+  });
 }
 
 async function fetchInput(input, dir) {
@@ -62,6 +82,7 @@ try {
   const inputs = await Promise.all([binary ?? source, ...additional].map((input) => fetchInput(input, work)));
   let root = path.join(work, 'payload');
   fs.mkdirSync(root);
+  const darwinLibraries = key === 'milvus' && process.platform === 'darwin' ? milvusDarwinLibraries(root) : [];
   if (binary) {
     run('tar', ['-xf', inputs[0].file, '-C', root]);
     if (process.platform === 'win32' && ['redis', 'memcached'].includes(key)) {
@@ -145,7 +166,7 @@ try {
   }
   const provenance = { inputs: inputs.map(({ url, sha256 }) => ({ url, sha256 })), sourceCode };
   fs.writeFileSync(path.join(root, 'MARINA-SOURCES.json'), JSON.stringify(provenance, null, 2) + '\n');
-  await relocate(root);
+  await relocate(root, { darwinLibraries });
   // Verify the staged archive in a different location so prefix paths cannot
   // resolve just because the original build output was left on the same runner.
   const moved = path.join(work, 'relocated payload');
