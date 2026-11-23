@@ -2068,6 +2068,17 @@
       "size": 33466468,
       "sha256": "cabdabcf6c39b2bfa2944e67f22ab7629647ad6bd87c085405e5f19373186f41",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-qdrant/qdrant-1.20.2-windows-x64.zip"
+    },
+    {
+      "name": "milvus",
+      "version": "3.0.6",
+      "major": "3",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "milvus-3.0.6-linux-x64.tar.gz",
+      "size": 700406633,
+      "sha256": "901e185f50eb5b5e5bf04ca52d80ad1b02b1c3cbe941e0e39b237e784c516c11",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-milvus/milvus-3.0.6-linux-x64.tar.gz"
     }
   ]
 }
