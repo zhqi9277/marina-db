@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
 import { getEngine } from '../src/core/registry.js';
@@ -80,10 +81,19 @@ const work = fs.mkdtempSync(path.join(os.tmpdir(), 'marina-package-'));
 try {
   const { binary, source, additional, sourceCode } = sourcesFor(target);
   const inputs = await Promise.all([binary ?? source, ...additional].map((input) => fetchInput(input, work)));
+  const provenance = { inputs: inputs.map(({ url, sha256 }) => ({ url, sha256 })), sourceCode };
   let root = path.join(work, 'payload');
   fs.mkdirSync(root);
   const darwinLibraries = key === 'milvus' && process.platform === 'darwin' ? milvusDarwinLibraries(root) : [];
-  if (binary) {
+  const reusableArchive = process.env.MARINA_MILVUS_REUSE_ARCHIVE;
+  if (reusableArchive) {
+    if (key !== 'milvus' || target.os !== 'linux' || !source || path.basename(reusableArchive) !== archiveName(target)) {
+      throw new Error('the reusable Milvus archive must match the locked Linux build target');
+    }
+    run('tar', ['-xf', reusableArchive, '-C', root]);
+    const previous = JSON.parse(fs.readFileSync(path.join(root, 'MARINA-SOURCES.json'), 'utf8'));
+    if (!isDeepStrictEqual(previous, provenance)) throw new Error('the reusable Milvus archive has different source inputs');
+  } else if (binary) {
     run('tar', ['-xf', inputs[0].file, '-C', root]);
     if (process.platform === 'win32' && ['redis', 'memcached'].includes(key)) {
       const server = findBin(root, engine.serverBin);
@@ -103,6 +113,11 @@ try {
     run('bash', ['scripts/build-engine.sh', key, inputs[0].file, root, ...inputs.slice(1).map(({ file }) => file)], {
       env: { ...process.env, MARINA_BUILD_VERSION: version },
     });
+  }
+
+  if (key === 'milvus') {
+    const glog = execFileSync('tar', ['-xOf', inputs[0].file, 'milvus-' + version + '/configs/glog.conf']);
+    fs.writeFileSync(path.join(root, 'configs', 'glog.conf'), glog);
   }
 
   if (key === 'qdrant' && !fs.existsSync(path.join(root, 'LICENSE'))) {
@@ -164,9 +179,8 @@ try {
   for (const names of [engine.serverBin, ...(engine.primaryClient ? [[engine.primaryClient]] : [])]) {
     if (!findBin(root, names)) throw new Error('package is missing ' + names.join('/'));
   }
-  const provenance = { inputs: inputs.map(({ url, sha256 }) => ({ url, sha256 })), sourceCode };
   fs.writeFileSync(path.join(root, 'MARINA-SOURCES.json'), JSON.stringify(provenance, null, 2) + '\n');
-  await relocate(root, { darwinLibraries });
+  if (!reusableArchive) await relocate(root, { darwinLibraries });
   // Verify the staged archive in a different location so prefix paths cannot
   // resolve just because the original build output was left on the same runner.
   const moved = path.join(work, 'relocated payload');

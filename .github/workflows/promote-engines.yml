@@ -1,6 +1,10 @@
 name: promote-engines
 
 on:
+  workflow_run:
+    workflows: [build-engines]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       run_id:
@@ -20,7 +24,14 @@ concurrency:
 
 jobs:
   promote:
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        (github.event.workflow_run.event == 'push' ||
+         (github.event.workflow_run.event == 'schedule' &&
+          github.event.workflow_run.display_title == 'Check upstream releases (52 1 * * * UTC)')) &&
+        github.event.workflow_run.head_repository.id == github.event.repository.id))
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
@@ -30,9 +41,10 @@ jobs:
         with:
           node-version: 24
       - name: Verify the workflow run
+        id: verify
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.run_id }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
           MIGRATE_ENGINE: ${{ inputs.migrate_engine }}
         run: |
           if [[ -n "$MIGRATE_ENGINE" ]]; then
@@ -42,31 +54,44 @@ jobs:
             [[ "$RUN_ID" =~ ^[0-9]+$ ]]
             sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" \
               --jq 'select((.path | split("@")[0]) == ".github/workflows/build-engines.yml" and .conclusion == "success" and
-                (.event == "workflow_dispatch" or .event == "schedule")) | .head_sha')
+                (.event == "workflow_dispatch" or .event == "schedule" or
+                (.event == "push" and .head_branch == "main" and .head_repository.id == .repository.id))) | .head_sha')
             [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
             git merge-base --is-ancestor "$sha" "$GITHUB_SHA"
+            if [[ "$GITHUB_EVENT_NAME" == 'workflow_run' ]]; then
+              count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?name=locked-plan" --jq '.total_count')
+              if [[ "$count" == 0 ]]; then exit 0; fi
+            fi
           fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v8
-        if: inputs.run_id != ''
+        if: steps.verify.outputs.ready == 'true' && (inputs.run_id != '' || github.event_name == 'workflow_run')
         with:
           name: locked-plan
           path: evidence
-          run-id: ${{ inputs.run_id }}
+          run-id: ${{ github.event.workflow_run.id || inputs.run_id }}
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@v8
-        if: inputs.run_id != ''
+        if: steps.verify.outputs.ready == 'true' && (inputs.run_id != '' || github.event_name == 'workflow_run')
         with:
           pattern: validated-engine-*
           path: evidence/validated
           merge-multiple: true
-          run-id: ${{ inputs.run_id }}
+          run-id: ${{ github.event.workflow_run.id || inputs.run_id }}
           github-token: ${{ github.token }}
       - name: Publish assets and update the stable catalog
+        if: steps.verify.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.run_id }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
           MIGRATE_ENGINE: ${{ inputs.migrate_engine }}
+          BUILD_EVENT: ${{ github.event.workflow_run.event }}
         run: |
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_run' ]]; then
+            jq -e --arg event "$BUILD_EVENT" 'length > 0 and all(.[];
+              .engine == "milvus" and ($event != "push" or (.os == "linux" and .arch == "x64"))
+            )' evidence/engine-plan.json
+          fi
           parent=()
           stable_ref=refs/heads/engine-catalog
           stable_head=$(git ls-remote origin "$stable_ref")
