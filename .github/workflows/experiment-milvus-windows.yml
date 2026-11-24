@@ -87,6 +87,15 @@ jobs:
           # Keep the MSYS branch intact. Native MinGW has a separate CMake platform.
           $source = $source.Replace($branch, "elseif ( WIN32 AND MINGW )`n    message(STATUS `"Native Windows MinGW build`")`n$branch")
           [IO.File]::WriteAllText((Resolve-Path $core), $source)
+
+          $recipe = 'internal/core/conanfile.py'
+          $source = [IO.File]::ReadAllText((Resolve-Path $recipe))
+          $unwindGuard = 'if self.settings.os != "Macos":'
+          if (!$source.Contains($unwindGuard)) { throw 'Unexpected Milvus libunwind requirement' }
+          # This libunwind recipe only supports Linux and FreeBSD.
+          $source = $source.Replace($unwindGuard, 'if self.settings.os in ("Linux", "FreeBSD"):')
+          [IO.File]::WriteAllText((Resolve-Path $recipe), $source)
+
           conan profile detect
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           conan remote add milvus https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local2 --index 0
