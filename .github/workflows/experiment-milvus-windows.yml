@@ -1,0 +1,125 @@
+name: Milvus native Windows experiment
+
+on:
+  push:
+    branches: [experiment/milvus-windows-native]
+    paths:
+      - .github/workflows/experiment-milvus-windows.yml
+      - scripts/milvus-local.patch
+
+permissions:
+  contents: read
+
+env:
+  MILVUS_VERSION: '3.0.6'
+
+jobs:
+  build:
+    name: Windows x64 (MinGW-w64 UCRT)
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Extract the locked Milvus source
+        run: |
+          $source = node --input-type=module -e "import { sourcesFor } from './scripts/engine-sources.mjs'; console.log(JSON.stringify(sourcesFor({ engine: 'milvus', version: process.env.MILVUS_VERSION, os: 'linux', arch: 'x64' }).source))" | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP 'milvus.tar.gz'
+          curl.exe --fail --location --retry 3 --output $archive $source.url
+          if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne $source.sha256) {
+            throw 'Milvus source SHA-256 mismatch'
+          }
+          $src = New-Item -Type Directory (Join-Path $env:RUNNER_TEMP 'milvus-src')
+          tar.exe -xf $archive -C $src.FullName --strip-components=1
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to extract Milvus source' }
+          "MILVUS_SRC=$($src.FullName)" >> $env:GITHUB_ENV
+
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: UCRT64
+          update: true
+          pacboy: gcc:p pkgconf:p
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Prepare the Windows toolchain
+        env:
+          MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
+        run: |
+          $bin = Join-Path $env:MSYS2_ROOT 'ucrt64/bin'
+          $env:Path = "$bin;$env:Path"
+          $target = gcc -dumpmachine
+          if ($target -ne 'x86_64-w64-mingw32') { throw "Unexpected GCC target $target" }
+          python -m pip install 'cmake==3.31.10' 'conan==2.25.1'
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to install the pinned build tools' }
+          $bin >> $env:GITHUB_PATH
+          'CC=gcc' >> $env:GITHUB_ENV
+          'CXX=g++' >> $env:GITHUB_ENV
+          "CONAN_HOME=$(Join-Path $env:RUNNER_TEMP 'conan')" >> $env:GITHUB_ENV
+
+      - name: Configure the unmodified C++ core
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $output = cmake -S "$env:MILVUS_SRC/internal/core" -B "$env:RUNNER_TEMP/milvus-baseline" -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1
+          $status = $LASTEXITCODE
+          $output | ForEach-Object { Write-Host $_ }
+          if ($status -ne 0 -and ($output | Out-String) -notmatch 'Unsupported platform!') {
+            exit $status
+          }
+          exit 0
+
+      - name: Allow MinGW and resolve the upstream Conan dependencies
+        working-directory: ${{ env.MILVUS_SRC }}
+        run: |
+          $core = 'internal/core/CMakeLists.txt'
+          $source = [IO.File]::ReadAllText((Resolve-Path $core))
+          $branch = 'elseif ( MSYS )'
+          if (!$source.Contains($branch)) { throw 'Unexpected Milvus platform check' }
+          # Keep the MSYS branch intact. Native MinGW has a separate CMake platform.
+          $source = $source.Replace($branch, "elseif ( WIN32 AND MINGW )`n    message(STATUS `"Native Windows MinGW build`")`n$branch")
+          [IO.File]::WriteAllText((Resolve-Path $core), $source)
+          conan profile detect
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          conan remote add milvus https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local2 --index 0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          conan install internal/core --output-folder cmake_build/conan --build=missing `
+            -s build_type=Release -s compiler.cppstd=20 -s:b compiler.cppstd=20 `
+            -c tools.cmake.cmaketoolchain:generator=Ninja
+
+      - name: Build and install the C++ core
+        working-directory: ${{ env.MILVUS_SRC }}
+        run: |
+          rustup toolchain install 1.92.0-x86_64-pc-windows-gnu --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:RUSTUP_TOOLCHAIN = '1.92.0-x86_64-pc-windows-gnu'
+          $env:CMAKE_POLICY_VERSION_MINIMUM = '3.5'
+          cmake -S internal/core -B cmake_build -G Ninja -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE=conan/conan_toolchain.cmake -DCMAKE_INSTALL_PREFIX="$env:MILVUS_SRC/internal/core/output"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build cmake_build --target install --parallel 2
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.9'
+          cache: false
+      - name: Link the native Milvus server
+        working-directory: ${{ env.MILVUS_SRC }}
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '1'
+        run: |
+          git apply "$env:GITHUB_WORKSPACE/scripts/milvus-local.patch"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:PKG_CONFIG_PATH = "$env:MILVUS_SRC/internal/core/output/lib/pkgconfig"
+          go build -buildvcs=false -tags dynamic -o bin/milvus.exe ./cmd
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go version -m bin/milvus.exe
