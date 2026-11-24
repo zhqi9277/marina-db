@@ -2079,6 +2079,17 @@
       "size": 700406633,
       "sha256": "901e185f50eb5b5e5bf04ca52d80ad1b02b1c3cbe941e0e39b237e784c516c11",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-milvus/milvus-3.0.6-linux-x64.tar.gz"
+    },
+    {
+      "name": "milvus",
+      "version": "3.0.6",
+      "major": "3",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "milvus-3.0.6-darwin-arm64.tar.gz",
+      "size": 432444991,
+      "sha256": "9f8159d1dc989ae6d85d1c1aa460f85dc7ddf099c3d08ce14374c4470c1b0115",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-milvus/milvus-3.0.6-darwin-arm64.tar.gz"
     }
   ]
 }
