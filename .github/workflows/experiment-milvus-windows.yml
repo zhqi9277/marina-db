@@ -58,7 +58,8 @@ jobs:
           $env:Path = "$bin;$env:Path"
           $target = gcc -dumpmachine
           if ($target -ne 'x86_64-w64-mingw32') { throw "Unexpected GCC target $target" }
-          python -m pip install 'cmake==3.31.10' 'conan==2.25.1'
+          # Conan 2.32 recognizes UCRT64's GCC 16.2 toolchain.
+          python -m pip install 'cmake==3.31.10' 'conan==2.32.0'
           if ($LASTEXITCODE -ne 0) { throw 'Failed to install the pinned build tools' }
           $bin >> $env:GITHUB_PATH
           'CC=gcc' >> $env:GITHUB_ENV
@@ -117,7 +118,7 @@ jobs:
           GOARCH: amd64
           CGO_ENABLED: '1'
         run: |
-          git apply "$env:GITHUB_WORKSPACE/scripts/milvus-local.patch"
+          git apply --unidiff-zero "$env:GITHUB_WORKSPACE/scripts/milvus-local.patch"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:PKG_CONFIG_PATH = "$env:MILVUS_SRC/internal/core/output/lib/pkgconfig"
           go build -buildvcs=false -tags dynamic -o bin/milvus.exe ./cmd
