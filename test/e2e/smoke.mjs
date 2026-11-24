@@ -16,7 +16,8 @@ const catalogUrl = process.env.MARINA_CATALOG_URL;
 assert.ok(engine && version, 'usage: npm run smoke:e2e -- <engine> <version> [archive directory] [evidence directory]');
 assert.ok(archiveDir || catalogUrl || process.env.MARINA_CATALOG_FILE, 'a candidate archive or catalog is required');
 const windows = process.platform === 'win32';
-const home = fs.mkdtempSync(path.join(windows ? os.tmpdir() : '/tmp', 'marina test-'));
+const smokeTmpDir = process.env.MARINA_SMOKE_TMPDIR || (windows ? os.tmpdir() : '/tmp');
+const home = fs.mkdtempSync(path.join(smokeTmpDir, 'marina test-'));
 const bin = fileURLToPath(new URL('../../bin/marina.js', import.meta.url));
 const env = { ...process.env, MARINA_HOME: home };
 for (const key of Object.keys(env)) {

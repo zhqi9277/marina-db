@@ -49,7 +49,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-engines-${{ github.event.schedule || (github.event_name == 'push' && '52 1 * * *') || github.run_id }}
+  group: build-engines-${{ github.event.schedule || (github.event_name == 'push' && 'milvus-push') || github.run_id }}
 
 jobs:
   matrix:
@@ -245,6 +245,16 @@ jobs:
               m4 autoconf automake libtool ccache pkg-config gfortran
           else
             brew install llvm@19 libomp ninja ccache pkg-config
+            if [[ "$RUNNER_ARCH" == X64 ]]; then
+              conan_home="$RUNNER_TEMP/milvus-conan"
+              mkdir -p "$conan_home"
+              cat > "$conan_home/global.conf" <<'CONF'
+          core.net.http:max_retries=6
+          core.download:retry=6
+          core.download:retry_wait=15
+          CONF
+              echo "CONAN_HOME=$conan_home" >> "$GITHUB_ENV"
+            fi
           fi
           python -m venv "$RUNNER_TEMP/milvus-tools"
           "$RUNNER_TEMP/milvus-tools/bin/pip" install 'cmake==3.31.10' 'conan==2.25.1'
@@ -295,7 +305,31 @@ jobs:
         with:
           path: ${{ runner.temp }}/milvus-native
           key: ${{ steps.milvus-native.outputs.key }}
+      - name: Install and smoke test Milvus on a fresh macOS volume
+        if: matrix.engine == 'milvus' && runner.os == 'macOS'
+        shell: bash
+        env:
+          MARINA_SMOKE_LOG_DIR: smoke-logs
+        run: |
+          scratch=$(mktemp -d "$RUNNER_TEMP/milvus-smoke.XXXXXXXX")
+          volume="$scratch/volume"
+          attached=false
+          cleanup() {
+            if [[ "$attached" == true ]]; then
+              hdiutil detach "$volume" -quiet || return 1
+            fi
+            rm -rf -- "$scratch"
+          }
+          trap cleanup EXIT
+          mkdir "$volume"
+          # Woodpecker measures the usage of the filesystem holding its WAL.
+          hdiutil create -size 8g -fs APFS -type SPARSE -volname marina-milvus-smoke "$scratch/smoke" -quiet
+          hdiutil attach "$scratch/smoke.sparseimage" -mountpoint "$volume" -nobrowse -noautoopen -quiet
+          attached=true
+          df -Pk "$volume"
+          MARINA_SMOKE_TMPDIR="$volume" npm run smoke:e2e -- milvus "${{ matrix.version }}" dist validated
       - name: Install and smoke test the archive
+        if: matrix.engine != 'milvus' || runner.os != 'macOS'
         env:
           MARINA_SMOKE_LOG_DIR: ${{ matrix.engine == 'milvus' && 'smoke-logs' || '' }}
         run: npm run smoke:e2e -- "${{ matrix.engine }}" "${{ matrix.version }}" dist validated
