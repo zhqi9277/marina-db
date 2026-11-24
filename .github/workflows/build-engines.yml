@@ -315,10 +315,23 @@ jobs:
           volume="$scratch/volume"
           attached=false
           cleanup() {
+            status=$?
+            trap - EXIT
             if [[ "$attached" == true ]]; then
-              hdiutil detach "$volume" -quiet || return 1
+              for delay in 1 2 4; do
+                if hdiutil detach "$volume"; then
+                  attached=false
+                  break
+                fi
+                sleep "$delay"
+              done
             fi
-            rm -rf -- "$scratch"
+            if [[ "$attached" == false ]]; then
+              rm -rf -- "$scratch" || echo "::warning::Could not remove the temporary smoke directory"
+            else
+              echo "::warning::Could not detach the smoke volume. The hosted runner will be discarded."
+            fi
+            exit "$status"
           }
           trap cleanup EXIT
           mkdir "$volume"
