@@ -56,9 +56,9 @@ function machLocal(ref, file, root) {
   return ref.replace(/^@loader_path\b/, dir).replace(/^@executable_path\b/, path.join(root, 'bin'));
 }
 
-function relocateMac(root, libraries) {
-  const bundled = new Map();
-  const copies = new Set();
+function relocateMac(root, libraries, installNames) {
+  const bundled = new Map(installNames);
+  const copies = new Set(bundled.values());
   for (const source of libraries) {
     const target = path.join(root, 'lib', path.basename(source));
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -162,8 +162,8 @@ async function relocateLinux(root) {
   }
 }
 
-export async function relocate(root, { darwinLibraries = [] } = {}) {
-  if (process.platform === 'darwin') relocateMac(root, darwinLibraries);
+export async function relocate(root, { darwinLibraries = [], darwinInstallNames = [] } = {}) {
+  if (process.platform === 'darwin') relocateMac(root, darwinLibraries, darwinInstallNames);
   if (process.platform === 'linux') await relocateLinux(root);
 }
 

@@ -1,0 +1,66 @@
+[
+  {
+    "engine": "mysql",
+    "version": "5.6.51",
+    "os": "darwin",
+    "arch": "arm64",
+    "inputs": {
+      "binary": {
+        "url": "https://packages.macports.org/mysql56/mysql56-5.6.51_6.darwin_24.arm64.tbz2",
+        "sha256": "feaf1c7da8ea30dc4013f1254c96eaddf4c5a5aac809de99e967cdbaafb17b95",
+        "size": 87235337
+      },
+      "additional": [
+        {
+          "url": "https://packages.macports.org/libedit/libedit-20260512-3.1_0.darwin_24.arm64.tbz2",
+          "sha256": "a81c868d59bb0d3f864a3017e18ded91c6affece4bc7f709bbb9c0cc3898a101",
+          "size": 155112
+        },
+        {
+          "url": "https://packages.macports.org/libevent/libevent-2.1.13_0.darwin_24.arm64.tbz2",
+          "sha256": "812464c950cf2acec6c54ae7d2e14ada868a97813a47c8e0e7fcd2f6c917e455",
+          "size": 515754
+        },
+        {
+          "url": "https://packages.macports.org/tcp_wrappers/tcp_wrappers-20_5.darwin_24.arm64.tbz2",
+          "sha256": "85df37fd2d0c3e371fcbe223f74c657d9243a65b44d05525ceec8c59d344eb7b",
+          "size": 147415
+        },
+        {
+          "url": "https://packages.macports.org/zlib/zlib-1.3.2_0.darwin_24.arm64.tbz2",
+          "sha256": "6df2d10ff4522a67610b49d872ba19342c92793a31b874c314c912a3bd452072",
+          "size": 197238
+        },
+        {
+          "url": "https://packages.macports.org/ncurses/ncurses-6.6_0.darwin_24.arm64.tbz2",
+          "sha256": "3c87cfdf5d9c8953dd0865d4d50575f4b2fa1d967b1c5a37ff7aa8ec53d9685c",
+          "size": 1460704
+        },
+        {
+          "url": "https://distfiles.macports.org/libedit/libedit-20260512-3.1.tar.gz",
+          "sha256": "432d5e7ea8b0116dd39f2eca7bc11d0eed77faa6b77ea526ace89907c23ea4a0",
+          "size": 550471
+        },
+        {
+          "url": "https://distfiles.macports.org/libevent/libevent-2.1.13-stable.tar.gz",
+          "sha256": "f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c",
+          "size": 1126525
+        },
+        {
+          "url": "https://distfiles.macports.org/ncurses/ncurses-6.6.tar.gz",
+          "sha256": "355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11",
+          "size": 3791150
+        }
+      ],
+      "sourceCode": [
+        "https://distfiles.macports.org/mysql56/mysql-5.6.51.tar.gz",
+        "https://github.com/macports/macports-ports/tree/f156c3df9fda1a25d65dcd59187c49e5ba04c10e/databases/mysql56",
+        "https://distfiles.macports.org/libedit/libedit-20260512-3.1.tar.gz",
+        "https://distfiles.macports.org/libevent/libevent-2.1.13-stable.tar.gz",
+        "https://distfiles.macports.org/tcp_wrappers/tcp_wrappers-20.tar.gz",
+        "https://distfiles.macports.org/zlib/zlib-1.3.2.tar.gz",
+        "https://distfiles.macports.org/ncurses/ncurses-6.6.tar.gz"
+      ]
+    }
+  }
+]

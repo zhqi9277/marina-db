@@ -10,6 +10,7 @@ import { discoverRoot, findBin } from '../src/install/archive.js';
 import { downloadFile, sha256File } from '../src/install/download.js';
 import { readBuildMatrix } from './engine-matrix.mjs';
 import { archiveName } from './make-manifest.mjs';
+import { stageMacPortsMysql56 } from './mysql56-macports.mjs';
 import { sourcesFor } from './engine-sources.mjs';
 import { relocate, verifyLibraries } from './portable-libraries.mjs';
 
@@ -102,6 +103,7 @@ try {
   let root = path.join(work, 'payload');
   fs.mkdirSync(root);
   const darwinLibraries = key === 'milvus' && process.platform === 'darwin' ? milvusDarwinLibraries(root) : [];
+  let darwinInstallNames;
   const reusableArchive = process.env.MARINA_MILVUS_REUSE_ARCHIVE;
   if (reusableArchive) {
     if (key !== 'milvus' || target.os !== 'linux' || !source || path.basename(reusableArchive) !== archiveName(target)) {
@@ -112,6 +114,10 @@ try {
     if (!isDeepStrictEqual(previous, provenance)) throw new Error('the reusable Milvus archive has different source inputs');
   } else if (binary) {
     run('tar', ['-xf', inputs[0].file, '-C', root]);
+    if (key === 'mysql' && version === '5.6.51' && target.os === 'darwin' &&
+        binary.url.startsWith('https://packages.macports.org/mysql56/')) {
+      ({ root, installNames: darwinInstallNames } = stageMacPortsMysql56(root, inputs.slice(1), work));
+    }
     if (process.platform === 'win32' && ['redis', 'memcached'].includes(key)) {
       const server = findBin(root, engine.serverBin);
       if (!server) throw new Error('portable archive has no ' + engine.serverBin[0]);
@@ -195,7 +201,7 @@ try {
     if (!findBin(root, names)) throw new Error('package is missing ' + names.join('/'));
   }
   fs.writeFileSync(path.join(root, 'MARINA-SOURCES.json'), JSON.stringify(provenance, null, 2) + '\n');
-  if (!reusableArchive) await relocate(root, { darwinLibraries });
+  if (!reusableArchive) await relocate(root, { darwinLibraries, darwinInstallNames });
   // Verify the staged archive in a different location so prefix paths cannot
   // resolve just because the original build output was left on the same runner.
   const moved = path.join(work, 'relocated payload');
