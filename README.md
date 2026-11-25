@@ -10,9 +10,24 @@
   <strong>English</strong> · <a href="./README.zh-CN.md" lang="zh-CN">简体中文</a>
 </p>
 
-Marina manages MySQL, MariaDB, PostgreSQL, MongoDB, Redis, and Memcached for local development. It installs prebuilt database packages, keeps multiple versions side by side, and gives you a keyboard-driven terminal dashboard for everyday operations.
+Marina manages eight local database engines for development, covering SQL, document and key-value storage, caching, and vector search. It installs prebuilt packages, keeps multiple versions side by side, and gives you a keyboard-driven terminal dashboard for everyday operations.
 
-[Quick start](#quick-start) · [Supported platforms](#supported-platforms) · [Command reference](#command-reference) · [Development](#development)
+[Supported databases](#supported-databases) · [Quick start](#quick-start) · [Supported platforms](#supported-platforms) · [Command reference](#command-reference) · [Development](#development)
+
+## Supported databases
+
+| Engine | Type | CLI name | Default port | Published versions (examples) |
+| --- | --- | --- | --- | --- |
+| MySQL | SQL | `mysql` | 3306 | 5.6.51, 5.7.44, 8.4.13 |
+| MariaDB | SQL | `mariadb` | 3307 | 10.6.28, 10.11.20, 11.4.14 |
+| PostgreSQL | SQL | `postgres` | 5432 | 14.25, 17.12, 18.7 |
+| MongoDB | Document | `mongodb` | 27017 | 6.0.30, 7.0.48, 8.0.38 |
+| Redis | Key-value | `redis` | 6379 | 6.2.24, 7.4.12, 8.6.7 |
+| Memcached | Cache | `memcached` | 11211 | 1.5.22, 1.6.8, 1.6.45 |
+| Qdrant | Vector | `qdrant` | 6333 | 1.20.2 |
+| Milvus Standalone | Vector | `milvus` | 19530 | 3.0.6 |
+
+Run `marina remote` for an overview or `marina remote <db>` for the full list of published builds for your operating system and architecture. [Published catalog](https://github.com/zhqi9277/marina-db/blob/engine-catalog/manifest.json) · [Engine packages](https://github.com/zhqi9277/marina-db/releases)
 
 ## Quick start
 
@@ -42,6 +57,19 @@ marina --version
 ```
 
 Use `node bin/marina.js` from the checkout for any example that starts with `marina`.
+
+### Run a vector database locally
+
+```sh
+marina remote qdrant
+marina install qdrant@1
+marina start qdrant@1
+curl -fsS http://127.0.0.1:6333/readyz
+```
+
+For Milvus Standalone, check `marina remote milvus`, then install and start `milvus@3` on a supported machine. Milvus uses embedded etcd and local storage.
+
+Both engines serve HTTP on loopback by default. Press `y` in the dashboard to see the connection URL. To enable Qdrant's separate gRPC port, use `marina config qdrant` to locate the configuration file and set `service.grpc_port`.
 
 ### Update the CLI
 
@@ -76,20 +104,7 @@ Run `marina` in an interactive terminal. Select a database to see its active ver
 | Linux | x64, ARM64 | Ubuntu 22.04 |
 | Windows | x64 | Windows Server 2022 |
 
-| Engine | CLI name | Default port |
-| --- | --- | --- |
-| MySQL | `mysql` | 3306 |
-| MariaDB | `mariadb` | 3307 |
-| PostgreSQL | `postgres` | 5432 |
-| MongoDB | `mongodb` | 27017 |
-| Redis | `redis` | 6379 |
-| Memcached | `memcached` | 11211 |
-| Qdrant | `qdrant` | 6333 |
-| Milvus Standalone | `milvus` | 19530 |
-
-Qdrant and Milvus listen on localhost. Connect your application to their HTTP endpoints using the port listed above or the port configured with `marina port`. The terminal dashboard shows the address with `y`. Qdrant's bundled configuration enables HTTP. Set `service.grpc_port` in `marina config qdrant` to enable a separate gRPC port. Milvus uses embedded etcd and local storage.
-
-Version availability depends on your operating system and architecture. `marina remote` fetches the current published catalog and shows the builds available on your machine. [Published catalog](https://github.com/zhqi9277/marina-db/blob/engine-catalog/manifest.json) · [Engine packages](https://github.com/zhqi9277/marina-db/releases)
+Published builds vary by engine and version. Qdrant has builds for all five targets in the table. Milvus Standalone 3.0.6 is available on Linux x64 and macOS Apple Silicon. The catalog also includes native Apple Silicon builds of MySQL 5.6.51 and 5.7.44.
 
 Set `MARINA_CATALOG_URL` to use another remote catalog or `MARINA_CATALOG_FILE` to read a local manifest.
 

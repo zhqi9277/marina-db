@@ -19,7 +19,7 @@
 Marina 是一个零依赖的本地数据库管理器：**装版本、切版本、启停服务、改端口/账号/密码、看日志**，
 全部围绕一个隔离的 `runtime/` 目录完成，不碰系统的包管理器，也不需要 root。
 
-支持的引擎：`mysql` · `mariadb` · `postgres` · `mongodb` · `redis` · `memcached` · `qdrant` · `milvus`
+Marina 支持 **8 种引擎**，覆盖关系型数据库、文档数据库、键值存储、缓存和向量数据库。Qdrant 和 Milvus Standalone 也可以通过同一套命令安装和启停。[查看支持的数据库](#支持的数据库)
 
 ---
 
@@ -55,7 +55,7 @@ Marina 是一个零依赖的本地数据库管理器：**装版本、切版本�
 - **服务生命周期**：start / stop / restart / status / logs / port / auth，
   支持 `--all`、面板里的全部开启/关闭。
 - **全屏面板**：TTY 下直接 `marina`，左右两栏，键盘驱动；Claude 风格暖橙配色。
-- **凭据可改**：每个库的端口、账号、密码都能在面板里改；MySQL 系会同步 `ALTER USER`。
+- **实例配置**。可在面板修改端口。对于由 Marina 管理凭据的引擎，还可修改账号和密码。MySQL 系会同步服务端凭据。
 - **登录自启**：`a` / `A` 或 `marina autostart`，macOS LaunchAgent、Linux systemd --user、Windows 登录计划任务。
 - **本地隔离**：只监听 `127.0.0.1`，socket、pid、日志、数据全在 `runtime/` 下，删除即清理。
 - **可迁移**：配置不保存绝对路径，移动仓库前先停止服务；搬到新位置后直接启动即可。
@@ -104,6 +104,17 @@ marina start mysql redis          # 一次启动多个
 marina exec mysql@8.4 -- -e "select version()"
 marina ls
 ```
+
+向量数据库也使用同一套命令。以下示例启动 Qdrant 并检查服务是否就绪。
+
+```bash
+marina remote qdrant
+marina install qdrant@1
+marina start qdrant@1
+curl -fsS http://127.0.0.1:6333/readyz
+```
+
+使用 Milvus Standalone 时，先运行 `marina remote milvus`，在有可用构建的机器上安装并启动 `milvus@3`。
 
 ### 2.4 打开面板
 
@@ -189,13 +200,30 @@ runtime/
 
 ## 5. 平台支持
 
+### 支持的数据库
+
+| 引擎 | 类型 | CLI 名称 | 默认端口 | 已发布版本示例 |
+|---|---|---|---|---|
+| MySQL | 关系型 | `mysql` | 3306 | 5.6.51、5.7.44、8.4.13 |
+| MariaDB | 关系型 | `mariadb` | 3307 | 10.6.28、10.11.20、11.4.14 |
+| PostgreSQL | 关系型 | `postgres` | 5432 | 14.25、17.12、18.7 |
+| MongoDB | 文档 | `mongodb` | 27017 | 6.0.30、7.0.48、8.0.38 |
+| Redis | 键值 | `redis` | 6379 | 6.2.24、7.4.12、8.6.7 |
+| Memcached | 缓存 | `memcached` | 11211 | 1.5.22、1.6.8、1.6.45 |
+| Qdrant | 向量 | `qdrant` | 6333 | 1.20.2 |
+| Milvus Standalone | 向量 | `milvus` | 19530 | 3.0.6 |
+
+运行 `marina remote` 查看本机可用版本的概览，或用 `marina remote <db>` 列出指定引擎的所有可用版本。[发布清单](https://github.com/zhqi9277/marina-db/blob/engine-catalog/manifest.json)
+
+### 构建与验收环境
+
 | 平台 | 目标架构 | 验收环境 |
 |---|---|---|
 | macOS | Apple Silicon、Intel | macOS 15 |
 | Linux | x64、ARM64 | Ubuntu 22.04 |
 | Windows | x64 | Windows Server 2022 |
 
-首批构建 MySQL 8.4.11、MariaDB 11.4.13、PostgreSQL 17.11、MongoDB 7.0.45、Redis 7.4.11 和 Memcached 1.6.45。Windows 使用 Redis 便携版及 Memcached 1.6.8 便携版。
+发布包随引擎和版本而异。Qdrant 已覆盖上表的 5 个构建目标。Milvus Standalone 3.0.6 提供 Linux x64 和 macOS Apple Silicon 包。MySQL 5.6.51 和 5.7.44 也提供 Apple Silicon 原生包。
 
 ---
 
@@ -443,16 +471,18 @@ shim 会根据“当前激活版本 + 该 major 的端口/socket”把命令转�
 
 | 引擎 | 默认端口 | 初始化 | 启动 | 停止 | 探活 |
 |---|---|---|---|---|---|
-| MySQL | 3306 | `mysqld --initialize-insecure` | `mysqld --defaults-file`（后台） | `mysqladmin shutdown` | client ping → TCP |
+| MySQL | 3306 | `mysqld --initialize-insecure`（5.7 及以上） | `mysqld --defaults-file`（后台） | `mysqladmin shutdown` | client ping → TCP |
 | MariaDB | 3307 | `mariadb-install-db` | `mariadbd --defaults-file` | `mariadb-admin shutdown` | client ping → TCP |
 | PostgreSQL | 5432 | `initdb -U postgres --auth=trust` | `pg_ctl … -w start` | `pg_ctl -m fast -w stop` | `pg_isready` → TCP |
-| MongoDB | 27017 | 建目录即可 | `mongod --fork --pidfilepath` | SIGTERM | `mongosh --eval ping` → TCP |
+| MongoDB | 27017 | 建目录即可 | `mongod`（Linux 使用 `--fork`） | Unix 用 SIGTERM，Windows 用 `mongosh` | `mongosh --eval ping` → TCP |
 | Redis | 6379 | 无 | `redis-server <conf>`（daemonize） | `redis-cli shutdown save` | `redis-cli ping` → TCP |
 | Memcached | 11211 | 无 | `memcached -d -P <pid>` | SIGTERM | TCP |
 | Qdrant | 6333 | 创建数据目录 | `qdrant --config-path` | 进程信号 | HTTP `/readyz` |
 | Milvus Standalone | 19530 | 创建数据目录 | `milvus run standalone` | SIGTERM | HTTP 列出集合 |
 
 Qdrant 和 Milvus 默认在本机提供 HTTP API，面板按 `y` 可查看连接地址。用 `marina config qdrant` 找到配置文件，设定 `service.grpc_port` 可启用 Qdrant 的 gRPC 端口。Milvus 使用内嵌 etcd 和本地存储。
+
+MySQL 5.6 使用 `mysql_install_db` 初始化。在 Windows 上，Marina 从发布包中复制初始授权表。
 
 二进制定位不写死路径：按 `bin/ → sbin/ → scripts/ → libexec/ → lib/` 找标记文件，
 找不到再做 BFS，兼容 `8.4.11/bin/...` 与 `bin/...` 两种 tar 布局。
