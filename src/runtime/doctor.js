@@ -19,7 +19,8 @@ export async function runDoctor() {
   checks.push({ name: 'platform', value: `${OS_LABEL} ${process.arch}`, ok: true });
   checks.push({ name: 'node', value: process.versions.node, ok: nodeMajor >= 18 });
 
-  const tar = spawnSync('tar', ['--version'], { encoding: 'utf8' });
+  let tar = spawnSync('tar', ['--version'], { encoding: 'utf8' });
+  if (!tar.error && tar.status !== 0) tar = spawnSync('tar', ['--help'], { encoding: 'utf8' });
   checks.push({ name: 'tar', value: (tar.stdout || tar.stderr || '').split('\n')[0] || 'missing', ok: tar.status === 0 });
 
   let writable = true;
@@ -55,7 +56,7 @@ export async function runDoctor() {
       ? libProblems.length
         ? libProblems.join(', ')
         : inspected ? `all inspected engine libraries are self-contained (${inspected} checked)` : 'no installed engine binaries to inspect'
-      : 'skipped on Windows (no otool/ldd)',
+      : `skipped on ${OS_LABEL} (no library inspector)`,
     ok: !host.libInspector() || libProblems.length === 0,
   });
 

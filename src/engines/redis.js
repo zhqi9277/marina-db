@@ -1,8 +1,10 @@
-// Redis: no datadir bootstrap, config file drives everything (daemonize yes).
+// Redis: no datadir bootstrap. The host decides whether Redis daemonizes.
 import fs from 'node:fs';
 import { spawnAsync, findBin } from '../install/archive.js';
 import { mkdirp } from '../core/paths.js';
-import { IS_WIN } from '../core/platform.js';
+import { host, IS_WIN } from '../core/platform.js';
+
+const recordPid = !host.capabilities.fork;
 
 export function cygwinPath(file) {
   return file.replace(/\\/g, '/').replace(/^([a-z]):\//i, (_, drive) => `/cygdrive/${drive.toLowerCase()}/`);
@@ -35,7 +37,7 @@ export default {
   clientBins: ['redis-cli', 'redis-benchmark', 'redis-check-aof', 'redis-check-rdb', 'redis-sentinel'],
   primaryClient: 'redis-cli',
   hasDataDir: true,
-  recordPid: IS_WIN,
+  recordPid,
 
   readPid(ctx) {
     try {
@@ -55,7 +57,7 @@ protected-mode yes
 tcp-backlog 511
 timeout 0
 tcp-keepalive 300
-daemonize ${IS_WIN ? 'no' : 'yes'}
+daemonize ${recordPid ? 'no' : 'yes'}
 loglevel notice
 databases 16
 always-show-logo no
@@ -88,7 +90,7 @@ ${requirepass}appendonly no
     return [
       ctx.confFile,
       '--port', String(ctx.port),
-      '--pidfile', ctx.pidFile,
+      ...(recordPid ? ['--daemonize', 'no'] : ['--pidfile', ctx.pidFile]),
       '--logfile', ctx.logFile,
       '--dir', ctx.dataDir,
     ];

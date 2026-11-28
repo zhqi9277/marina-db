@@ -211,7 +211,7 @@ no-auto-rehash
         `--port=${ctx.port}`,
         '--bind-address=127.0.0.1',
       ];
-      if (host.capabilities.unixSocket) args.push(`--socket=${ctx.sockFile}`);
+      if (host.capabilities.unixSocket || host.id === 'openharmony') args.push(`--socket=${ctx.sockFile}`);
       return args;
     },
 

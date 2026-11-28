@@ -19,5 +19,5 @@ test('systemd unit runs marina start --autostart', () => {
 });
 
 test('unknown manager is rejected', () => {
-  assert.throws(() => renderUnit([], null), /macOS and Linux/);
+  assert.throws(() => renderUnit([], { manager: 'unknown' }), /autostart is not available on this host/);
 });

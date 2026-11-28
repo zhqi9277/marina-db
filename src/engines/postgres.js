@@ -56,6 +56,17 @@ export default {
   },
 
   startCommand(ctx) {
+    if (host.id === 'openharmony') {
+      const cmd = findBin(ctx.root, ['postgres']);
+      if (!cmd) throw new Error('postgres not found in package');
+      return {
+        cmd,
+        args: ['-D', ctx.dataDir, '-p', String(ctx.port), '-k', '', '-h', '127.0.0.1'],
+        foreground: true,
+        recordPid: true,
+        logFile: ctx.logFile,
+      };
+    }
     const pgctl = findBin(ctx.root, ['pg_ctl']);
     if (!pgctl) throw new Error('pg_ctl not found in package');
     // keep postgres unix sockets in their own run subdir instead of run/

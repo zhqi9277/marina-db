@@ -159,8 +159,8 @@ test('linkFile replaces an existing file and tracks source updates', () => {
 
 test('autostart reports unsupported platforms through renderUnit(ids, null)', () => {
   assert.throws(() => renderUnit([], null), (error) => {
-    assert.match(error.message, /autostart is only implemented for macOS and Linux/);
+    assert.match(error.message, /autostart is not available on this host/);
     return true;
   });
-  assert.throws(() => renderUnit(['mysql:8.4'], null), /only implemented for macOS and Linux/);
+  assert.throws(() => renderUnit(['mysql:8.4'], null), /autostart is not available on this host/);
 });

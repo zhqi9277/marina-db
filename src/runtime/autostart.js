@@ -29,9 +29,15 @@ export function unitTarget() {
   return host.unitTarget();
 }
 
+function requireUnitTarget() {
+  const target = unitTarget();
+  if (!target) throw new Error('autostart is not available on this host');
+  return target;
+}
+
 export function renderUnit(ids, target = unitTarget()) {
   const backend = backendFor(target);
-  if (!target || !backend) throw new Error('autostart is only implemented for macOS and Linux');
+  if (!backend) throw new Error('autostart is not available on this host');
   const log = path.join(dirs.root, 'logs', 'autostart.log');
   return backend.renderUnit(ids, target, { node: NODE, cli: CLI, log, home: path.resolve(dirs.root) });
 }
@@ -59,10 +65,7 @@ function load(target) {
  * Rewrite the OS hook to match state.settings.autostart.
  * @returns {{manager:string, file:string, ids:string[], enabled:boolean, warnings:string[]}}
  */
-export function sync() {
-  const target = unitTarget();
-  if (!target) throw new Error('autostart is only implemented for macOS and Linux');
-
+export function sync(target = requireUnitTarget()) {
   const ids = state.autostartList();
   if (!ids.length) {
     const results = unload(target);
@@ -88,14 +91,16 @@ export function sync() {
 }
 
 export function enable(ctxs) {
+  const target = requireUnitTarget();
   state.updateAutostart((ids) => [...ids, ...ctxs.map(idOf)]);
-  return sync();
+  return sync(target);
 }
 
 export function disable(ctxs) {
+  const target = requireUnitTarget();
   const remove = new Set(ctxs.map(idOf));
   state.updateAutostart((ids) => ids.filter((id) => !remove.has(id)));
-  return sync();
+  return sync(target);
 }
 
 export function enableAll(ctxs) {
@@ -103,8 +108,9 @@ export function enableAll(ctxs) {
 }
 
 export function disableAll() {
+  const target = requireUnitTarget();
   state.setAutostart([]);
-  return sync();
+  return sync(target);
 }
 
 export function status() {

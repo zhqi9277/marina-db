@@ -1,6 +1,7 @@
 // Platform abstraction: env conventions, arch tokens, SDK tags, tar flags,
 // library inspector selection and directory/file linking.
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,15 +22,53 @@ test('platform constants agree with process.platform', () => {
   assert.equal(IS_MAC, process.platform === 'darwin');
   assert.equal(IS_LINUX, process.platform === 'linux');
   assert.equal(IS_WIN, process.platform === 'win32');
-  assert.equal([IS_MAC, IS_LINUX, IS_WIN].filter(Boolean).length, 1);
-  assert.equal(OS_LABEL, IS_MAC ? 'macOS' : IS_LINUX ? 'Linux' : 'Windows');
+  assert.equal(OS_LABEL, { darwin: 'macOS', linux: 'Linux', openharmony: 'HarmonyOS', win32: 'Windows' }[process.platform]);
 });
 
-test('MongoDB forks on Linux and lets Marina record the PID on macOS and Windows', () => {
+test('MongoDB forks on Linux and lets Marina record the PID elsewhere', () => {
   const args = mongodb.startArgs({ dataDir: 'db', port: 27017, logFile: 'mongo.log', pidFile: 'mongo.pid' });
   assert.equal(args.includes('--fork'), IS_LINUX);
   assert.equal(args.includes('--pidfilepath'), IS_LINUX);
   assert.equal(mongodb.recordPid, !IS_LINUX);
+});
+
+test('HarmonyOS selects native ARM64 packages and runs Redis and Memcached in the foreground', () => {
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import assert from 'node:assert/strict';
+    import fs from 'node:fs';
+    import path from 'node:path';
+    Object.defineProperty(process, 'platform', { value: 'openharmony' });
+    Object.defineProperty(process, 'arch', { value: 'arm64' });
+    const { PLATFORM, OS_LABEL, IS_LINUX } = await import('./src/core/platform.js');
+    const { default: redis } = await import('./src/engines/redis.js');
+    const { default: memcached } = await import('./src/engines/memcached.js');
+    const autostart = await import('./src/runtime/autostart.js');
+    const { listVersions } = await import('./src/install/versions.js');
+    const { main } = await import('./src/cli.js');
+    assert.equal(PLATFORM, 'openharmony');
+    assert.equal(OS_LABEL, 'HarmonyOS');
+    assert.equal(IS_LINUX, false);
+    assert.equal(redis.recordPid, true);
+    assert.match(redis.renderConfig({}), /^daemonize no$/m);
+    assert.deepEqual(redis.startArgs({ port: 12345 }).slice(3, 5), ['--daemonize', 'no']);
+    assert.equal(memcached.recordPid, true);
+    assert.equal(memcached.startArgs({ port: 11211 }).includes('-d'), false);
+    assert.equal(autostart.status().supported, false);
+    assert.throws(() => autostart.enable([{ key: 'redis', major: '7' }]), /autostart is not available/);
+    assert.deepEqual(autostart.status().ids, []);
+
+    process.env.MARINA_CATALOG_FILE = path.join(process.env.MARINA_HOME, 'catalog.json');
+    const common = { name: 'redis', arch: 'arm64', url: 'https://example.com/redis.tar.gz', sha256: 'a'.repeat(64) };
+    fs.writeFileSync(process.env.MARINA_CATALOG_FILE, JSON.stringify([
+      { ...common, os: 'linux', version: '7.4.12' },
+      { ...common, os: 'openharmony', version: '7.4.11' },
+    ]));
+    assert.deepEqual((await listVersions('redis')).versions.map(({ version }) => version), ['7.4.11']);
+    await main(['--version']);
+  `], { env: { ...process.env, MARINA_HOME: root }, encoding: 'utf8' });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^marina /);
 });
 
 test('env reads MARINA_<name> and treats an empty value as defined', () => {
@@ -52,11 +91,11 @@ test('env reads MARINA_<name> and treats an empty value as defined', () => {
 
 test('arch maps node archs to package-name tokens per platform', () => {
   const expected = {
-    arm64: { darwin: 'arm64', linux: 'aarch64', win32: 'arm64' },
+    arm64: { darwin: 'arm64', linux: 'aarch64', openharmony: 'arm64', win32: 'arm64' },
     x64: { darwin: 'x86_64', linux: 'x86_64', win32: 'x64' },
   }[process.arch];
   if (expected) {
-    for (const platform of ['darwin', 'linux', 'win32']) {
+    for (const platform of Object.keys(expected)) {
       assert.equal(arch(platform), expected[platform], `${platform}/${process.arch}`);
     }
   }

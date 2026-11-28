@@ -19,6 +19,7 @@ export function env(name, fallback = undefined) {
 const MASONRY = {
   darwin: { arm64: 'arm64', x64: 'x86_64' },
   linux: { arm64: 'aarch64', x64: 'x86_64' },
+  openharmony: { arm64: 'arm64' },
   win32: { arm64: 'arm64', x64: 'x64' },
 };
 

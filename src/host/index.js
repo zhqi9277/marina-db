@@ -2,11 +2,12 @@
 // the backend. Pure helpers on the other backends stay importable for tests.
 import { darwin } from './darwin.js';
 import { linux } from './linux.js';
+import { openharmony } from './openharmony.js';
 import { win32 } from './win32.js';
 
-const HOSTS = { linux, darwin, win32 };
+const HOSTS = { linux, darwin, win32, openharmony };
 
-export { darwin, linux, win32 };
+export { darwin, linux, openharmony, win32 };
 
 export function hostFor(id) {
   return HOSTS[id] || null;

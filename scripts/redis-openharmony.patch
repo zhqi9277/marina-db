@@ -1,0 +1,102 @@
+--- a/src/config.h
++++ b/src/config.h
+@@ -161,7 +161,7 @@
+ #define ESOCKTNOSUPPORT 0
+ #endif
+
+-#if (defined __linux || defined __APPLE__)
++#if (defined __linux || defined __APPLE__) && !defined(__OHOS__)
+ #define USE_SETPROCTITLE
+ #define INIT_SETPROCTITLE_REPLACEMENT
+ void spt_init(int argc, char *argv[]);
+--- a/src/setproctitle.c
++++ b/src/setproctitle.c
+@@ -48,7 +48,7 @@
+
+
+ #if !HAVE_SETPROCTITLE
+-#if (defined __linux || defined __APPLE__)
++#if (defined __linux || defined __APPLE__) && !defined(__OHOS__)
+
+ #ifdef __GLIBC__
+ #define HAVE_CLEARENV
+--- a/src/server.c
++++ b/src/server.c
+@@ -2585,8 +2585,10 @@
+  * can work reliably (default cancelability type is PTHREAD_CANCEL_DEFERRED).
+  * Needed for pthread_cancel used by the fast memory test used by the crash report. */
+ void makeThreadKillable(void) {
++#ifndef __OHOS__
+     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
++#endif
+ }
+
+ void initServer(void) {
+--- a/src/bio.c
++++ b/src/bio.c
+@@ -388,6 +388,7 @@
+  * used only when it's critical to stop the threads for some reason.
+  * Currently Redis does this only on crash (for instance on SIGSEGV) in order
+  * to perform a fast memory check without other threads messing with memory. */
++#ifndef __OHOS__
+ void bioKillThreads(void) {
+     int err;
+     unsigned long j;
+@@ -406,6 +407,7 @@
+         }
+     }
+ }
++#endif
+
+ void bioPipeReadJobCompList(aeEventLoop *el, int fd, void *privdata, int mask) {
+     UNUSED(el);
+--- a/src/networking.c
++++ b/src/networking.c
+@@ -4352,6 +4352,7 @@
+     }
+ }
+
++#ifndef __OHOS__
+ void killIOThreads(void) {
+     int err, j;
+     for (j = 0; j < server.io_threads_num; j++) {
+@@ -4368,6 +4369,7 @@
+         }
+     }
+ }
++#endif
+
+ void startThreadedIO(void) {
+     serverAssert(server.io_threads_active == 0);
+--- a/src/debug.c
++++ b/src/debug.c
+@@ -2098,7 +2098,7 @@
+     }
+ }
+
+-#if defined(HAVE_PROC_MAPS)
++#if defined(HAVE_PROC_MAPS) && !defined(__OHOS__)
+
+ #define MEMTEST_MAX_REGIONS 128
+
+@@ -2168,6 +2168,7 @@
+ }
+ #endif /* HAVE_PROC_MAPS */
+
++#ifndef __OHOS__
+ static void killMainThread(void) {
+     int err;
+     if (pthread_self() != server.main_thread_id && pthread_cancel(server.main_thread_id) == 0) {
+@@ -2188,9 +2189,10 @@
+     bioKillThreads();
+     killIOThreads();
+ }
++#endif
+
+ void doFastMemoryTest(void) {
+-#if defined(HAVE_PROC_MAPS)
++#if defined(HAVE_PROC_MAPS) && !defined(__OHOS__)
+     if (server.memcheck_enabled) {
+         /* Test memory */
+         serverLogRaw(LL_WARNING|LL_RAW, "\n------ FAST MEMORY TEST ------\n");

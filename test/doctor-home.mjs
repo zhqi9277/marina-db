@@ -34,7 +34,7 @@ test('an empty home reports the expected check values', async () => {
   assert.equal(tar.ok, true);
   assert.ok(tar.value.length > 0);
 
-  assert.match(check(checks, 'libs').value, /no installed engine binaries to inspect|skipped on Windows/);
+  assert.match(check(checks, 'libs').value, /no installed engine binaries to inspect|no library inspector/);
   assert.equal(check(checks, 'libs').ok, true);
   assert.deepEqual(check(checks, 'ports'), { name: 'ports', value: 'no foreign listeners', ok: true });
 });

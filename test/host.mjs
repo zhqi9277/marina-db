@@ -3,10 +3,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { darwin, linux, win32 } from '../src/host/index.js';
+import { darwin, linux, openharmony, win32 } from '../src/host/index.js';
 import { parseWinCommandLine, winProcessCommand } from '../src/host/win32.js';
 
-const HOSTS = [linux, darwin, win32];
+const HOSTS = [linux, darwin, win32, openharmony];
 
 function redisCtx() {
   return {
@@ -24,15 +24,16 @@ function redisCtx() {
 test('each host publishes a stable id, label, and capability set', () => {
   assert.deepEqual(
     HOSTS.map((item) => item.id),
-    ['linux', 'darwin', 'win32'],
+    ['linux', 'darwin', 'win32', 'openharmony'],
   );
   assert.deepEqual(
     HOSTS.map((item) => item.label),
-    ['Linux', 'macOS', 'Windows'],
+    ['Linux', 'macOS', 'Windows', 'HarmonyOS'],
   );
   assert.deepEqual(linux.capabilities, { unixSocket: true, fork: true, posixSignals: true });
   assert.deepEqual(darwin.capabilities, linux.capabilities);
   assert.deepEqual(win32.capabilities, { unixSocket: false, fork: false, posixSignals: false });
+  assert.deepEqual(openharmony.capabilities, { unixSocket: false, fork: false, posixSignals: true });
   assert.equal(linux.pathCaseInsensitive, false);
   assert.equal(darwin.pathCaseInsensitive, false);
   assert.equal(win32.pathCaseInsensitive, true);
