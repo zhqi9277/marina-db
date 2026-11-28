@@ -2101,6 +2101,28 @@
       "size": 94093308,
       "sha256": "e2a9b71783deaee6c4abc5f6838adb94b464811cd19d7979bc26569dd12cbcf3",
       "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-mysql/mysql-5.6.51-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "milvus",
+      "version": "3.0.7",
+      "major": "3",
+      "os": "darwin",
+      "arch": "arm64",
+      "fileName": "milvus-3.0.7-darwin-arm64.tar.gz",
+      "size": 441992737,
+      "sha256": "7738c1ca2e88f9969941603dc383265bc82addeaa8f13609cbff5c599ad36a5a",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-milvus/milvus-3.0.7-darwin-arm64.tar.gz"
+    },
+    {
+      "name": "milvus",
+      "version": "3.0.7",
+      "major": "3",
+      "os": "linux",
+      "arch": "x64",
+      "fileName": "milvus-3.0.7-linux-x64.tar.gz",
+      "size": 721885028,
+      "sha256": "fe408dc2804f4a25f0f4e9cb6f24dbd59bc68d5e450c47708672ab0f2b059336",
+      "url": "https://github.com/zhqi9277/marina-db/releases/download/engines-milvus/milvus-3.0.7-linux-x64.tar.gz"
     }
   ]
 }
