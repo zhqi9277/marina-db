@@ -10,6 +10,8 @@
 
 <p align="center">
   仓库：<a href="https://github.com/zhqi9277/marina-db">github.com/zhqi9277/marina-db</a> ·
+  <a href="https://gitee.com/zhqi9277/marina">Gitee</a> ·
+  <a href="https://cnb.cool/zhqi9277/marina">CNB</a> ·
   国内由 <a href="https://atomgit.com/zhqi92771/marina">AtomGit</a> 托管 ·
   License: MIT · Node ≥ 18.17
 </p>
@@ -71,6 +73,7 @@ Marina **不做**的事：开机自启（只做登录自启，见第 13 节）�
 
 - Node.js **≥ 18.17**
 - macOS 15、Ubuntu 22.04 或 Windows Server 2022。架构见[平台支持](#5-平台支持)。
+- ARM64 鸿蒙电脑请按[原生数据库实验适配](#鸿蒙电脑原生数据库)构建、签名和安装。
 - 安装时需要为下载归档和解压后的文件预留磁盘空间。
 
 ### 2.2 安装命令
@@ -225,6 +228,48 @@ runtime/
 | Windows | x64 | Windows Server 2022 |
 
 发布包随引擎和版本而异。Qdrant 已覆盖上表的 5 个构建目标。Milvus Standalone 3.0.6 提供 Linux x64 和 macOS Apple Silicon 包。MySQL 5.6.51 和 5.7.44 也提供 Apple Silicon 原生包。
+
+### 鸿蒙电脑原生数据库
+
+`main` 分支提供 ARM64 鸿蒙电脑的原生 CLI 实验适配，使用 DevEco 工具提供的 Node.js（`openharmony/arm64`）。Redis 7.4.11、PostgreSQL 17.11、Memcached 1.6.45 和 MariaDB 11.4.13 已完成交叉编译。鸿蒙安装包尚未进入公开清单，请自行构建并签名后用 `marina install --file` 安装。真机验收仍待完成，鸿蒙暂不支持登录自启。[华为原生 Node.js 设置](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-deveco-code-install/)
+
+用鸿蒙 SDK 的 `native` 目录和对应的源码归档交叉编译。Memcached 的 `libevent` 将静态链接进服务端，PostgreSQL 客户端从安装目录中的 `lib/` 查找共享库。
+
+```bash
+export MARINA_OHOS_SDK_NATIVE=/path/to/sdk/native
+bash scripts/build-engine.sh redis \
+  /path/to/redis-7.4.11.tar.gz "$PWD/dist/redis-7.4.11-openharmony-arm64"
+bash scripts/build-engine.sh postgres \
+  /path/to/postgresql-17.11.tar.gz "$PWD/dist/postgresql-17.11-openharmony-arm64"
+bash scripts/build-engine.sh memcached \
+  /path/to/memcached-1.6.45.tar.gz "$PWD/dist/memcached-1.6.45-openharmony-arm64" \
+  /path/to/libevent-2.1.12-stable.tar.gz
+```
+
+MariaDB 使用为鸿蒙编译的 OpenSSL 和宽字符 ncurses 静态库。此构建使用内置存储引擎与模拟异步 I/O。
+
+```bash
+MARINA_OPENSSL_ROOT=/path/to/ohos-openssl MARINA_OHOS_NCURSES_ROOT=/path/to/ohos-ncurses \
+  bash scripts/build-engine.sh mariadb \
+  /path/to/mariadb-11.4.13.tar.gz "$PWD/dist/mariadb-11.4.13-openharmony-arm64"
+```
+
+按华为文档签名 `bin/` 和 `lib/` 中的 ELF 可执行文件与共享库。将签名后的文件保留在原路径并打包。下面用 Redis 演示。 [华为二进制签名工具](https://developer.huawei.com/consumer/cn/doc/HarmonyOS-guides/binary-sign-tool/)
+
+```bash
+tar -czf redis-7.4.11-openharmony-arm64.tar.gz -C dist/redis-7.4.11-openharmony-arm64 .
+```
+
+在鸿蒙电脑的开发终端，从 Marina 仓库根目录运行以下命令。第一条应输出 `openharmony/arm64`，连接测试应返回 `PONG`。
+
+```sh
+node -p 'process.platform + "/" + process.arch'
+export MARINA_HOME="$(mktemp -d "$HOME/.marina-harmonyos.XXXXXX")"
+node bin/marina.js install redis@7.4.11 --file ./redis-7.4.11-openharmony-arm64.tar.gz --port 16379
+node bin/marina.js start redis@7.4.11
+node bin/marina.js exec redis@7.4.11 -- ping
+node bin/marina.js stop redis@7.4.11
+```
 
 ---
 

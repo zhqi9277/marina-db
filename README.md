@@ -12,6 +12,8 @@
 
 <p align="center">
   <a href="https://github.com/zhqi9277/marina-db">GitHub</a> ·
+  <a href="https://gitee.com/zhqi9277/marina">Gitee</a> ·
+  <a href="https://cnb.cool/zhqi9277/marina">CNB</a> ·
   Hosted in China on <a href="https://atomgit.com/zhqi92771/marina">AtomGit</a>
 </p>
 
@@ -37,6 +39,8 @@ Run `marina remote` for an overview or `marina remote <db>` for the full list of
 ## Quick start
 
 You'll need Git, Node.js **18.17 or newer**, and `tar` on your PATH. Run these commands from a terminal to install Redis 7, start it, and check the connection.
+
+On a HarmonyOS PC, follow the [experimental build and installation steps](#experimental-harmonyos-pc-support).
 
 ```sh
 git clone https://github.com/zhqi9277/marina-db.git
@@ -112,6 +116,10 @@ Run `marina` in an interactive terminal. Select a database to see its active ver
 Published builds vary by engine and version. Qdrant has builds for all five targets in the table. Milvus Standalone 3.0.6 is available on Linux x64 and macOS Apple Silicon. The catalog also includes native Apple Silicon builds of MySQL 5.6.51 and 5.7.44.
 
 Set `MARINA_CATALOG_URL` to use another remote catalog or `MARINA_CATALOG_FILE` to read a local manifest.
+
+### Experimental HarmonyOS PC support
+
+The `main` branch includes native CLI support for ARM64 HarmonyOS PCs using DevEco's Node.js (`openharmony/arm64`). Redis 7.4.11, PostgreSQL 17.11, Memcached 1.6.45, and MariaDB 11.4.13 have been cross-compiled. Build from source, sign the binaries, and install the signed archive with `marina install --file`. Device validation is pending, login autostart is unavailable, and the public catalog has no HarmonyOS packages yet. [Build, sign, and test instructions (Chinese)](README.zh-CN.md#鸿蒙电脑原生数据库)
 
 ## Command reference
 
