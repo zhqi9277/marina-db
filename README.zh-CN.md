@@ -10,6 +10,7 @@
 
 <p align="center">
   仓库：<a href="https://github.com/zhqi9277/marina-db">github.com/zhqi9277/marina-db</a> ·
+  国内由 <a href="https://atomgit.com/zhqi92771/marina">AtomGit</a> 托管 ·
   License: MIT · Node ≥ 18.17
 </p>
 

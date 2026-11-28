@@ -10,6 +10,11 @@
   <strong>English</strong> · <a href="./README.zh-CN.md" lang="zh-CN">简体中文</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/zhqi9277/marina-db">GitHub</a> ·
+  Hosted in China on <a href="https://atomgit.com/zhqi92771/marina">AtomGit</a>
+</p>
+
 Marina manages eight local database engines for development, covering SQL, document and key-value storage, caching, and vector search. It installs prebuilt packages, keeps multiple versions side by side, and gives you a keyboard-driven terminal dashboard for everyday operations.
 
 [Supported databases](#supported-databases) · [Quick start](#quick-start) · [Supported platforms](#supported-platforms) · [Command reference](#command-reference) · [Development](#development)
